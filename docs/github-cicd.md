@@ -33,3 +33,14 @@ git push -u origin main
 ```
 
 如果使用 GitHub App 或 GitHub CLI，后续可以自动创建 PR。
+
+## 5. 当前发布前置条件
+
+发布到 GitHub 前必须满足：
+
+- 本地 `git remote -v` 已配置 `origin`。
+- `gh auth status` 正常。
+- GitHub App 或账号能访问目标仓库。
+- 若目标仓库不存在，需要先由用户或管理员创建。
+
+当前仓库不假设默认 GitHub 组织或仓库名，避免误推到错误位置。

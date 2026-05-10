@@ -20,7 +20,9 @@
     "build": "pnpm -r --if-present build",
     "docker:build": "docker compose -f infra/docker-compose.prod.yml build",
     "docker:up": "docker compose -f infra/docker-compose.prod.yml up -d",
-    "docker:down": "docker compose -f infra/docker-compose.prod.yml down"
+    "docker:down": "docker compose -f infra/docker-compose.prod.yml down",
+    "release:bundle:win": "powershell -ExecutionPolicy Bypass -File scripts/release/create-release-bundle.ps1",
+    "release:bundle:linux": "bash scripts/release/create-release-bundle.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",

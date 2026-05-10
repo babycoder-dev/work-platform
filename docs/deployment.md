@@ -65,6 +65,20 @@ docker load -i work-platform-images.tar
 docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.yml up -d
 ```
 
+也可以使用发布脚本生成迁移包：
+
+Windows:
+
+```powershell
+pnpm release:bundle:win
+```
+
+Linux/macOS:
+
+```bash
+pnpm release:bundle:linux
+```
+
 ## 3.1 依赖离线迁移
 
 推荐优先迁移 Docker 镜像，而不是在内网服务器重新安装 Node 依赖。
