@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
   CurrentUserDto,
@@ -8,14 +8,14 @@ import type {
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
-import { PlatformMemoryStore } from '../store/platform-memory.store';
+import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly store: PlatformMemoryStore) {}
+  constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
   login(input: LoginInput): LoginResult {
-    const employee = this.store.validatePassword(input.account, input.password);
+    const employee = this.repository.validatePassword(input.account, input.password);
     if (!employee || employee.status !== 'active') {
       throw new UnauthorizedException('账号或密码错误');
     }
@@ -40,20 +40,20 @@ export class AuthService {
   }
 
   toCurrentUser(userId: string): CurrentUserDto {
-    const employee = this.store.findEmployeeById(userId);
+    const employee = this.repository.findEmployeeById(userId);
     if (!employee) {
       throw new UnauthorizedException('用户不存在');
     }
 
     const department = employee.departmentId
-      ? this.store.departments.get(employee.departmentId)
+      ? this.repository.findDepartmentById(employee.departmentId)
       : undefined;
     const roles = employee.roleIds
-      .map((roleId) => this.store.roles.get(roleId))
+      .map((roleId) => this.repository.findRoleById(roleId))
       .filter((role): role is RoleDto => role !== undefined);
     const permissionCodes = new Set(roles.flatMap((role) => role.permissionCodes));
     const permissions = Array.from(permissionCodes)
-      .map((code) => this.store.permissions.get(code))
+      .map((code) => this.repository.findPermissionByCode(code))
       .filter((permission): permission is PermissionDto => permission !== undefined);
 
     return {

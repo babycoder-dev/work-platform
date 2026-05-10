@@ -10,6 +10,7 @@ import type {
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
+import type { PlatformRepository } from '../repositories/platform.repository';
 
 interface LocalIdentity {
   userId: string;
@@ -20,7 +21,7 @@ interface LocalIdentity {
 }
 
 @Injectable()
-export class PlatformMemoryStore {
+export class PlatformMemoryStore implements PlatformRepository {
   readonly enterprise: EnterpriseDto = {
     id: 'ent-default',
     name: '默认企业',
@@ -44,6 +45,10 @@ export class PlatformMemoryStore {
 
   listDepartments(): DepartmentDto[] {
     return Array.from(this.departments.values());
+  }
+
+  findDepartmentById(id: string): DepartmentDto | undefined {
+    return this.departments.get(id);
   }
 
   createDepartment(input: CreateDepartmentInput): DepartmentDto {
@@ -119,6 +124,10 @@ export class PlatformMemoryStore {
     return Array.from(this.permissions.values());
   }
 
+  findPermissionByCode(code: string): PermissionDto | undefined {
+    return this.permissions.get(code);
+  }
+
   upsertPermission(permission: PermissionDto): PermissionDto {
     this.permissions.set(permission.code, permission);
     return permission;
@@ -126,6 +135,10 @@ export class PlatformMemoryStore {
 
   listRoles(): RoleDto[] {
     return Array.from(this.roles.values());
+  }
+
+  findRoleById(id: string): RoleDto | undefined {
+    return this.roles.get(id);
   }
 
   createRole(input: CreateRoleInput): RoleDto {
@@ -157,6 +170,11 @@ export class PlatformMemoryStore {
 
     this.employees.set(userId, updated);
     return updated;
+  }
+
+  updateEmployee(employee: EmployeeDto): EmployeeDto {
+    this.employees.set(employee.id, employee);
+    return employee;
   }
 
   private seed() {

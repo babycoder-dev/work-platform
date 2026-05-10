@@ -5,6 +5,7 @@ import { DepartmentController } from './org/department.controller';
 import { EnterpriseController } from './org/enterprise.controller';
 import { OrgService } from './org/org.service';
 import { PermissionController } from './rbac/permission.controller';
+import { PLATFORM_REPOSITORY } from './repositories/platform.repository';
 import { RoleController } from './rbac/role.controller';
 import { RbacService } from './rbac/rbac.service';
 import { PlatformMemoryStore } from './store/platform-memory.store';
@@ -22,6 +23,16 @@ import { EmployeeService } from './users/employee.service';
     PermissionController,
     RoleController,
   ],
-  providers: [PlatformMemoryStore, AuthService, OrgService, EmployeeService, RbacService],
+  providers: [
+    PlatformMemoryStore,
+    {
+      provide: PLATFORM_REPOSITORY,
+      useExisting: PlatformMemoryStore,
+    },
+    AuthService,
+    OrgService,
+    EmployeeService,
+    RbacService,
+  ],
 })
 export class PlatformModule {}

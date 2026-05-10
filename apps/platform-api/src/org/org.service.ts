@@ -1,24 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { CreateDepartmentInput } from '@work/platform-contract';
-import { PlatformMemoryStore } from '../store/platform-memory.store';
+import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
 @Injectable()
 export class OrgService {
-  constructor(private readonly store: PlatformMemoryStore) {}
+  constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
   listEnterprises() {
     return {
-      items: this.store.listEnterprises(),
+      items: this.repository.listEnterprises(),
     };
   }
 
   listDepartments() {
     return {
-      items: this.store.listDepartments(),
+      items: this.repository.listDepartments(),
     };
   }
 
   createDepartment(input: CreateDepartmentInput) {
-    return this.store.createDepartment(input);
+    return this.repository.createDepartment(input);
   }
 }

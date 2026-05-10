@@ -65,6 +65,7 @@ docs/
   development-workflow.md
   deployment.md
   github-cicd.md
+  verification-log.md
   adr/
   module-contract.md
   desktop-client.md

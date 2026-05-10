@@ -1,28 +1,28 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   AssignUserRolesInput,
   CreateEmployeeInput,
   EmployeeDto,
   UpdateEmployeeStatusInput,
 } from '@work/platform-contract';
-import { PlatformMemoryStore } from '../store/platform-memory.store';
+import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
 @Injectable()
 export class EmployeeService {
-  constructor(private readonly store: PlatformMemoryStore) {}
+  constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
   listEmployees() {
     return {
-      items: this.store.listEmployees(),
+      items: this.repository.listEmployees(),
     };
   }
 
   createEmployee(input: CreateEmployeeInput) {
-    return this.store.createEmployee(input);
+    return this.repository.createEmployee(input);
   }
 
   updateStatus(id: string, input: UpdateEmployeeStatusInput): EmployeeDto {
-    const employee = this.store.findEmployeeById(id);
+    const employee = this.repository.findEmployeeById(id);
     if (!employee) {
       throw new NotFoundException('员工不存在');
     }
@@ -32,12 +32,11 @@ export class EmployeeService {
       status: input.status,
     };
 
-    this.store.employees.set(id, updated);
-    return updated;
+    return this.repository.updateEmployee(updated);
   }
 
   assignRoles(input: AssignUserRolesInput) {
-    const employee = this.store.setUserRoles(input.userId, input.roleIds);
+    const employee = this.repository.setUserRoles(input.userId, input.roleIds);
     if (!employee) {
       throw new NotFoundException('员工不存在');
     }

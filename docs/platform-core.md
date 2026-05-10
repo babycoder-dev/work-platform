@@ -81,11 +81,47 @@ custom
 
 ## 5. 后续持久化替换
 
-当前 `platform-api` 使用内存 store，目的是先稳定 API 边界。
+当前 `platform-api` 使用内存 repository，目的是先稳定 API 边界。
 
 后续替换为数据库实现时：
 
 - Controller 不变。
 - Contract 不变。
 - Service 方法语义不变。
-- 只替换 store/repository 层。
+- 只替换 repository 实现层。
+
+Repository 接口：
+
+```text
+apps/platform-api/src/repositories/platform.repository.ts
+```
+
+当前实现：
+
+```text
+apps/platform-api/src/store/platform-memory.store.ts
+```
+
+未来 PostgreSQL 实现建议：
+
+```text
+apps/platform-api/src/repositories/postgres-platform.repository.ts
+```
+
+Nest provider 只需要从：
+
+```ts
+{
+  provide: PLATFORM_REPOSITORY,
+  useExisting: PlatformMemoryStore,
+}
+```
+
+切换为：
+
+```ts
+{
+  provide: PLATFORM_REPOSITORY,
+  useClass: PostgresPlatformRepository,
+}
+```

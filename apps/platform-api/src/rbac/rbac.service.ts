@@ -1,24 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { CreateRoleInput } from '@work/platform-contract';
-import { PlatformMemoryStore } from '../store/platform-memory.store';
+import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
 @Injectable()
 export class RbacService {
-  constructor(private readonly store: PlatformMemoryStore) {}
+  constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
   listPermissions() {
     return {
-      items: this.store.listPermissions(),
+      items: this.repository.listPermissions(),
     };
   }
 
   listRoles() {
     return {
-      items: this.store.listRoles(),
+      items: this.repository.listRoles(),
     };
   }
 
   createRole(input: CreateRoleInput) {
-    return this.store.createRole(input);
+    return this.repository.createRole(input);
   }
 }
