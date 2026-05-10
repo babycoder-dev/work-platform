@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: work
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-work}
+      POSTGRES_DB: work_platform
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U work -d work_platform']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  platform-api:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.node-service
+      args:
+        SERVICE_NAME: '@work/platform-api'
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://work:${POSTGRES_PASSWORD:-work}@postgres:5432/work_platform
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  gateway-api:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.node-service
+      args:
+        SERVICE_NAME: '@work/gateway-api'
+    environment:
+      PORT: 3000
+      PLATFORM_API_URL: http://platform-api:3001
+      NOTIFICATION_API_URL: http://notification-api:3004
+      IM_ADAPTER_API_URL: http://im-adapter-api:3003
+    ports:
+      - '3000:3000'
+    depends_on:
+      - platform-api
+      - notification-api
+      - im-adapter-api
+
+  notification-api:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.node-service
+      args:
+        SERVICE_NAME: '@work/notification-api'
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://work:${POSTGRES_PASSWORD:-work}@postgres:5432/work_platform
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  im-adapter-api:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.node-service
+      args:
+        SERVICE_NAME: '@work/im-adapter-api'
+    environment:
+      PORT: 3003
+      OPENIM_API_BASE_URL: ${OPENIM_API_BASE_URL:-http://openim-server:10002}
+      OPENIM_ADMIN_USER_ID: ${OPENIM_ADMIN_USER_ID:-imAdmin}
+      OPENIM_ADMIN_SECRET: ${OPENIM_ADMIN_SECRET:-replace-me}
+      OPENIM_WEBHOOK_SECRET: ${OPENIM_WEBHOOK_SECRET:-replace-me}
+
+  realtime-gateway:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.node-service
+      args:
+        SERVICE_NAME: '@work/realtime-gateway'
+    environment:
+      PORT: 3005
+      REDIS_URL: redis://redis:6379
+    ports:
+      - '3005:3005'
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  workbench-shell:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.web-shell
+    ports:
+      - '8080:80'
+    depends_on:
+      - gateway-api
+
+volumes:
+  postgres-data:

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@work/platform-sdk": ["packages/platform-sdk/src/index.ts"],
+      "@work/http-client": ["packages/http-client/src/index.ts"],
+      "@work/errors": ["packages/errors/src/index.ts"],
+      "@work/logger": ["packages/logger/src/index.ts"],
+      "@work/ui": ["packages/ui/src/index.ts"],
+      "@work/im-provider": ["packages/im-provider/src/index.ts"],
+      "@work/platform-contract": ["packages/platform-contract/src/index.ts"],
+      "@work/event-bus": ["packages/event-bus/src/index.ts"],
+      "@work/notification-center": ["packages/notification-center/src/index.ts"],
+      "@work/presence-contract": ["modules/presence/contract/src/index.ts"],
+      "@work/presence-web": ["modules/presence/web/src/module.ts"],
+      "@work/presence-api": ["modules/presence/api/src/index.ts"],
+      "@work/approval-contract": ["modules/approval/contract/src/index.ts"],
+      "@work/report-contract": ["modules/report/contract/src/index.ts"]
+    }
+  }
+}

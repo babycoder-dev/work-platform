@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: work-platform-postgres
+    environment:
+      POSTGRES_USER: work
+      POSTGRES_PASSWORD: work
+      POSTGRES_DB: work_platform
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: work-platform-redis
+    ports:
+      - '6379:6379'
+
+volumes:
+  postgres-data:

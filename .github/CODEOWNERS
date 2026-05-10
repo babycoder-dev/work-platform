@@ -1,0 +1,10 @@
+* @platform-team
+
+/docs/ @platform-team
+/infra/ @platform-team
+/apps/platform-api/ @platform-team
+/apps/gateway-api/ @platform-team
+/apps/im-adapter-api/ @platform-team
+/apps/notification-api/ @platform-team
+/apps/realtime-gateway/ @platform-team
+/clients/desktop-qt/ @desktop-team

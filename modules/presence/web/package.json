@@ -1,0 +1,21 @@
+{
+  "name": "@work/presence-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/module.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@work/http-client": "workspace:*",
+    "@work/platform-sdk": "workspace:*",
+    "@work/presence-contract": "workspace:*",
+    "react": "^19.0.0"
+  },
+  "nx": {
+    "tags": ["scope:presence", "type:feature"]
+  }
+}
