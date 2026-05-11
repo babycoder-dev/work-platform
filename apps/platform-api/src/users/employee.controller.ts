@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put } from '@nestjs/common';
 import type { AssignUserRolesInput, CreateEmployeeInput, UpdateEmployeeStatusInput } from '@work/platform-contract';
 import { EmployeeService } from './employee.service';
 
 @Controller('employees')
 export class EmployeeController {
-  constructor(private readonly employeeService: EmployeeService) {}
+  constructor(@Inject(EmployeeService) private readonly employeeService: EmployeeService) {}
 
   @Get()
   listEmployees() {

@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
 import type { CreateDepartmentInput } from '@work/platform-contract';
 import { OrgService } from './org.service';
 
 @Controller('departments')
 export class DepartmentController {
-  constructor(private readonly orgService: OrgService) {}
+  constructor(@Inject(OrgService) private readonly orgService: OrgService) {}
 
   @Get()
   listDepartments() {
