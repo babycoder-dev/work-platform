@@ -15,6 +15,9 @@
     "@work/presence-contract": "workspace:*",
     "react": "^19.0.0"
   },
+  "devDependencies": {
+    "@types/react": "^19.0.2"
+  },
   "nx": {
     "tags": ["scope:presence", "type:feature"]
   }
