@@ -2,6 +2,36 @@
 
 ## 2026-05-11
 
+### Platform Auth And Permission Guards
+
+Change set:
+
+- Added server-side access session storage to the Platform repository contract.
+- Added `PlatformAuthGuard` for Bearer token authentication.
+- Added `PermissionGuard` and `@RequirePermissions(...)` for endpoint-level RBAC checks.
+- Protected Platform organization, employee, permission, and role endpoints.
+- Added unit coverage for access token authentication and access session storage.
+- Added API E2E coverage for unauthenticated 401, authenticated department listing, no-permission 403, and normalized traceable errors.
+
+Completed in GitHub Actions:
+
+```bash
+pnpm install --no-frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e
+pnpm build
+docker compose -f infra/docker-compose.prod.yml build
+```
+
+Result:
+
+- Latest CI run `25679429356` passed.
+- Production Docker Compose build passed after the auth/RBAC changes.
+
+### CI And Shared HTTP Foundation
+
 Change set:
 
 - Fixed service TypeScript module resolution for CI.

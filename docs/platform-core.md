@@ -31,6 +31,9 @@ POST /api/platform/auth/login
 GET  /api/platform/auth/password-policy
 ```
 
+除登录和密码策略外，Platform Core API 默认需要 `Authorization: Bearer <accessToken>`。
+开发期 access token 由 `AuthService` 写入 repository 会话存储，后续持久化实现应替换为数据库或 Redis backed session/token store。
+
 企业与组织：
 
 ```text
@@ -56,7 +59,29 @@ GET  /api/platform/roles
 POST /api/platform/roles
 ```
 
-## 3. 开发期种子账号
+## 3. 认证与权限运行时约定
+
+平台 API 使用两层 guard：
+
+- `PlatformAuthGuard`：解析 Bearer token，验证服务端会话，向 request 注入 `currentUser`。
+- `PermissionGuard`：读取 `@RequirePermissions(...)` 元数据，校验当前用户权限码。
+
+权限码由 Platform Core 统一维护。业务模块不得自行发明员工、角色、权限来源；如果需要新权限，先在对应模块 contract/文档中声明，再由 Platform Core 注册。
+
+当前内置平台权限：
+
+```text
+platform:org:view
+platform:org:manage
+platform:employee:view
+platform:employee:create
+platform:employee:manage
+platform:role:view
+platform:role:manage
+platform:permission:view
+```
+
+## 4. 开发期种子账号
 
 仅开发期内存实现使用：
 
@@ -67,7 +92,7 @@ password: admin123
 
 正式持久化实现必须改为安装初始化流程生成初始管理员密码，并强制首次登录修改。
 
-## 4. 数据范围
+## 5. 数据范围
 
 内置：
 
@@ -79,7 +104,7 @@ company
 custom
 ```
 
-## 5. 后续持久化替换
+## 6. 后续持久化替换
 
 当前 `platform-api` 使用内存 repository，目的是先稳定 API 边界。
 
