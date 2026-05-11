@@ -7,7 +7,6 @@ export interface LoginInput {
 
 export interface LoginResult {
   accessToken: string;
-  refreshToken: string;
   expiresIn: number;
   user: CurrentUserDto;
 }

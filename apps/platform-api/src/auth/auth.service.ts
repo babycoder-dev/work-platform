@@ -23,7 +23,6 @@ export class AuthService {
     }
 
     const accessToken = `dev-access-${randomUUID()}`;
-    const refreshToken = `dev-refresh-${randomUUID()}`;
     this.repository.createAccessSession({
       accessToken,
       userId: employee.id,
@@ -32,7 +31,6 @@ export class AuthService {
 
     return {
       accessToken,
-      refreshToken,
       expiresIn: this.accessTokenTtlSeconds,
       user: this.toCurrentUser(employee.id),
     };

@@ -1,3 +1,4 @@
+import { UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import { AuthService } from './auth.service';
 import { PlatformMemoryStore } from '../store/platform-memory.store';
@@ -29,5 +30,24 @@ describe('AuthService', () => {
 
     expect(currentUser.id).toBe('user-admin');
     expect(currentUser.permissions.map((permission) => permission.code)).toContain('platform:org:view');
+  });
+
+  it('rejects unknown access tokens', () => {
+    const store = new PlatformMemoryStore();
+    const service = new AuthService(store);
+
+    expect(() => service.authenticateAccessToken('dev-access-missing')).toThrow(UnauthorizedException);
+  });
+
+  it('rejects expired access sessions', () => {
+    const store = new PlatformMemoryStore();
+    const service = new AuthService(store);
+    store.createAccessSession({
+      accessToken: 'dev-access-expired',
+      userId: 'user-admin',
+      expiresAt: '2000-01-01T00:00:00.000Z',
+    });
+
+    expect(() => service.authenticateAccessToken('dev-access-expired')).toThrow(UnauthorizedException);
   });
 });

@@ -48,6 +48,36 @@ describe('platform-api', () => {
     );
   });
 
+  it('rejects protected endpoints with malformed authorization header', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/platform/departments')
+      .set('Authorization', 'Token not-a-bearer-token')
+      .expect(401);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_401',
+        message: '未登录',
+      }),
+    );
+  });
+
+  it('rejects protected endpoints with unknown access token', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/platform/departments')
+      .set('Authorization', 'Bearer dev-access-missing')
+      .expect(401);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_401',
+        message: '登录状态无效',
+      }),
+    );
+  });
+
   it('lists departments with access token', async () => {
     const token = await loginAsAdmin();
     const response = await request(app.getHttpServer())
