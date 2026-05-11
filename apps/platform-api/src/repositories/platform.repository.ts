@@ -9,6 +9,18 @@ import type {
   RoleDto,
 } from '@work/platform-contract';
 
+export interface AccessSession {
+  accessToken: string;
+  userId: string;
+  expiresAt: string;
+}
+
+export interface CreateAccessSessionInput {
+  accessToken: string;
+  userId: string;
+  expiresAt: string;
+}
+
 export interface PlatformRepository {
   listEnterprises(): EnterpriseDto[];
   listDepartments(): DepartmentDto[];
@@ -19,6 +31,8 @@ export interface PlatformRepository {
   findEmployeeById(id: string): EmployeeDto | undefined;
   validatePassword(account: string, password: string): EmployeeDto | undefined;
   updateEmployee(employee: EmployeeDto): EmployeeDto;
+  createAccessSession(input: CreateAccessSessionInput): AccessSession;
+  findAccessSession(accessToken: string): AccessSession | undefined;
   listPermissions(): PermissionDto[];
   findPermissionByCode(code: string): PermissionDto | undefined;
   listRoles(): RoleDto[];

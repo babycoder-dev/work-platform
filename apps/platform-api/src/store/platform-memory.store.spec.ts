@@ -26,6 +26,18 @@ describe('PlatformMemoryStore', () => {
     expect(store.listPermissions().length).toBeGreaterThan(0);
   });
 
+  it('stores issued access sessions', () => {
+    const store = new PlatformMemoryStore();
+    const session = store.createAccessSession({
+      accessToken: 'dev-access-test',
+      userId: 'user-admin',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    });
+
+    expect(session.userId).toBe('user-admin');
+    expect(store.findAccessSession('dev-access-test')).toEqual(session);
+  });
+
   it('creates employees and assigns roles through the repository contract', () => {
     const store = new PlatformMemoryStore();
     const employee = store.createEmployee({

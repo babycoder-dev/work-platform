@@ -10,7 +10,11 @@ import type {
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
-import type { PlatformRepository } from '../repositories/platform.repository';
+import type {
+  AccessSession,
+  CreateAccessSessionInput,
+  PlatformRepository,
+} from '../repositories/platform.repository';
 
 interface LocalIdentity {
   userId: string;
@@ -32,6 +36,7 @@ export class PlatformMemoryStore implements PlatformRepository {
   readonly departments = new Map<string, DepartmentDto>();
   readonly employees = new Map<string, EmployeeDto>();
   readonly identities = new Map<string, LocalIdentity>();
+  readonly accessSessions = new Map<string, AccessSession>();
   readonly permissions = new Map<string, PermissionDto>();
   readonly roles = new Map<string, RoleDto>();
 
@@ -177,6 +182,21 @@ export class PlatformMemoryStore implements PlatformRepository {
     return employee;
   }
 
+  createAccessSession(input: CreateAccessSessionInput): AccessSession {
+    const session: AccessSession = {
+      accessToken: input.accessToken,
+      userId: input.userId,
+      expiresAt: input.expiresAt,
+    };
+
+    this.accessSessions.set(session.accessToken, session);
+    return session;
+  }
+
+  findAccessSession(accessToken: string): AccessSession | undefined {
+    return this.accessSessions.get(accessToken);
+  }
+
   private seed() {
     const rootDepartment: DepartmentDto = {
       id: 'dept-root',
@@ -189,8 +209,12 @@ export class PlatformMemoryStore implements PlatformRepository {
     this.departments.set(rootDepartment.id, rootDepartment);
 
     const seedPermissions: PermissionDto[] = [
+      { code: 'platform:org:view', name: '查看组织', moduleName: 'platform' },
+      { code: 'platform:org:manage', name: '管理组织', moduleName: 'platform' },
       { code: 'platform:employee:view', name: '查看员工', moduleName: 'platform' },
       { code: 'platform:employee:create', name: '创建员工', moduleName: 'platform' },
+      { code: 'platform:employee:manage', name: '管理员工', moduleName: 'platform' },
+      { code: 'platform:role:view', name: '查看角色', moduleName: 'platform' },
       { code: 'platform:role:manage', name: '管理角色', moduleName: 'platform' },
       { code: 'platform:permission:view', name: '查看权限', moduleName: 'platform' },
       { code: 'presence:board:view', name: '查看在位看板', moduleName: 'presence' },

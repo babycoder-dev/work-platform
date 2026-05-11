@@ -36,9 +36,23 @@ describe('platform-api', () => {
     expect(response.body.user.permissions.length).toBeGreaterThan(0);
   });
 
-  it('lists departments', async () => {
+  it('rejects protected endpoints without access token', async () => {
+    const response = await request(app.getHttpServer()).get('/api/platform/departments').expect(401);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_401',
+        message: '未登录',
+      }),
+    );
+  });
+
+  it('lists departments with access token', async () => {
+    const token = await loginAsAdmin();
     const response = await request(app.getHttpServer())
       .get('/api/platform/departments')
+      .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
     expect(response.body.items).toEqual(
@@ -48,6 +62,42 @@ describe('platform-api', () => {
           name: '总部',
         }),
       ]),
+    );
+  });
+
+  it('rejects users without required permissions', async () => {
+    const adminToken = await loginAsAdmin();
+    await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        enterpriseId: 'ent-default',
+        employeeNo: '000099',
+        account: 'limited-user',
+        name: '受限用户',
+        initialPassword: 'Passw0rd',
+      })
+      .expect(201);
+
+    const limitedLogin = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'limited-user',
+        password: 'Passw0rd',
+      })
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .get('/api/platform/departments')
+      .set('Authorization', `Bearer ${limitedLogin.body.accessToken}`)
+      .expect(403);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_403',
+        message: '权限不足',
+      }),
     );
   });
 
@@ -71,4 +121,16 @@ describe('platform-api', () => {
       }),
     );
   });
+
+  async function loginAsAdmin(): Promise<string> {
+    const response = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'admin',
+        password: 'admin123',
+      })
+      .expect(201);
+
+    return response.body.accessToken as string;
+  }
 });
