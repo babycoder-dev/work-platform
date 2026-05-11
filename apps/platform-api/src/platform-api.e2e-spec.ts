@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { configurePlatformHttp } from '@work/nest-common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PlatformModule } from './platform.module';
@@ -13,7 +14,7 @@ describe('platform-api', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.setGlobalPrefix('api/platform');
+    configurePlatformHttp(app, { globalPrefix: 'api/platform' });
     await app.init();
   });
 
@@ -47,6 +48,27 @@ describe('platform-api', () => {
           name: '总部',
         }),
       ]),
+    );
+  });
+
+  it('returns normalized errors with trace id', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .set('X-Trace-Id', 'trace-e2e')
+      .send({
+        account: 'admin',
+        password: 'wrong-password',
+      })
+      .expect(401);
+
+    expect(response.headers['x-trace-id']).toBe('trace-e2e');
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_401',
+        message: '账号或密码错误',
+        traceId: 'trace-e2e',
+      }),
     );
   });
 });

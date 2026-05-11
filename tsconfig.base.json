@@ -15,6 +15,7 @@
       "@work/http-client": ["packages/http-client/src/index.ts"],
       "@work/errors": ["packages/errors/src/index.ts"],
       "@work/logger": ["packages/logger/src/index.ts"],
+      "@work/nest-common": ["packages/nest-common/src/index.ts"],
       "@work/ui": ["packages/ui/src/index.ts"],
       "@work/im-provider": ["packages/im-provider/src/index.ts"],
       "@work/platform-contract": ["packages/platform-contract/src/index.ts"],
