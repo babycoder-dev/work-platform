@@ -45,5 +45,12 @@
     "typescript-eslint": "^8.18.2",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "esbuild",
+      "nx"
+    ]
   }
 }
