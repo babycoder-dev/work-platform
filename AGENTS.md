@@ -8,11 +8,14 @@ AI 在本仓库生成或修改代码时，必须先遵守以下规则。
 
 1. `docs/constitution.md`
 2. `docs/architecture.md`
-3. `docs/module-contract.md`
-4. `docs/platform-core.md`
-5. `docs/development-workflow.md`
+3. `docs/foundation-blueprint.md`
+4. `docs/module-contract.md`
+5. `docs/platform-core.md`
+6. `docs/development-workflow.md`
 
 ## 2. 模块边界
+
+当前推进策略是基建优先。进入完整业务模块开发前，必须优先完成 `docs/foundation-blueprint.md` 中的 M1/M2/M3 门槛。
 
 业务模块不得直接依赖其他业务模块内部实现。
 
