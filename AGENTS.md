@@ -6,16 +6,20 @@ AI 在本仓库生成或修改代码时，必须先遵守以下规则。
 
 优先阅读：
 
-1. `docs/constitution.md`
-2. `docs/architecture.md`
+1. `docs/doc-index.md`
+2. `docs/constitution.md`
 3. `docs/foundation-blueprint.md`
-4. `docs/module-contract.md`
-5. `docs/platform-core.md`
-6. `docs/development-workflow.md`
+4. 当前任务相关 RFC，例如 `docs/rfc/m1-platform-core-persistence.md`
+5. `docs/security-baseline.md`
+6. `docs/architecture.md`
+7. 当前任务相关专题文档，例如 `docs/platform-core.md`
+8. `docs/development-workflow.md`
 
 ## 2. 模块边界
 
 当前推进策略是基建优先。进入完整业务模块开发前，必须优先完成 `docs/foundation-blueprint.md` 中的 M1/M2/M3 门槛。
+
+开始 M1 Platform Core 持久化前，必须遵守 `docs/rfc/m1-platform-core-persistence.md` 与 `docs/security-baseline.md`。
 
 业务模块不得直接依赖其他业务模块内部实现。
 

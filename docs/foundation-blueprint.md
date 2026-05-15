@@ -428,6 +428,8 @@ Windows 7 只保证 Web UI 核心功能可用。
 
 下一步应进入 M1，不应继续扩业务页面。
 
+M1 实施细节以 `docs/rfc/m1-platform-core-persistence.md` 为准；认证、密码、session、审计和密钥要求以 `docs/security-baseline.md` 为准。
+
 优先级：
 
 1. 选定数据库迁移工具。
