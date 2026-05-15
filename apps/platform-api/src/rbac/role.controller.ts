@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
+import { dtoValidationPipe } from '@work/nest-common';
 import { PlatformAuthGuard } from '../auth/platform-auth.guard';
 import { PermissionGuard } from './permission.guard';
 import { CreateRoleDto } from './role.dto';
@@ -18,7 +19,7 @@ export class RoleController {
 
   @Post()
   @RequirePermissions('platform:role:manage')
-  createRole(@Body() input: CreateRoleDto) {
+  createRole(@Body(dtoValidationPipe(CreateRoleDto)) input: CreateRoleDto) {
     return this.rbacService.createRole(input);
   }
 }

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
+import { dtoValidationPipe } from '@work/nest-common';
 import { PlatformAuthGuard } from '../auth/platform-auth.guard';
 import { PermissionGuard } from '../rbac/permission.guard';
 import { RequirePermissions } from '../rbac/require-permissions.decorator';
@@ -18,7 +19,7 @@ export class DepartmentController {
 
   @Post()
   @RequirePermissions('platform:org:manage')
-  createDepartment(@Body() input: CreateDepartmentDto) {
+  createDepartment(@Body(dtoValidationPipe(CreateDepartmentDto)) input: CreateDepartmentDto) {
     return this.orgService.createDepartment(input);
   }
 }
