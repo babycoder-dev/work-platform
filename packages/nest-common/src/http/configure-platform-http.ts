@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { ApiExceptionFilter } from './api-exception.filter';
 import { traceIdMiddleware } from './trace-id';
 
@@ -12,5 +12,15 @@ export function configurePlatformHttp(app: INestApplication, options: PlatformHt
   }
 
   app.use(traceIdMiddleware);
+  app.useGlobalPipes(
+    new ValidationPipe({
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      whitelist: true,
+    }),
+  );
   app.useGlobalFilters(new ApiExceptionFilter());
 }

@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
-import type { CreateDepartmentInput } from '@work/platform-contract';
 import { PlatformAuthGuard } from '../auth/platform-auth.guard';
 import { PermissionGuard } from '../rbac/permission.guard';
 import { RequirePermissions } from '../rbac/require-permissions.decorator';
+import { CreateDepartmentDto } from './department.dto';
 import { OrgService } from './org.service';
 
 @Controller('departments')
@@ -18,7 +18,7 @@ export class DepartmentController {
 
   @Post()
   @RequirePermissions('platform:org:manage')
-  createDepartment(@Body() input: CreateDepartmentInput) {
+  createDepartment(@Body() input: CreateDepartmentDto) {
     return this.orgService.createDepartment(input);
   }
 }

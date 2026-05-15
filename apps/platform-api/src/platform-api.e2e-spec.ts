@@ -131,6 +131,34 @@ describe('platform-api', () => {
     );
   });
 
+  it('rejects invalid request bodies with normalized validation errors', async () => {
+    const token = await loginAsAdmin();
+    const response = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', 'trace-validation-e2e')
+      .send({
+        enterpriseId: 'ent-default',
+        employeeNo: '000100',
+        account: 'invalid-user',
+        name: '非法用户',
+        initialPassword: 'short',
+        unknownField: 'should-be-rejected',
+      })
+      .expect(400);
+
+    expect(response.headers['x-trace-id']).toBe('trace-validation-e2e');
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_400',
+        traceId: 'trace-validation-e2e',
+      }),
+    );
+    expect(response.body.message).toContain('initialPassword');
+    expect(response.body.message).toContain('unknownField');
+  });
+
   it('returns normalized errors with trace id', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/platform/auth/login')
