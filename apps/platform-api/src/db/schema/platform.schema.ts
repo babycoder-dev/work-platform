@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
   varchar,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 export const platformSchema = pgSchema('platform');
@@ -33,8 +34,8 @@ export const enterprises = platformSchema.table('enterprises', {
 export const departments = platformSchema.table('departments', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   enterpriseId: uuid('enterprise_id').notNull().references(() => enterprises.id),
-  parentId: uuid('parent_id'),
-  managerUserId: uuid('manager_user_id'),
+  parentId: uuid('parent_id').references((): AnyPgColumn => departments.id),
+  managerUserId: uuid('manager_user_id').references((): AnyPgColumn => employees.id),
   code: varchar('code', { length: 64 }).notNull(),
   name: varchar('name', { length: 128 }).notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
@@ -152,10 +153,10 @@ export const moduleManifests = platformSchema.table('module_manifests', {
 export const menus = platformSchema.table('menus', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   moduleName: varchar('module_name', { length: 64 }).notNull(),
-  parentId: uuid('parent_id'),
+  parentId: uuid('parent_id').references((): AnyPgColumn => menus.id),
   title: varchar('title', { length: 128 }).notNull(),
   path: varchar('path', { length: 256 }).notNull(),
-  permissionCode: varchar('permission_code', { length: 128 }),
+  permissionCode: varchar('permission_code', { length: 128 }).references(() => permissions.code),
   sortOrder: integer('sort_order').notNull().default(0),
   status: varchar('status', { length: 32 }).notNull().default('active'),
   ...timestamps,
