@@ -21,6 +21,7 @@
     "docker:build": "docker compose -f infra/docker-compose.prod.yml build",
     "docker:up": "docker compose -f infra/docker-compose.prod.yml up -d",
     "docker:down": "docker compose -f infra/docker-compose.prod.yml down",
+    "db:generate": "drizzle-kit generate",
     "release:bundle:win": "powershell -ExecutionPolicy Bypass -File scripts/release/create-release-bundle.ps1",
     "release:bundle:linux": "bash scripts/release/create-release-bundle.sh"
   },
@@ -36,6 +37,7 @@
     "@nx/react": "^20.3.0",
     "@types/node": "^22.10.2",
     "@types/supertest": "^6.0.2",
+    "drizzle-kit": "^0.30.0",
     "eslint": "^9.17.0",
     "nx": "^20.3.0",
     "prettier": "^3.4.2",

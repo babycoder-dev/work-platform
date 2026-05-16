@@ -1,0 +1,13 @@
+import process from 'node:process';
+
+export interface PlatformDatabaseConfig {
+  databaseUrl: string;
+  ssl: boolean;
+}
+
+export function readPlatformDatabaseConfig(): PlatformDatabaseConfig {
+  return {
+    databaseUrl: process.env.DATABASE_URL ?? 'postgresql://work:work@localhost:5432/work_platform',
+    ssl: process.env.DATABASE_SSL === 'true',
+  };
+}
