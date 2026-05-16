@@ -95,3 +95,14 @@ docs/
 当前执行顺序以 `docs/foundation-blueprint.md` 为准：先完成 Platform Core 持久化、权限菜单审计闭环、Web Shell 可用基座，再进入完整业务模块开发。
 
 文档阅读入口见 `docs/doc-index.md`。M1 Platform Core 持久化以 `docs/rfc/m1-platform-core-persistence.md` 和 `docs/security-baseline.md` 为执行约束。
+
+## 常用命令
+
+```bash
+pnpm install
+pnpm verify
+pnpm docker:build
+pnpm db:setup
+```
+
+`pnpm db:setup` 依赖 `DATABASE_URL`，会执行 PostgreSQL 迁移并写入平台基础 seed 数据。开发环境默认管理员为 `admin/admin123`；生产环境必须通过 `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD` 显式注入初始密码。

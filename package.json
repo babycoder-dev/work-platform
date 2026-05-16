@@ -22,6 +22,9 @@
     "docker:up": "docker compose -f infra/docker-compose.prod.yml up -d",
     "docker:down": "docker compose -f infra/docker-compose.prod.yml down",
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx apps/platform-api/src/db/migrate.ts",
+    "db:seed": "tsx apps/platform-api/src/seeds/seed-platform.ts",
+    "db:setup": "pnpm db:migrate && pnpm db:seed",
     "release:bundle:win": "powershell -ExecutionPolicy Bypass -File scripts/release/create-release-bundle.ps1",
     "release:bundle:linux": "bash scripts/release/create-release-bundle.sh"
   },

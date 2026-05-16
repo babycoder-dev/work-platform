@@ -1,5 +1,61 @@
 # Verification Log
 
+## 2026-05-16
+
+### Platform Migration And Seed Scripts
+
+Change set:
+
+- Added root `db:migrate`, `db:seed`, and `db:setup` scripts.
+- Added a PostgreSQL migration runner backed by `platform.schema_migrations`.
+- Added idempotent Platform Core seed data for default enterprise, root department, permissions, admin role, admin employee, local identity, role permissions, and user-role binding.
+- Added bootstrap configuration tests and seed permission uniqueness tests.
+- Added production bootstrap environment examples and deployment instructions.
+- Updated ESLint flat config to ignore generated `dist`, `node_modules`, and `coverage` directories.
+
+Completed locally:
+
+```bash
+pnpm verify
+```
+
+Result:
+
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`, and `pnpm build` passed.
+- Unit tests passed: 8 files, 20 tests.
+- E2E tests passed: 1 file, 8 tests.
+- Lint still prints existing warnings for unused underscore-prefixed parameters and missing Nx cached project graph, but no lint errors remain.
+
+Database smoke test:
+
+```powershell
+docker run -d --name work-platform-pg-test -e POSTGRES_USER=work -e POSTGRES_PASSWORD=work -e POSTGRES_DB=work_platform -p 55432:5432 postgres:15
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'
+$env:NODE_ENV='production'
+$env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='TempAdminPass123!'
+pnpm db:setup
+pnpm db:setup
+```
+
+Result:
+
+- First run applied `0000_init_platform.sql` and seeded 12 permissions.
+- Second run was idempotent and did not overwrite the existing admin password.
+- Final row counts: 1 enterprise, 1 department, 1 employee, 12 permissions, 1 role, 12 role-permission bindings, 1 user-role binding.
+- Temporary PostgreSQL container was removed after verification.
+
+Docker build:
+
+```bash
+pnpm docker:build
+```
+
+Result:
+
+- Local Docker daemon is running.
+- Build is blocked locally because Docker still tries to reach Docker Hub through `127.0.0.1:10808`, and that proxy endpoint refuses connections.
+- Failing image metadata pulls: `node:22-bookworm-slim` and `nginx:1.27-alpine`.
+
 ## 2026-05-11
 
 ### Platform Auth And Permission Guards

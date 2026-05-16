@@ -28,6 +28,28 @@ docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.y
 docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.yml up -d
 ```
 
+首次部署或 schema 变更后执行数据库初始化：
+
+PowerShell:
+
+```powershell
+$env:DATABASE_URL="postgresql://work:<POSTGRES_PASSWORD>@localhost:5432/work_platform"
+$env:NODE_ENV="production"
+$env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD="<initial-admin-password>"
+pnpm db:setup
+```
+
+Bash:
+
+```bash
+DATABASE_URL="postgresql://work:<POSTGRES_PASSWORD>@localhost:5432/work_platform" \
+NODE_ENV=production \
+PLATFORM_BOOTSTRAP_ADMIN_PASSWORD="<initial-admin-password>" \
+pnpm db:setup
+```
+
+`db:setup` 会先执行迁移，再幂等写入默认企业、总部部门、平台权限、系统管理员角色和初始管理员身份。重复执行不会覆盖已有管理员密码，除非显式设置 `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true`。
+
 服务：
 
 - `workbench-shell`
@@ -118,6 +140,7 @@ pnpm docker:build
 并确认：
 
 - `.env.prod` 已替换默认密码。
+- 已执行 `pnpm db:setup`，并确认生产环境没有使用 `admin123`。
 - OpenIM 地址与密钥已配置。
 - PostgreSQL 数据卷已规划备份。
 - 管理员初始密码交付方式已确认。

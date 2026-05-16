@@ -120,7 +120,8 @@ drizzle.config.ts
 {
   "db:generate": "drizzle-kit generate",
   "db:migrate": "tsx apps/platform-api/src/db/migrate.ts",
-  "db:seed": "tsx apps/platform-api/src/seeds/seed-platform.ts"
+  "db:seed": "tsx apps/platform-api/src/seeds/seed-platform.ts",
+  "db:setup": "pnpm db:migrate && pnpm db:seed"
 }
 ```
 

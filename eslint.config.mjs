@@ -3,6 +3,9 @@ import nx from '@nx/eslint-plugin';
 import tseslint from 'typescript-eslint';
 
 export default [
+  {
+    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...nx.configs['flat/base'],
