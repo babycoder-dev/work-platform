@@ -28,7 +28,7 @@
 
 - 前端：React + TypeScript + Vite
 - 后端：NestJS + TypeScript
-- C/S 客户端：Qt 6.8 LTS C++，优先使用 Qt Widgets 或轻量 Qt Quick，避免依赖 Qt WebEngine
+- C/S 客户端：Qt 6.8 LTS C++，优先使用 Qt Widgets 或轻量 Qt Quick，避免依赖 Qt WebEngine。Qt 授权路线必须在客户端正式开发前完成 ADR：闭源内网交付需评估商业授权或 LGPL 动态链接义务，禁止在未审查的情况下静态链接 LGPL Qt。
 - 数据库：PostgreSQL
 - 缓存与轻队列：Redis
 - 工作区：pnpm workspace + Nx
@@ -48,7 +48,7 @@
 - 数据库按 schema 隔离，禁止业务模块随意跨 schema join。
 - AI 生成代码必须优先遵守本文件。
 
-## 4.1 内网部署原则
+## 5. 内网部署原则
 
 - 前端不得引用公网 CDN、外部字体、外部图标资源。
 - 构建依赖必须支持内网镜像或离线包导入。
@@ -56,7 +56,7 @@
 - 文档、安装包、数据库迁移脚本必须可在无公网环境执行。
 - 认证、授权、审计、密码策略均由平台自持。
 
-## 4.2 C/S 客户端原则
+## 6. C/S 客户端原则
 
 - C/S 客户端位于 `clients/desktop-qt`。
 - C/S 客户端通过 `gateway-api` 访问平台能力。
@@ -68,14 +68,14 @@
 - C/S 客户端性能优先级高于界面技术统一，必须控制启动时间、内存占用和低配机器体验。
 - 不将现代 Electron、Tauri 或 Flutter 作为 Windows 7 兼容客户端默认方案。
 
-## 4.3 Windows 7 兼容策略
+## 7. Windows 7 兼容策略
 
 - Windows 7 用户使用 Web UI 访问系统。
 - Web UI 提供 legacy build 或兼容构建目标，优先兼容 Chrome 109、Edge 109、Firefox 115 ESR 等旧系统可用浏览器。
 - Windows 7 兼容只覆盖核心高频功能，不承诺所有高级交互一致。
 - 不为 Windows 7 维护旧版 Electron、旧版 Qt 或旧版 WebView2 客户端。
 
-## 5. 模块边界
+## 8. 模块边界
 
 允许的依赖：
 
@@ -98,7 +98,7 @@ report -> presence/db
 业务模块 -> 其他业务模块数据库表
 ```
 
-## 6. 权限模型
+## 9. 权限模型
 
 权限分三类：
 
@@ -116,7 +116,7 @@ company
 custom
 ```
 
-## 7. 统一错误格式
+## 10. 统一错误格式
 
 所有 API 错误必须返回统一结构：
 
@@ -130,9 +130,16 @@ custom
 }
 ```
 
-## 8. HTTP 请求规范
+## 11. HTTP 与 API 版本规范
 
 前端禁止直接使用裸 `fetch` 或裸 `axios`。所有请求必须经由 `@work/http-client`。
+
+对外稳定 API 必须有版本边界。首期约定：
+
+- gateway-api 对外暴露 `/api/v1/...`。
+- 当前开发期 `platform-api` 的 `/api/platform/...` 属于内部前缀，接入 gateway-api 后映射到 `/api/v1/platform/...`。
+- 已发布版本不得做破坏性变更；破坏性变更必须新开版本或提供兼容层。
+- Web UI、C/S 客户端和业务模块不得硬编码未发布的服务内部地址。
 
 请求头约定：
 
@@ -142,7 +149,7 @@ X-Trace-Id: <trace-id>
 X-Tenant-Id: <tenant-id> 可选
 ```
 
-## 9. Git 规范
+## 12. Git 规范
 
 分支：
 
@@ -164,13 +171,14 @@ chore: configure eslint boundary rules
 docs: add architecture constitution
 ```
 
-## 10. 第一阶段验收标准
+## 13. 里程碑验收口径
 
-- 工作台 Shell 可运行。
-- platform-api 可运行。
-- PostgreSQL 与 Redis 可通过 docker-compose 启动。
-- 模块 manifest 协议明确。
-- platform-sdk 初版可用。
-- http-client 初版可用。
-- presence 模块可挂载到 Shell。
-- CI 至少包含 lint、typecheck、test、build。
+本文件不单独定义“第一阶段”。所有阶段验收以 `docs/foundation-blueprint.md` 的 M0-M8 为准，避免文档口径漂移。
+
+近期硬门槛：
+
+- M1：平台核心持久化。必须完成 PostgreSQL schema、迁移、seed、密码 hash、持久化 session、PostgreSQL repository、数据库 E2E 与 CI 门禁。
+- M2：权限、菜单、审计闭环。必须完成 module manifest 持久化、菜单与权限注册、数据范围接口、审计日志 service。
+- M3：Web Shell 可用基座。必须完成登录态、当前用户、权限菜单、模块挂载、统一 HTTP client、401/403/500 处理。
+
+审批、在位管理、日/周报等业务模块只有在依赖的基建里程碑达标后，才允许进入可交付开发。

@@ -33,7 +33,7 @@ platform foundation
   logger              日志规范
   errors              错误模型
   event-bus           领域事件抽象
-  notification-center 通知抽象
+  notification-center 通知抽象；M7 前只提供契约和 no-op/事件落库边界，不承诺推送能力
 
 platform core
   platform-api        企业、组织、员工、账号、角色、权限、菜单、审计、会话
@@ -169,10 +169,13 @@ platform.audit_logs
 platform.domain_events
 ```
 
+`platform.domain_events` 的归属明确为：M1 建表和 schema 契约，M2 才激活写入、outbox 投递和消费语义。M1 不要求业务事件完整落库。
+
 ## 6. 接口与错误边界
 
 所有新增 HTTP API 必须同时满足：
 
+- 对外稳定路由必须经 gateway-api 暴露为 `/api/v1/...`；服务内部前缀不得被客户端长期依赖。
 - request body 使用 DTO，并通过统一校验。
 - response 使用 contract 中的 DTO。
 - 失败响应统一为 `ErrorResponse`。
@@ -209,13 +212,19 @@ notification.created
 
 阶段策略：
 
-- M1：进程内 event bus + 事件类型定义。
-- M2：数据库 domain_events/outbox 表。
+- M1：进程内 event bus + 事件类型定义 + `platform.domain_events` 表结构。
+- M2：激活 domain_events/outbox 写入、投递边界和消费幂等约束。
 - M3：Redis Stream 或消息队列适配。
-- M4：通知中心订阅事件并生成站内通知。
-- M5：realtime-gateway 推送通知和状态刷新。
+- M4-M6：业务模块只发布可追踪事件，不交付真实通知推送。
+- M7：notification-api、notification-center、realtime-gateway 与 IM adapter 形成通知和实时推送闭环。
 
 业务模块只能发布自己的领域事件，不能直接调用其他业务模块内部 service。
+
+M7 前的通知过渡策略：
+
+- 业务模块只发布领域事件，不直接发站内信、IM 或 WebSocket 推送。
+- `notification-center` 可以提供契约、no-op 实现或把待通知事件写入事件表。
+- M4-M6 如出现“提醒”需求，只要求事件可追踪；真实站内通知、实时推送、IM 分发统一到 M7 交付。
 
 ## 8. IM 边界
 
@@ -235,6 +244,8 @@ IM 第一阶段只需要完成：
 - OpenIM REST/Webhook POC。
 - 用户同步任务边界。
 - 系统通知到 IM 的适配边界。
+
+M7 前如业务模块遇到 IM 需求，只能声明事件和通知意图，不允许临时直连 OpenIM。
 
 ## 9. 客户端边界
 
@@ -269,6 +280,8 @@ Qt 客户端首期只面向 Windows 10+/11 x64。
 
 Windows 7 只保证 Web UI 核心功能可用。
 
+声明 Windows 7 Web UI 兼容前，必须补充 Vite legacy/browserslist 配置，并至少验证 Chrome 109、Edge 109 或 Firefox 115 ESR 中的核心登录与业务路径。
+
 ## 10. 里程碑
 
 ### M0：架构基线
@@ -295,6 +308,7 @@ Windows 7 只保证 Web UI 核心功能可用。
 - seed 初始企业、部门、权限、角色、管理员。
 - 密码 hash。
 - session store。
+- token/session 密钥来源、生产环境缺失即失败、轮换预案。
 - repository 单元测试。
 - platform-api E2E 覆盖数据库实现。
 
@@ -442,7 +456,7 @@ M1 实施细节以 `docs/rfc/m1-platform-core-persistence.md` 为准；认证、
 
 - 首选：Drizzle Kit + drizzle-orm。
 - 理由：TypeScript 一体化、迁移可读、适合 NestJS、比 Prisma 更轻，内网部署时 runtime 依赖更少。
-- 约束：迁移脚本必须提交，不能只依赖自动同步。
+- 约束：锁定 Drizzle 相关版本，迁移脚本必须提交，不能只依赖自动同步或生产环境 schema sync。
 
 ## 12. 质量门禁
 
@@ -470,6 +484,10 @@ docker compose -f infra/docker-compose.prod.yml build
 | 桌面端复制业务规则 | 多端行为不一致 | 桌面端只调用公开 API |
 | 无 lockfile | 依赖不可复现 | 网络稳定后补 `pnpm-lock.yaml` |
 | CI 只测构建不测部署 | 内网迁移不可控 | 保留 docker build，后续增加部署冒烟测试 |
+| Drizzle Kit API 快速迭代 | 迁移生成行为漂移 | 锁定版本，提交 SQL 迁移，CI 执行迁移验证 |
+| 无备份恢复演练 | 内网数据故障不可恢复 | M8 前补 PostgreSQL 备份、恢复、回滚演练 |
+| 内网未启用 TLS | token 与敏感数据可被监听 | gateway/Nginx 使用企业 CA 或自签 CA 终止 HTTPS |
+| 数据库连接池失控 | 低配内网服务器连接耗尽 | 每个服务显式配置 pool 上限，默认从 5-10 起步并压测调整 |
 
 ## 14. 架构检查清单
 
@@ -483,5 +501,7 @@ docker compose -f infra/docker-compose.prod.yml build
 - 是否需要领域事件。
 - 是否需要数据库迁移。
 - 是否影响 Docker 内网部署。
+- 是否影响 API 版本兼容。
+- 是否影响备份、恢复、TLS 或密钥管理。
 - 是否需要 Web 与桌面端共享能力。
 - 是否有单元测试和 E2E。

@@ -2,6 +2,30 @@
 
 ## 2026-05-17
 
+### Architecture Document Review Fixes
+
+Change set:
+
+- Aligned `constitution.md` milestone wording with `foundation-blueprint.md` M1-M3 exits.
+- Clarified `platform.domain_events` as M1 table/schema and M2 active outbox behavior.
+- Clarified notification and IM behavior before M7.
+- Added API versioning, Qt license review, Windows 7 legacy build, token/session key, TLS, backup/restore, and database connection pool guidance.
+- Added the architecture checklist to the PR template.
+- Updated the foundation progress tracker.
+
+Completed locally:
+
+```bash
+git diff --check
+```
+
+Result:
+
+- Documentation diff passed whitespace checks.
+- No code or runtime behavior changed in this slice.
+
+## 2026-05-17
+
 ### CI PostgreSQL E2E Gate
 
 Change set:

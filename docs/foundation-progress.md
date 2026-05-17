@@ -38,6 +38,7 @@
 - GitHub Actions 基础 CI。
 - Docker Compose 生产构建基线。
 - `docs/constitution.md`、`docs/architecture.md`、`docs/foundation-blueprint.md`、ADR、M1 RFC、安全基线。
+- 架构文档审查修订：里程碑口径、事件表归属、通知/IM 过渡策略、API 版本、Qt 授权、TLS、备份恢复和连接池边界已补齐。
 
 剩余：
 
@@ -120,4 +121,4 @@ M1-5: repository integration tests + database error mapping
 | 阻塞项 | 状态 | 处理 |
 | --- | --- | --- |
 | `pnpm-lock.yaml` 未提交 | Blocked | 需要在稳定网络环境生成并提交，然后 CI 改为 frozen lockfile |
-| 数据库集成测试基础设施 | Pending | M1-3 实现时一起补测试数据库启动/配置约定 |
+| 数据库集成测试基础设施 | Done | CI 已提供 PostgreSQL service，本地可用临时 PostgreSQL 容器运行 `pnpm test:e2e:postgres` |

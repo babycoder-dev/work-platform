@@ -333,6 +333,13 @@ PLATFORM_BOOTSTRAP_ADMIN_PASSWORD
 
 生产环境缺少关键密钥时应启动失败。
 
+token/session 密钥要求：
+
+- 生产环境密钥必须来自环境变量、Docker secret 或企业内部配置中心。
+- 密钥不得使用仓库示例值、默认值或短随机值。
+- 密钥轮换必须支持过渡期：新 token 用新密钥签发或派生，旧 token 在短 TTL 内可校验或被集中吊销。
+- 密钥轮换、吊销和异常登录必须记录审计日志。
+
 ## 12. 内网部署安全
 
 内网部署必须保证：
@@ -345,7 +352,19 @@ PLATFORM_BOOTSTRAP_ADMIN_PASSWORD
 - Nginx/gateway 不暴露不必要端口。
 - 管理接口仅限内网授权访问。
 
+TLS/HTTPS 要求：
+
+- 生产内网部署必须通过 gateway/Nginx 终止 HTTPS。
+- 证书可来自企业 CA 或自签 CA，但客户端和浏览器信任链必须在交付文档中说明。
+- HTTP 明文访问只允许本地开发或受控部署验证，不得作为正式生产入口。
+
 Windows 7 Web UI 兼容不降低后端安全策略。
+
+数据库连接池要求：
+
+- 每个 API 服务必须显式配置连接池上限。
+- 低配单机内网部署默认从 5-10 个连接起步，按压测和 PostgreSQL `max_connections` 调整。
+- 新增 API 服务或后台任务时必须评估连接数叠加影响。
 
 ## 13. 日志安全
 
