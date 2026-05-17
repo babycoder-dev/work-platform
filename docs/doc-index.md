@@ -9,10 +9,11 @@
 1. `docs/adr/*.md`：已经接受的不可变架构决策。只能新增 ADR 修正，不直接改旧 ADR 结论。
 2. `docs/constitution.md`：长期工程原则和开发宪法。
 3. `docs/foundation-blueprint.md`：全局基建路线和阶段门禁。
-4. `docs/rfc/*.md`：某个阶段或重大能力的落地规格。
-5. `docs/architecture.md`：当前目标架构说明。
-6. `docs/module-contract.md`、`docs/platform-core.md`、`docs/im-foundation.md` 等专题文档。
-7. `docs/verification-log.md`：验证记录，不定义新规则。
+4. `docs/foundation-progress.md`：基建当前进度、下一步和阻塞项。
+5. `docs/rfc/*.md`：某个阶段或重大能力的落地规格。
+6. `docs/architecture.md`：当前目标架构说明。
+7. `docs/module-contract.md`、`docs/platform-core.md`、`docs/im-foundation.md` 等专题文档。
+8. `docs/verification-log.md`：验证记录，不定义新规则。
 
 `README.md` 和 `AGENTS.md` 是入口文件，不承载详细设计。它们必须链接到权威文档，而不是复制复杂规则。
 
@@ -25,6 +26,7 @@ README.md
 docs/doc-index.md
 docs/constitution.md
 docs/foundation-blueprint.md
+docs/foundation-progress.md
 docs/architecture.md
 docs/development-workflow.md
 ```
@@ -36,6 +38,7 @@ AGENTS.md
 docs/doc-index.md
 docs/constitution.md
 docs/foundation-blueprint.md
+docs/foundation-progress.md
 当前任务相关 RFC
 当前任务相关专题文档
 ```
@@ -44,6 +47,7 @@ docs/foundation-blueprint.md
 
 ```text
 docs/foundation-blueprint.md
+docs/foundation-progress.md
 docs/rfc/m1-platform-core-persistence.md
 docs/security-baseline.md
 docs/platform-core.md
@@ -67,6 +71,7 @@ docs/security-baseline.md
 | --- | --- | --- |
 | `docs/constitution.md` | 长期工程宪法 | 原则变化、硬性规范变化 |
 | `docs/foundation-blueprint.md` | 全局基建路线图和阶段门禁 | 里程碑调整、基建范围变化 |
+| `docs/foundation-progress.md` | 基建执行进度、下一步和阻塞项 | 每个基建交付切片完成后 |
 | `docs/architecture.md` | 当前目标架构和系统分层 | 架构拓扑、客户端/服务边界变化 |
 | `docs/adr/*.md` | 不可变架构决策记录 | 重大技术取舍、原则性决策 |
 | `docs/rfc/*.md` | 阶段或能力落地规格 | 每个里程碑开始前、重大功能前 |
@@ -126,6 +131,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 已补齐：
 
 - 全局基建蓝图：`docs/foundation-blueprint.md`
+- 基建进度看板：`docs/foundation-progress.md`
 - 基建优先 ADR：`docs/adr/0002-foundation-first-platform-plan.md`
 - M1 持久化 RFC：`docs/rfc/m1-platform-core-persistence.md`
 - 安全基线：`docs/security-baseline.md`

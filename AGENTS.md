@@ -9,11 +9,12 @@ AI 在本仓库生成或修改代码时，必须先遵守以下规则。
 1. `docs/doc-index.md`
 2. `docs/constitution.md`
 3. `docs/foundation-blueprint.md`
-4. 当前任务相关 RFC，例如 `docs/rfc/m1-platform-core-persistence.md`
-5. `docs/security-baseline.md`
-6. `docs/architecture.md`
-7. 当前任务相关专题文档，例如 `docs/platform-core.md`
-8. `docs/development-workflow.md`
+4. `docs/foundation-progress.md`
+5. 当前任务相关 RFC，例如 `docs/rfc/m1-platform-core-persistence.md`
+6. `docs/security-baseline.md`
+7. `docs/architecture.md`
+8. 当前任务相关专题文档，例如 `docs/platform-core.md`
+9. `docs/development-workflow.md`
 
 ## 2. 模块边界
 
