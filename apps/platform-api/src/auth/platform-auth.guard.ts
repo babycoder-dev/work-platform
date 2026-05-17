@@ -6,14 +6,14 @@ import type { PlatformRequest } from './request-user';
 export class PlatformAuthGuard implements CanActivate {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<PlatformRequest>();
     const token = extractBearerToken(request.headers?.authorization);
     if (!token) {
       throw new UnauthorizedException('未登录');
     }
 
-    request.currentUser = this.authService.authenticateAccessToken(token);
+    request.currentUser = await this.authService.authenticateAccessToken(token);
     return true;
   }
 }

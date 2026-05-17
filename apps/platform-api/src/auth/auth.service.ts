@@ -16,14 +16,14 @@ export class AuthService {
 
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
-  login(input: LoginInput): LoginResult {
-    const employee = this.repository.validatePassword(input.account, input.password);
+  async login(input: LoginInput): Promise<LoginResult> {
+    const employee = await this.repository.validatePassword(input.account, input.password);
     if (!employee || employee.status !== 'active') {
       throw new UnauthorizedException('账号或密码错误');
     }
 
     const accessToken = `dev-access-${randomUUID()}`;
-    this.repository.createAccessSession({
+    await this.repository.createAccessSession({
       accessToken,
       userId: employee.id,
       expiresAt: new Date(Date.now() + this.accessTokenTtlSeconds * 1000).toISOString(),
@@ -32,12 +32,12 @@ export class AuthService {
     return {
       accessToken,
       expiresIn: this.accessTokenTtlSeconds,
-      user: this.toCurrentUser(employee.id),
+      user: await this.toCurrentUser(employee.id),
     };
   }
 
-  authenticateAccessToken(accessToken: string): CurrentUserDto {
-    const session = this.repository.findAccessSession(accessToken);
+  async authenticateAccessToken(accessToken: string): Promise<CurrentUserDto> {
+    const session = await this.repository.findAccessSession(accessToken);
     if (!session) {
       throw new UnauthorizedException('登录状态无效');
     }
@@ -60,22 +60,22 @@ export class AuthService {
     };
   }
 
-  toCurrentUser(userId: string): CurrentUserDto {
-    const employee = this.repository.findEmployeeById(userId);
+  async toCurrentUser(userId: string): Promise<CurrentUserDto> {
+    const employee = await this.repository.findEmployeeById(userId);
     if (!employee) {
       throw new UnauthorizedException('用户不存在');
     }
 
     const department = employee.departmentId
-      ? this.repository.findDepartmentById(employee.departmentId)
+      ? await this.repository.findDepartmentById(employee.departmentId)
       : undefined;
-    const roles = employee.roleIds
-      .map((roleId) => this.repository.findRoleById(roleId))
-      .filter((role): role is RoleDto => role !== undefined);
+    const roleResults = await Promise.all(employee.roleIds.map((roleId) => this.repository.findRoleById(roleId)));
+    const roles = roleResults.filter((role): role is RoleDto => role !== undefined);
     const permissionCodes = new Set(roles.flatMap((role) => role.permissionCodes));
-    const permissions = Array.from(permissionCodes)
-      .map((code) => this.repository.findPermissionByCode(code))
-      .filter((permission): permission is PermissionDto => permission !== undefined);
+    const permissionResults = await Promise.all(
+      Array.from(permissionCodes).map((code) => this.repository.findPermissionByCode(code)),
+    );
+    const permissions = permissionResults.filter((permission): permission is PermissionDto => permission !== undefined);
 
     return {
       id: employee.id,

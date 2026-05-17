@@ -22,23 +22,23 @@ export interface CreateAccessSessionInput {
 }
 
 export interface PlatformRepository {
-  listEnterprises(): EnterpriseDto[];
-  listDepartments(): DepartmentDto[];
-  createDepartment(input: CreateDepartmentInput): DepartmentDto;
-  findDepartmentById(id: string): DepartmentDto | undefined;
-  listEmployees(): EmployeeDto[];
-  createEmployee(input: CreateEmployeeInput): EmployeeDto;
-  findEmployeeById(id: string): EmployeeDto | undefined;
-  validatePassword(account: string, password: string): EmployeeDto | undefined;
-  updateEmployee(employee: EmployeeDto): EmployeeDto;
-  createAccessSession(input: CreateAccessSessionInput): AccessSession;
-  findAccessSession(accessToken: string): AccessSession | undefined;
-  listPermissions(): PermissionDto[];
-  findPermissionByCode(code: string): PermissionDto | undefined;
-  listRoles(): RoleDto[];
-  findRoleById(id: string): RoleDto | undefined;
-  createRole(input: CreateRoleInput): RoleDto;
-  setUserRoles(userId: string, roleIds: string[]): EmployeeDto | undefined;
+  listEnterprises(): Promise<EnterpriseDto[]>;
+  listDepartments(): Promise<DepartmentDto[]>;
+  createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto>;
+  findDepartmentById(id: string): Promise<DepartmentDto | undefined>;
+  listEmployees(): Promise<EmployeeDto[]>;
+  createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto>;
+  findEmployeeById(id: string): Promise<EmployeeDto | undefined>;
+  validatePassword(account: string, password: string): Promise<EmployeeDto | undefined>;
+  updateEmployee(employee: EmployeeDto): Promise<EmployeeDto>;
+  createAccessSession(input: CreateAccessSessionInput): Promise<AccessSession>;
+  findAccessSession(accessToken: string): Promise<AccessSession | undefined>;
+  listPermissions(): Promise<PermissionDto[]>;
+  findPermissionByCode(code: string): Promise<PermissionDto | undefined>;
+  listRoles(): Promise<RoleDto[]>;
+  findRoleById(id: string): Promise<RoleDto | undefined>;
+  createRole(input: CreateRoleInput): Promise<RoleDto>;
+  setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined>;
 }
 
 export const PLATFORM_REPOSITORY = Symbol('PLATFORM_REPOSITORY');

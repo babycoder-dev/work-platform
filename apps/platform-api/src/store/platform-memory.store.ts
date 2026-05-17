@@ -44,19 +44,19 @@ export class PlatformMemoryStore implements PlatformRepository {
     this.seed();
   }
 
-  listEnterprises(): EnterpriseDto[] {
+  async listEnterprises(): Promise<EnterpriseDto[]> {
     return [this.enterprise];
   }
 
-  listDepartments(): DepartmentDto[] {
+  async listDepartments(): Promise<DepartmentDto[]> {
     return Array.from(this.departments.values());
   }
 
-  findDepartmentById(id: string): DepartmentDto | undefined {
+  async findDepartmentById(id: string): Promise<DepartmentDto | undefined> {
     return this.departments.get(id);
   }
 
-  createDepartment(input: CreateDepartmentInput): DepartmentDto {
+  async createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto> {
     const department: DepartmentDto = {
       id: randomUUID(),
       enterpriseId: input.enterpriseId,
@@ -72,11 +72,11 @@ export class PlatformMemoryStore implements PlatformRepository {
     return department;
   }
 
-  listEmployees(): EmployeeDto[] {
+  async listEmployees(): Promise<EmployeeDto[]> {
     return Array.from(this.employees.values());
   }
 
-  createEmployee(input: CreateEmployeeInput): EmployeeDto {
+  async createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto> {
     const employee: EmployeeDto = {
       id: randomUUID(),
       enterpriseId: input.enterpriseId,
@@ -103,11 +103,11 @@ export class PlatformMemoryStore implements PlatformRepository {
     return employee;
   }
 
-  findEmployeeById(id: string): EmployeeDto | undefined {
+  async findEmployeeById(id: string): Promise<EmployeeDto | undefined> {
     return this.employees.get(id);
   }
 
-  findEmployeeByAccount(account: string): EmployeeDto | undefined {
+  async findEmployeeByAccount(account: string): Promise<EmployeeDto | undefined> {
     const identity = this.identities.get(account);
     if (!identity) {
       return undefined;
@@ -116,7 +116,7 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.employees.get(identity.userId);
   }
 
-  validatePassword(account: string, password: string): EmployeeDto | undefined {
+  async validatePassword(account: string, password: string): Promise<EmployeeDto | undefined> {
     const identity = this.identities.get(account);
     if (!identity || identity.password !== password) {
       return undefined;
@@ -125,28 +125,28 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.employees.get(identity.userId);
   }
 
-  listPermissions(): PermissionDto[] {
+  async listPermissions(): Promise<PermissionDto[]> {
     return Array.from(this.permissions.values());
   }
 
-  findPermissionByCode(code: string): PermissionDto | undefined {
+  async findPermissionByCode(code: string): Promise<PermissionDto | undefined> {
     return this.permissions.get(code);
   }
 
-  upsertPermission(permission: PermissionDto): PermissionDto {
+  async upsertPermission(permission: PermissionDto): Promise<PermissionDto> {
     this.permissions.set(permission.code, permission);
     return permission;
   }
 
-  listRoles(): RoleDto[] {
+  async listRoles(): Promise<RoleDto[]> {
     return Array.from(this.roles.values());
   }
 
-  findRoleById(id: string): RoleDto | undefined {
+  async findRoleById(id: string): Promise<RoleDto | undefined> {
     return this.roles.get(id);
   }
 
-  createRole(input: CreateRoleInput): RoleDto {
+  async createRole(input: CreateRoleInput): Promise<RoleDto> {
     const role: RoleDto = {
       id: randomUUID(),
       enterpriseId: input.enterpriseId,
@@ -162,7 +162,7 @@ export class PlatformMemoryStore implements PlatformRepository {
     return role;
   }
 
-  setUserRoles(userId: string, roleIds: string[]): EmployeeDto | undefined {
+  async setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined> {
     const employee = this.employees.get(userId);
     if (!employee) {
       return undefined;
@@ -177,12 +177,12 @@ export class PlatformMemoryStore implements PlatformRepository {
     return updated;
   }
 
-  updateEmployee(employee: EmployeeDto): EmployeeDto {
+  async updateEmployee(employee: EmployeeDto): Promise<EmployeeDto> {
     this.employees.set(employee.id, employee);
     return employee;
   }
 
-  createAccessSession(input: CreateAccessSessionInput): AccessSession {
+  async createAccessSession(input: CreateAccessSessionInput): Promise<AccessSession> {
     const session: AccessSession = {
       accessToken: input.accessToken,
       userId: input.userId,
@@ -193,7 +193,7 @@ export class PlatformMemoryStore implements PlatformRepository {
     return session;
   }
 
-  findAccessSession(accessToken: string): AccessSession | undefined {
+  async findAccessSession(accessToken: string): Promise<AccessSession | undefined> {
     return this.accessSessions.get(accessToken);
   }
 

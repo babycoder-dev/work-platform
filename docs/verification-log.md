@@ -2,6 +2,52 @@
 
 ## 2026-05-17
 
+### Platform PostgreSQL Repository Toggle
+
+Change set:
+
+- Upgraded the Platform repository contract to async methods.
+- Added `DbModule` and PostgreSQL pool provider for `platform-api`.
+- Added `PostgresPlatformRepository` for enterprises, departments, employees, local identities, roles, permissions, user roles, and sessions.
+- Added `PLATFORM_REPOSITORY_DRIVER` so local tests can keep using memory while production Compose selects PostgreSQL.
+- Added optional PostgreSQL E2E smoke coverage with `RUN_POSTGRES_E2E=true`.
+- Updated the foundation progress tracker.
+
+Completed locally:
+
+```bash
+pnpm --filter @work/platform-api typecheck
+pnpm test -- apps/platform-api/src/auth/auth.service.spec.ts apps/platform-api/src/store/platform-memory.store.spec.ts apps/platform-api/src/repositories/repository-driver.config.spec.ts
+pnpm test:e2e
+pnpm verify
+pnpm docker:build
+```
+
+Database smoke test:
+
+```powershell
+docker run -d --name work-platform-pg-repo-test -e POSTGRES_USER=work -e POSTGRES_PASSWORD=work -e POSTGRES_DB=work_platform -p 55433:5432 postgres:15
+$env:DATABASE_URL='postgresql://work:work@localhost:55433/work_platform'
+$env:RUN_POSTGRES_E2E='true'
+$env:PLATFORM_REPOSITORY_DRIVER='postgres'
+$env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='admin123'
+pnpm test:e2e -- apps/platform-api/src/platform-api.postgres.e2e-spec.ts
+```
+
+Result:
+
+- Targeted typecheck passed.
+- Targeted unit tests passed: 3 files, 10 tests.
+- Default E2E passed with memory repository, while PostgreSQL E2E remained skipped unless explicitly enabled.
+- PostgreSQL E2E passed against a temporary PostgreSQL container: 1 file, 2 tests.
+- The smoke test covered seeded admin login, protected department access, employee creation, hashed local identity login, and empty permissions for a user without roles.
+- Final row counts after the PostgreSQL smoke test: 2 employees, 2 local identities, 3 sessions.
+- Temporary PostgreSQL container was removed after verification.
+- Full `pnpm verify` passed.
+- First Docker build attempt hit transient `ECONNRESET` during container `pnpm install`; a retry completed successfully and built all production Compose images.
+
+## 2026-05-17
+
 ### Docker Build Context
 
 Change set:

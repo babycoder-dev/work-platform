@@ -11,18 +11,18 @@ import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/pl
 export class EmployeeService {
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
-  listEmployees() {
+  async listEmployees() {
     return {
-      items: this.repository.listEmployees(),
+      items: await this.repository.listEmployees(),
     };
   }
 
-  createEmployee(input: CreateEmployeeInput) {
+  async createEmployee(input: CreateEmployeeInput) {
     return this.repository.createEmployee(input);
   }
 
-  updateStatus(id: string, input: UpdateEmployeeStatusInput): EmployeeDto {
-    const employee = this.repository.findEmployeeById(id);
+  async updateStatus(id: string, input: UpdateEmployeeStatusInput): Promise<EmployeeDto> {
+    const employee = await this.repository.findEmployeeById(id);
     if (!employee) {
       throw new NotFoundException('员工不存在');
     }
@@ -35,8 +35,8 @@ export class EmployeeService {
     return this.repository.updateEmployee(updated);
   }
 
-  assignRoles(input: AssignUserRolesInput) {
-    const employee = this.repository.setUserRoles(input.userId, input.roleIds);
+  async assignRoles(input: AssignUserRolesInput) {
+    const employee = await this.repository.setUserRoles(input.userId, input.roleIds);
     if (!employee) {
       throw new NotFoundException('员工不存在');
     }

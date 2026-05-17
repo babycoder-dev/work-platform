@@ -6,19 +6,19 @@ import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/pl
 export class OrgService {
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
-  listEnterprises() {
+  async listEnterprises() {
     return {
-      items: this.repository.listEnterprises(),
+      items: await this.repository.listEnterprises(),
     };
   }
 
-  listDepartments() {
+  async listDepartments() {
     return {
-      items: this.repository.listDepartments(),
+      items: await this.repository.listDepartments(),
     };
   }
 
-  createDepartment(input: CreateDepartmentInput) {
+  async createDepartment(input: CreateDepartmentInput) {
     return this.repository.createDepartment(input);
   }
 }

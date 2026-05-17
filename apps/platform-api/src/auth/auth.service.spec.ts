@@ -4,11 +4,11 @@ import { AuthService } from './auth.service';
 import { PlatformMemoryStore } from '../store/platform-memory.store';
 
 describe('AuthService', () => {
-  it('logs in with the seeded admin account', () => {
+  it('logs in with the seeded admin account', async () => {
     const store = new PlatformMemoryStore();
     const service = new AuthService(store);
 
-    const result = service.login({
+    const result = await service.login({
       account: 'admin',
       password: 'admin123',
     });
@@ -18,36 +18,36 @@ describe('AuthService', () => {
     expect(result.user.permissions.length).toBeGreaterThan(0);
   });
 
-  it('authenticates issued access tokens', () => {
+  it('authenticates issued access tokens', async () => {
     const store = new PlatformMemoryStore();
     const service = new AuthService(store);
-    const login = service.login({
+    const login = await service.login({
       account: 'admin',
       password: 'admin123',
     });
 
-    const currentUser = service.authenticateAccessToken(login.accessToken);
+    const currentUser = await service.authenticateAccessToken(login.accessToken);
 
     expect(currentUser.id).toBe('user-admin');
     expect(currentUser.permissions.map((permission) => permission.code)).toContain('platform:org:view');
   });
 
-  it('rejects unknown access tokens', () => {
+  it('rejects unknown access tokens', async () => {
     const store = new PlatformMemoryStore();
     const service = new AuthService(store);
 
-    expect(() => service.authenticateAccessToken('dev-access-missing')).toThrow(UnauthorizedException);
+    await expect(service.authenticateAccessToken('dev-access-missing')).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects expired access sessions', () => {
+  it('rejects expired access sessions', async () => {
     const store = new PlatformMemoryStore();
     const service = new AuthService(store);
-    store.createAccessSession({
+    await store.createAccessSession({
       accessToken: 'dev-access-expired',
       userId: 'user-admin',
       expiresAt: '2000-01-01T00:00:00.000Z',
     });
 
-    expect(() => service.authenticateAccessToken('dev-access-expired')).toThrow(UnauthorizedException);
+    await expect(service.authenticateAccessToken('dev-access-expired')).rejects.toThrow(UnauthorizedException);
   });
 });

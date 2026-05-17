@@ -6,19 +6,19 @@ import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/pl
 export class RbacService {
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
-  listPermissions() {
+  async listPermissions() {
     return {
-      items: this.repository.listPermissions(),
+      items: await this.repository.listPermissions(),
     };
   }
 
-  listRoles() {
+  async listRoles() {
     return {
-      items: this.repository.listRoles(),
+      items: await this.repository.listRoles(),
     };
   }
 
-  createRole(input: CreateRoleInput) {
+  async createRole(input: CreateRoleInput) {
     return this.repository.createRole(input);
   }
 }

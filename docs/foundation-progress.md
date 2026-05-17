@@ -14,7 +14,7 @@
 | 阶段 | 目标 | 状态 | 当前结论 |
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
-| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | In Progress | schema、migration、seed 已完成，运行时 repository 尚未切换 |
+| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | In Progress | PostgreSQL repository 已可选启用，CI 数据库服务和默认切换尚未完成 |
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Pending | 等 M1 repository/session 闭环后启动 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Pending | 依赖 M1/M2 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
@@ -69,52 +69,51 @@
 | 密码 hash 工具 | Done | 当前使用 Node 内置 `scrypt`，保留算法版本和参数 |
 | Docker build context | Done | `.dockerignore` 已排除本地依赖、构建产物、环境文件和缓存 |
 | Docker build | Done | `pnpm docker:build` 本地已通过 |
+| PostgreSQL repository | Done | `PostgresPlatformRepository` 已实现现有 repository 接口 |
+| DbModule / DbProvider | Done | `PlatformModule` 可通过 `PLATFORM_REPOSITORY_DRIVER=postgres` 使用 PostgreSQL |
+| 登录持久化 | Done | PostgreSQL 模式下从 `local_identities` 校验 hash 密码 |
+| session store | Done | PostgreSQL 模式下登录写入 `platform.sessions`，token 入库只保存 hash |
+| PostgreSQL E2E smoke | Done | `RUN_POSTGRES_E2E=true` 时覆盖 seed 管理员登录和受保护接口访问 |
 
 ### 3.2 正在做
 
 | 能力 | 状态 | 下一步 |
 | --- | --- | --- |
-| PostgreSQL repository | In Progress | 新增 `PostgresPlatformRepository`，实现现有 `PlatformRepository` 接口 |
-| DbModule / DbProvider | In Progress | 为 platform-api 注入 PostgreSQL client / Drizzle db |
-| 登录持久化 | In Progress | 从 `local_identities` 校验密码，登录成功写入 `sessions` |
-| session store | In Progress | token 只保存 hash，从数据库验证 session |
+| repository integration tests | In Progress | 扩展创建员工、创建角色、分配角色、唯一约束冲突覆盖 |
+| CI PostgreSQL service | In Progress | 在 GitHub Actions 中启动 PostgreSQL，执行 `pnpm db:setup` 和 DB E2E |
+| 默认 repository 切换 | In Progress | CI DB E2E 稳定后，将非测试部署默认切到 PostgreSQL |
 
 ### 3.3 未开始
 
 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- |
-| repository integration tests | Pending | PostgreSQL repository 初版完成 |
-| PostgreSQL E2E | Pending | 登录/session 持久化完成 |
-| CI PostgreSQL service | Pending | DB 测试命令稳定后加入 GitHub Actions |
 | 数据库错误映射 | Pending | repository 写操作开始实现后补齐 |
 | 内存 store 降级为测试专用 | Pending | PostgreSQL E2E 通过后执行 |
 | `docs/platform-core.md` 数据库实现状态 | Pending | M1 退出前更新 |
 
 ### 3.4 M1 剩余交付清单
 
-1. 实现 `apps/platform-api/src/db/db.module.ts`、`db.provider.ts`。
-2. 实现 `apps/platform-api/src/repositories/postgres-platform.repository.ts`。
-3. 改造 AuthService 使用密码 hash 和数据库 session。
-4. 改造 PlatformModule 默认 repository provider。
-5. 新增 DB integration test。
-6. 新增 PostgreSQL E2E test。
-7. GitHub Actions 增加 PostgreSQL service 和 `pnpm db:setup`。
-8. 更新 `docs/platform-core.md` 和 `docs/verification-log.md`。
+1. 扩展 PostgreSQL repository integration test。
+2. GitHub Actions 增加 PostgreSQL service 和 `pnpm db:setup`。
+3. 将 DB E2E 纳入 CI 必跑。
+4. 统一数据库错误映射。
+5. 将内存 store 降级为测试专用。
+6. 更新 `docs/platform-core.md` 和 `docs/verification-log.md`。
 
 ## 4. 当前下一步
 
 当前建议执行：
 
 ```text
-M1-3: PostgresPlatformRepository + DbModule + login/session 持久化
+M1-4: PostgreSQL integration tests + CI database service
 ```
 
 验收标准：
 
-- `platform-api` 可以通过 PostgreSQL seed 管理员账号登录。
-- 登录成功写入 `platform.sessions`。
-- `/platform/auth/me` 或等价当前用户接口从数据库聚合权限。
-- 现有内存 repository 测试保留，新增数据库集成测试。
+- GitHub Actions 启动 PostgreSQL service。
+- CI 执行 `pnpm db:setup`。
+- CI 执行 `RUN_POSTGRES_E2E=true pnpm test:e2e -- apps/platform-api/src/platform-api.postgres.e2e-spec.ts` 或等价脚本。
+- PostgreSQL integration tests 覆盖创建员工、角色、分配角色、session。
 - `pnpm verify` 通过。
 - `pnpm docker:build` 通过。
 
@@ -124,4 +123,3 @@ M1-3: PostgresPlatformRepository + DbModule + login/session 持久化
 | --- | --- | --- |
 | `pnpm-lock.yaml` 未提交 | Blocked | 需要在稳定网络环境生成并提交，然后 CI 改为 frozen lockfile |
 | 数据库集成测试基础设施 | Pending | M1-3 实现时一起补测试数据库启动/配置约定 |
-
