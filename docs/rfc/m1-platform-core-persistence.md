@@ -415,6 +415,7 @@ M1 完成后 CI 至少包含：
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:db
 pnpm test:e2e
 pnpm build
 docker compose -f infra/docker-compose.prod.yml build
@@ -423,7 +424,6 @@ docker compose -f infra/docker-compose.prod.yml build
 推荐增加：
 
 ```text
-pnpm test:db
 pnpm db:migrate:check
 ```
 

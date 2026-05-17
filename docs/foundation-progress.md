@@ -78,12 +78,14 @@
 | CI PostgreSQL service | Done | GitHub Actions verify job 启动 PostgreSQL 17 并执行 `pnpm db:setup` |
 | CI PostgreSQL E2E | Done | GitHub Actions verify job 执行 `pnpm test:e2e:postgres` |
 | lockfile hard gate | Done | `pnpm-lock.yaml` 已生成，CI 和 Docker 构建已切换为 frozen lockfile |
+| database error mapper | Done | PostgreSQL `23505`/`23503` 已映射为 `PLATFORM_DUPLICATE_RESOURCE`/`PLATFORM_REFERENCE_NOT_FOUND` |
+| repository integration gate | In Progress | `pnpm test:db` 已加入 CI；本地临时 PostgreSQL 已通过，等待远端 CI 确认 |
 
 ### 3.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| M1-5 | repository integration tests + database error mapping | In Progress | 扩展创建员工、创建角色、分配角色、唯一约束冲突覆盖，并把数据库错误映射为统一错误 |
+| M1-5 | repository integration tests + database error mapping | In Progress | 代码、本地真实 PostgreSQL 验证与 CI gate 已接入；等待远端 CI 通过后标记 Done |
 | M1-6 | 默认 repository 切换 | In Progress | 等 M1-5 错误映射完成后一并切换，避免默认生产路径暴露未映射数据库错误 |
 
 ### 3.3 未开始

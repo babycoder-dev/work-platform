@@ -14,6 +14,7 @@
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run --config vitest.config.mts",
+    "test:db": "vitest run --config vitest.config.mts apps/platform-api/src/repositories/postgres-platform.repository.integration.spec.ts",
     "test:watch": "vitest --config vitest.config.mts",
     "test:e2e": "vitest run --config vitest.e2e.config.mts",
     "test:e2e:postgres": "vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.postgres.e2e-spec.ts",

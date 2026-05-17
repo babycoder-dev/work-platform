@@ -15,6 +15,7 @@ import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { PLATFORM_DB_POOL } from '../db/db.provider';
 import { hashAccessToken, hashPassword, verifyPassword } from '../security/secret-hash';
 import type { AccessSession, CreateAccessSessionInput, PlatformRepository } from './platform.repository';
+import { mapPostgresError } from './postgres-error.mapper';
 
 type QueryExecutor = Pick<Pool, 'query'> | PoolClient;
 
@@ -93,31 +94,35 @@ export class PostgresPlatformRepository implements PlatformRepository {
   }
 
   async createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto> {
-    const result = await this.pool.query<DepartmentRow>(
-      `
-        INSERT INTO platform.departments (
-          enterprise_id,
-          parent_id,
-          manager_user_id,
-          code,
-          name,
-          sort_order,
-          status
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, 'active')
-        RETURNING id, enterprise_id, parent_id, manager_user_id, code, name, sort_order, status
-      `,
-      [
-        input.enterpriseId,
-        input.parentId ?? null,
-        input.managerUserId ?? null,
-        input.code,
-        input.name,
-        input.sortOrder ?? 100,
-      ],
-    );
+    try {
+      const result = await this.pool.query<DepartmentRow>(
+        `
+          INSERT INTO platform.departments (
+            enterprise_id,
+            parent_id,
+            manager_user_id,
+            code,
+            name,
+            sort_order,
+            status
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, 'active')
+          RETURNING id, enterprise_id, parent_id, manager_user_id, code, name, sort_order, status
+        `,
+        [
+          input.enterpriseId,
+          input.parentId ?? null,
+          input.managerUserId ?? null,
+          input.code,
+          input.name,
+          input.sortOrder ?? 100,
+        ],
+      );
 
-    return mapDepartment(result.rows[0]);
+      return mapDepartment(result.rows[0]);
+    } catch (error) {
+      mapPostgresError(error);
+    }
   }
 
   async findDepartmentById(id: string): Promise<DepartmentDto | undefined> {
@@ -202,7 +207,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
       };
     } catch (error) {
       await client.query('ROLLBACK');
-      throw error;
+      mapPostgresError(error);
     } finally {
       client.release();
     }
@@ -233,70 +238,78 @@ export class PostgresPlatformRepository implements PlatformRepository {
   }
 
   async updateEmployee(employee: EmployeeDto): Promise<EmployeeDto> {
-    const result = await this.pool.query<EmployeeRow>(
-      `
-        UPDATE platform.employees
-        SET
-          department_id = $2,
-          employee_no = $3,
-          account = $4,
-          name = $5,
-          title = $6,
-          mobile = $7,
-          email = $8,
-          status = $9,
-          must_change_password = $10,
-          updated_at = now()
-        WHERE id = $1 AND deleted_at IS NULL
-        RETURNING
-          id,
-          enterprise_id,
-          department_id,
-          employee_no,
-          account,
-          name,
-          title,
-          mobile,
-          email,
-          status,
-          must_change_password,
-          COALESCE((
-            SELECT array_agg(ur.role_id::text ORDER BY ur.role_id::text)
-            FROM platform.user_roles ur
-            WHERE ur.user_id = employees.id
-          ), ARRAY[]::text[]) AS role_ids
-      `,
-      [
-        employee.id,
-        employee.departmentId ?? null,
-        employee.employeeNo,
-        employee.account,
-        employee.name,
-        employee.title ?? null,
-        employee.mobile ?? null,
-        employee.email ?? null,
-        employee.status,
-        employee.mustChangePassword,
-      ],
-    );
+    try {
+      const result = await this.pool.query<EmployeeRow>(
+        `
+          UPDATE platform.employees
+          SET
+            department_id = $2,
+            employee_no = $3,
+            account = $4,
+            name = $5,
+            title = $6,
+            mobile = $7,
+            email = $8,
+            status = $9,
+            must_change_password = $10,
+            updated_at = now()
+          WHERE id = $1 AND deleted_at IS NULL
+          RETURNING
+            id,
+            enterprise_id,
+            department_id,
+            employee_no,
+            account,
+            name,
+            title,
+            mobile,
+            email,
+            status,
+            must_change_password,
+            COALESCE((
+              SELECT array_agg(ur.role_id::text ORDER BY ur.role_id::text)
+              FROM platform.user_roles ur
+              WHERE ur.user_id = employees.id
+            ), ARRAY[]::text[]) AS role_ids
+        `,
+        [
+          employee.id,
+          employee.departmentId ?? null,
+          employee.employeeNo,
+          employee.account,
+          employee.name,
+          employee.title ?? null,
+          employee.mobile ?? null,
+          employee.email ?? null,
+          employee.status,
+          employee.mustChangePassword,
+        ],
+      );
 
-    return mapEmployee(result.rows[0]);
+      return mapEmployee(result.rows[0]);
+    } catch (error) {
+      mapPostgresError(error);
+    }
   }
 
   async createAccessSession(input: CreateAccessSessionInput): Promise<AccessSession> {
-    await this.pool.query(
-      `
-        INSERT INTO platform.sessions (user_id, access_token_hash, expires_at)
-        VALUES ($1, $2, $3)
-      `,
-      [input.userId, hashAccessToken(input.accessToken), input.expiresAt],
-    );
+    try {
+      await this.pool.query(
+        `
+          INSERT INTO platform.sessions (user_id, access_token_hash, expires_at)
+          VALUES ($1, $2, $3)
+        `,
+        [input.userId, hashAccessToken(input.accessToken), input.expiresAt],
+      );
 
-    return {
-      accessToken: input.accessToken,
-      userId: input.userId,
-      expiresAt: input.expiresAt,
-    };
+      return {
+        accessToken: input.accessToken,
+        userId: input.userId,
+        expiresAt: input.expiresAt,
+      };
+    } catch (error) {
+      mapPostgresError(error);
+    }
   }
 
   async findAccessSession(accessToken: string): Promise<AccessSession | undefined> {
@@ -389,7 +402,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
       };
     } catch (error) {
       await client.query('ROLLBACK');
-      throw error;
+      mapPostgresError(error);
     } finally {
       client.release();
     }
@@ -414,7 +427,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
       };
     } catch (error) {
       await client.query('ROLLBACK');
-      throw error;
+      mapPostgresError(error);
     } finally {
       client.release();
     }

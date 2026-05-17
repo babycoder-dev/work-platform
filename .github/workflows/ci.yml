@@ -43,6 +43,12 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:db
+        env:
+          DATABASE_URL: postgresql://work:work@localhost:5432/work_platform
+          RUN_POSTGRES_INTEGRATION: true
+          NODE_ENV: production
+          PLATFORM_BOOTSTRAP_ADMIN_PASSWORD: ci-admin-password
       - run: pnpm test:e2e
       - run: pnpm test:e2e:postgres
         env:

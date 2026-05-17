@@ -2,6 +2,41 @@
 
 ## 2026-05-17
 
+### Repository Error Mapping And DB Integration Gate
+
+Change set:
+
+- Added PostgreSQL error mapping for unique and foreign-key violations.
+- Wrapped PostgreSQL repository write paths so raw database constraint errors become platform `ApiError` values.
+- Added unit coverage for the PostgreSQL error mapper.
+- Added PostgreSQL repository integration coverage for employee creation, role creation, role assignment, session persistence, duplicate resources, foreign-key references, and transaction rollback.
+- Added `pnpm test:db` and wired it into GitHub Actions with `RUN_POSTGRES_INTEGRATION=true`.
+- Updated M1 progress and RFC CI requirements.
+
+Completed locally:
+
+```powershell
+pnpm test -- apps/platform-api/src/repositories/postgres-error.mapper.spec.ts apps/platform-api/src/repositories/postgres-platform.repository.integration.spec.ts
+pnpm --filter @work/platform-api typecheck
+pnpm verify
+pnpm test:db
+docker run -d --rm --name work-platform-test-postgres -e POSTGRES_USER=work -e POSTGRES_PASSWORD=work -e POSTGRES_DB=work_platform -p 55432:5432 postgres:17
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_INTEGRATION='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm test:db
+```
+
+Result:
+
+- Targeted mapper unit tests passed.
+- PostgreSQL integration spec is skipped locally unless `RUN_POSTGRES_INTEGRATION=true`.
+- Platform API typecheck passed.
+- `pnpm verify` passed.
+- `pnpm test:db` command is present and skips locally without the integration env flag; CI runs it against the PostgreSQL service.
+- Real PostgreSQL repository integration passed locally against a temporary `postgres:17` container on `localhost:55432` with `RUN_POSTGRES_INTEGRATION=true`.
+- `docker compose -f infra/docker-compose.prod.yml up -d postgres` reached healthy state, but the existing persistent volume rejected the documented `work` password. The volume was not reset; this is local environment state, not an M1 code failure.
+
+## 2026-05-17
+
 ### Lockfile And Document Review Follow-up
 
 Change set:
