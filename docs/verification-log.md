@@ -1,5 +1,24 @@
 # Verification Log
 
+## 2026-05-17
+
+### Docker Build Context
+
+Change set:
+
+- Added root `.dockerignore` to keep local dependencies, build outputs, environment files, logs, and cache directories out of Docker build context.
+
+Completed locally:
+
+```bash
+pnpm docker:build
+```
+
+Result:
+
+- Production Docker Compose build passed.
+- Built images: `infra-platform-api`, `infra-gateway-api`, `infra-notification-api`, `infra-im-adapter-api`, `infra-realtime-gateway`, and `infra-workbench-shell`.
+
 ## 2026-05-16
 
 ### Platform Migration And Seed Scripts
