@@ -33,9 +33,10 @@ Result:
 - Docker production build passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
 - Dockerfiles and Compose still default to `https://registry.npmjs.org/`; `NPM_REGISTRY` exists for controlled build environments that need an internal or regional mirror.
 
-Notes:
+Coverage note:
 
-- Direct local PostgreSQL E2E via temporary Docker port mapping was not completed in this run because Docker Desktop did not publish Postgres host ports consistently on this machine, and direct container-IP connections were unstable. The CI PostgreSQL service path remains configured and had passed in the prior gate.
+- CI PostgreSQL E2E had already passed in the prior gate and remains the authoritative database E2E path for M1.
+- Direct local PostgreSQL E2E via temporary Docker port mapping was not completed in this run because Docker Desktop did not publish Postgres host ports consistently on this machine, and direct container-IP connections were unstable. This is recorded as a local Docker Desktop networking issue, not an M1 exit blocker.
 - Lint still reports existing warnings for skipped Nx ProjectGraph boundary checks and two underscore-prefixed unused parameters, but no lint errors.
 
 ## 2026-05-17

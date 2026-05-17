@@ -41,6 +41,12 @@ $env:NPM_REGISTRY="https://registry.npmjs.org/"
 pnpm docker:build
 ```
 
+`NPM_REGISTRY` 同时影响 Dockerfile 中 `pnpm@10.0.0` 的全局安装和后续 `pnpm install --frozen-lockfile`。内网构建镜像必须包含：
+
+- `pnpm` 包本身。
+- `pnpm-lock.yaml` 中锁定的所有依赖包和可选平台包。
+- 构建所需的 Node/Nginx/PostgreSQL/Redis 基础镜像，或已导入的离线镜像。
+
 首次部署或 schema 变更后执行数据库初始化：
 
 PowerShell:
@@ -75,6 +81,22 @@ pnpm db:setup
 - `redis`
 
 OpenIM 独立部署，不默认塞进主 compose。
+
+### 2.1 当前镜像边界
+
+M1-M3 阶段的 Node 服务镜像共用 `infra/docker/Dockerfile.node-service`，通过 `SERVICE_NAME` 决定启动哪个服务。该 Dockerfile 会复制当前 monorepo 的 `apps`、`packages`、`modules` 目录，因此每个 Node 服务镜像包含完整工作区源码和依赖。
+
+当前接受该策略的原因：
+
+- M1 阶段优先验证可复现构建、迁移、seed、CI 和内网迁移链路。
+- 统一 Dockerfile 可减少早期构建脚本分叉。
+- `.dockerignore` 已排除本地依赖、构建产物、环境文件和缓存。
+
+交付约束：
+
+- 该策略不得作为 M8 最终交付边界。
+- M8 前必须收敛为服务级构建产物或按服务裁剪镜像，避免镜像包含无关业务源码。
+- 如果企业内网在 M8 前要求按服务隔离镜像源码，必须提前启动镜像裁剪切片。
 
 ## 3. 内网镜像迁移
 

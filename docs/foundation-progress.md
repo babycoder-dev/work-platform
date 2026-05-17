@@ -21,7 +21,7 @@
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
 | M7 通知、实时、IM 基建 | notification、realtime、OpenIM adapter 可用 | Pending | 当前只保留边界 |
-| M8 客户端与内网交付 | Docker 离线迁移、客户端打包、部署演练 | Pending | 当前只完成 Docker build 基线 |
+| M8 客户端与内网交付 | Docker 离线迁移、客户端打包、部署演练 | Pending | 当前只完成 Docker build 基线；服务镜像裁剪和部署 smoke 未完成 |
 
 ## 2. M0 架构基线
 
@@ -84,7 +84,7 @@
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
 | M1-5 | repository integration tests + database error mapping | In Progress | 扩展创建员工、创建角色、分配角色、唯一约束冲突覆盖，并把数据库错误映射为统一错误 |
-| M1-6 | 默认 repository 切换 | In Progress | CI DB E2E 稳定后，将非测试部署默认切到 PostgreSQL |
+| M1-6 | 默认 repository 切换 | In Progress | 等 M1-5 错误映射完成后一并切换，避免默认生产路径暴露未映射数据库错误 |
 
 ### 3.3 未开始
 
@@ -92,6 +92,7 @@
 | --- | --- | --- | --- |
 | M1-7 | 内存 store 降级为测试专用 | Pending | PostgreSQL E2E 通过后执行 |
 | M1-8 | `docs/platform-core.md` 数据库实现状态 | Pending | M1 退出前更新 |
+| M1-9 | docker compose deployment smoke 规划 | Pending | M1 退出前明确 smoke 命令和 CI/M8 落点，M8 前实现自动化 |
 
 ### 3.4 M1 剩余交付清单
 
@@ -99,6 +100,7 @@
 2. 统一数据库错误映射。
 3. 将内存 store 降级为测试专用。
 4. 更新 `docs/platform-core.md` 和 `docs/verification-log.md`。
+5. 明确 docker compose smoke test 的命令、执行环境和 M8 自动化落点。
 
 ## 4. 当前下一步
 
@@ -121,3 +123,9 @@ M1-5: repository integration tests + database error mapping
 | 阻塞项 | 状态 | 处理 |
 | --- | --- | --- |
 | 无 | Done | 当前没有阻塞 M1 继续推进的基础设施问题 |
+
+## 6. M8 前置交付风险
+
+| 切片 | 风险 | 状态 | 处理 |
+| --- | --- | --- | --- |
+| M8-1 | Node 服务镜像包含全量 monorepo 源码 | Pending | M8 前收敛为服务级构建产物或裁剪镜像；如企业提前要求源码隔离，则提前启动 |
