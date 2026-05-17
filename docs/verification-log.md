@@ -2,6 +2,42 @@
 
 ## 2026-05-17
 
+### Compose PostgreSQL Volume Reset And Port Override
+
+Change set:
+
+- Reset local Compose PostgreSQL volume after approval.
+- Made PostgreSQL and Redis host ports configurable through `POSTGRES_HOST_PORT` and `REDIS_HOST_PORT`.
+- Reduced `infra/postgres/init.sql` to schema creation only so application migrations own platform table definitions.
+- Documented host port overrides in deployment docs and `.env.prod.example`.
+
+Completed locally:
+
+```powershell
+docker compose -f infra/docker-compose.prod.yml down -v
+$env:POSTGRES_HOST_PORT='55432'; docker compose -f infra/docker-compose.prod.yml up -d postgres
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm db:setup
+$env:RUN_POSTGRES_E2E='true'; $env:PLATFORM_REPOSITORY_DRIVER='postgres'
+pnpm test:e2e:postgres
+$env:RUN_POSTGRES_INTEGRATION='true'
+pnpm test:db
+docker compose -f infra/docker-compose.prod.yml config --quiet
+docker compose -f infra/docker-compose.prod.yml build --progress plain
+```
+
+Result:
+
+- Fresh Compose PostgreSQL published successfully on `localhost:55432`.
+- `pnpm db:setup` applied `0000_init_platform.sql` and seeded platform foundation successfully.
+- PostgreSQL E2E passed: 1 file, 2 tests.
+- PostgreSQL repository integration passed: 1 file, 4 tests.
+- Docker Compose config validation passed.
+- Production Docker Compose build passed after cache reuse.
+- A parallel local run of `test:db` and PostgreSQL E2E against the same database produced a Vitest worker exit; both commands passed when run sequentially.
+
+## 2026-05-17
+
 ### Repository Error Mapping And DB Integration Gate
 
 Change set:

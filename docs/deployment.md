@@ -28,6 +28,13 @@ docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.y
 docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.yml up -d
 ```
 
+如宿主机已占用 PostgreSQL 或 Redis 默认端口，可在 `infra/release/.env.prod` 中覆盖宿主端口：
+
+```env
+POSTGRES_HOST_PORT=55432
+REDIS_HOST_PORT=56379
+```
+
 如果构建环境访问默认 npm registry 不稳定，可在有网构建机指定内部镜像或可信镜像：
 
 ```bash
@@ -52,7 +59,7 @@ pnpm docker:build
 PowerShell:
 
 ```powershell
-$env:DATABASE_URL="postgresql://work:<POSTGRES_PASSWORD>@localhost:5432/work_platform"
+$env:DATABASE_URL="postgresql://work:<POSTGRES_PASSWORD>@localhost:<POSTGRES_HOST_PORT>/work_platform"
 $env:NODE_ENV="production"
 $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD="<initial-admin-password>"
 pnpm db:setup
@@ -61,7 +68,7 @@ pnpm db:setup
 Bash:
 
 ```bash
-DATABASE_URL="postgresql://work:<POSTGRES_PASSWORD>@localhost:5432/work_platform" \
+DATABASE_URL="postgresql://work:<POSTGRES_PASSWORD>@localhost:<POSTGRES_HOST_PORT>/work_platform" \
 NODE_ENV=production \
 PLATFORM_BOOTSTRAP_ADMIN_PASSWORD="<initial-admin-password>" \
 pnpm db:setup
