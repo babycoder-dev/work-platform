@@ -12,6 +12,20 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: work
+          POSTGRES_PASSWORD: work
+          POSTGRES_DB: work_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U work -d work_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -21,10 +35,21 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
+      - run: pnpm db:setup
+        env:
+          DATABASE_URL: postgresql://work:work@localhost:5432/work_platform
+          NODE_ENV: production
+          PLATFORM_BOOTSTRAP_ADMIN_PASSWORD: ci-admin-password
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:e2e
+      - run: pnpm test:e2e:postgres
+        env:
+          DATABASE_URL: postgresql://work:work@localhost:5432/work_platform
+          RUN_POSTGRES_E2E: true
+          PLATFORM_REPOSITORY_DRIVER: postgres
+          PLATFORM_BOOTSTRAP_ADMIN_PASSWORD: ci-admin-password
       - run: pnpm build
 
   docker-build:

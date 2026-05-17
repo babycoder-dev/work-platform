@@ -8,13 +8,14 @@ import { PlatformModule } from './platform.module';
 import { seedPlatform } from './seeds/seed-platform';
 
 const runPostgresE2E = process.env.RUN_POSTGRES_E2E === 'true';
+const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123';
 
 describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
     process.env.PLATFORM_REPOSITORY_DRIVER = 'postgres';
-    process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ??= 'admin123';
+    process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ??= adminPassword;
 
     await runMigrations();
     await seedPlatform();
@@ -37,7 +38,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .post('/api/platform/auth/login')
       .send({
         account: 'admin',
-        password: 'admin123',
+        password: adminPassword,
       })
       .expect(201);
 
@@ -60,11 +61,14 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
   });
 
   it('creates a postgres-backed employee with a hashed local identity', async () => {
+    const uniqueSuffix = Date.now().toString();
+    const account = `postgres-user-${uniqueSuffix}`;
+    const employeeNo = `PG${uniqueSuffix}`;
     const loginResponse = await request(app.getHttpServer())
       .post('/api/platform/auth/login')
       .send({
         account: 'admin',
-        password: 'admin123',
+        password: adminPassword,
       })
       .expect(201);
 
@@ -74,8 +78,8 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .send({
         enterpriseId: '00000000-0000-0000-0000-000000000001',
         departmentId: '00000000-0000-0000-0000-000000000002',
-        employeeNo: 'PG0001',
-        account: 'postgres-user',
+        employeeNo,
+        account,
         name: 'Postgres User',
         initialPassword: 'Passw0rd1',
       })
@@ -83,8 +87,8 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
 
     expect(employeeResponse.body).toEqual(
       expect.objectContaining({
-        account: 'postgres-user',
-        employeeNo: 'PG0001',
+        account,
+        employeeNo,
         roleIds: [],
       }),
     );
@@ -92,7 +96,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     const limitedLoginResponse = await request(app.getHttpServer())
       .post('/api/platform/auth/login')
       .send({
-        account: 'postgres-user',
+        account,
         password: 'Passw0rd1',
       })
       .expect(201);

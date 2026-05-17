@@ -14,7 +14,7 @@
 | 阶段 | 目标 | 状态 | 当前结论 |
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
-| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | In Progress | PostgreSQL repository 已可选启用，CI 数据库服务和默认切换尚未完成 |
+| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | In Progress | PostgreSQL repository 和 CI 数据库 E2E 已接入，默认切换和错误映射尚未完成 |
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Pending | 等 M1 repository/session 闭环后启动 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Pending | 依赖 M1/M2 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
@@ -74,13 +74,14 @@
 | 登录持久化 | Done | PostgreSQL 模式下从 `local_identities` 校验 hash 密码 |
 | session store | Done | PostgreSQL 模式下登录写入 `platform.sessions`，token 入库只保存 hash |
 | PostgreSQL E2E smoke | Done | `RUN_POSTGRES_E2E=true` 时覆盖 seed 管理员登录和受保护接口访问 |
+| CI PostgreSQL service | Done | GitHub Actions verify job 启动 PostgreSQL 17 并执行 `pnpm db:setup` |
+| CI PostgreSQL E2E | Done | GitHub Actions verify job 执行 `pnpm test:e2e:postgres` |
 
 ### 3.2 正在做
 
 | 能力 | 状态 | 下一步 |
 | --- | --- | --- |
 | repository integration tests | In Progress | 扩展创建员工、创建角色、分配角色、唯一约束冲突覆盖 |
-| CI PostgreSQL service | In Progress | 在 GitHub Actions 中启动 PostgreSQL，执行 `pnpm db:setup` 和 DB E2E |
 | 默认 repository 切换 | In Progress | CI DB E2E 稳定后，将非测试部署默认切到 PostgreSQL |
 
 ### 3.3 未开始
@@ -94,26 +95,23 @@
 ### 3.4 M1 剩余交付清单
 
 1. 扩展 PostgreSQL repository integration test。
-2. GitHub Actions 增加 PostgreSQL service 和 `pnpm db:setup`。
-3. 将 DB E2E 纳入 CI 必跑。
-4. 统一数据库错误映射。
-5. 将内存 store 降级为测试专用。
-6. 更新 `docs/platform-core.md` 和 `docs/verification-log.md`。
+2. 统一数据库错误映射。
+3. 将内存 store 降级为测试专用。
+4. 更新 `docs/platform-core.md` 和 `docs/verification-log.md`。
 
 ## 4. 当前下一步
 
 当前建议执行：
 
 ```text
-M1-4: PostgreSQL integration tests + CI database service
+M1-5: repository integration tests + database error mapping
 ```
 
 验收标准：
 
-- GitHub Actions 启动 PostgreSQL service。
-- CI 执行 `pnpm db:setup`。
-- CI 执行 `RUN_POSTGRES_E2E=true pnpm test:e2e -- apps/platform-api/src/platform-api.postgres.e2e-spec.ts` 或等价脚本。
 - PostgreSQL integration tests 覆盖创建员工、角色、分配角色、session。
+- 唯一约束和外键错误映射为统一业务错误或 HTTP 错误。
+- controller 不直接暴露 PostgreSQL 原始错误。
 - `pnpm verify` 通过。
 - `pnpm docker:build` 通过。
 

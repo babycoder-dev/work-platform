@@ -2,6 +2,37 @@
 
 ## 2026-05-17
 
+### CI PostgreSQL E2E Gate
+
+Change set:
+
+- Added `test:e2e:postgres` script for the PostgreSQL-backed Platform API E2E spec.
+- Added PostgreSQL 17 service container to the GitHub Actions `verify` job.
+- Added CI `pnpm db:setup` before verification.
+- Added CI PostgreSQL E2E execution with `PLATFORM_REPOSITORY_DRIVER=postgres`.
+- Updated the foundation progress tracker.
+
+Local checks:
+
+```powershell
+$env:DATABASE_URL='postgresql://work:work@localhost:55434/work_platform'
+$env:NODE_ENV='production'
+$env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm db:setup
+$env:RUN_POSTGRES_E2E='true'
+$env:PLATFORM_REPOSITORY_DRIVER='postgres'
+pnpm test:e2e:postgres
+```
+
+Result:
+
+- PostgreSQL setup passed against a temporary local PostgreSQL container.
+- PostgreSQL E2E passed: 1 file, 2 tests.
+- Temporary PostgreSQL container was removed after verification.
+- This gate is expected to run in GitHub Actions on push to `main`.
+
+## 2026-05-17
+
 ### Platform PostgreSQL Repository Toggle
 
 Change set:
