@@ -14,7 +14,7 @@
 | 阶段 | 目标 | 状态 | 当前结论 |
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
-| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | In Progress | PostgreSQL repository 和 CI 数据库 E2E 已接入，默认切换和错误映射尚未完成 |
+| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | In Progress | lockfile hard gate 已解除；PostgreSQL repository 和 CI 数据库 E2E 已接入，默认切换和错误映射尚未完成 |
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Pending | 等 M1 repository/session 闭环后启动 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Pending | 依赖 M1/M2 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
@@ -77,21 +77,21 @@
 | PostgreSQL E2E smoke | Done | `RUN_POSTGRES_E2E=true` 时覆盖 seed 管理员登录和受保护接口访问 |
 | CI PostgreSQL service | Done | GitHub Actions verify job 启动 PostgreSQL 17 并执行 `pnpm db:setup` |
 | CI PostgreSQL E2E | Done | GitHub Actions verify job 执行 `pnpm test:e2e:postgres` |
+| lockfile hard gate | Done | `pnpm-lock.yaml` 已生成，CI 和 Docker 构建已切换为 frozen lockfile |
 
 ### 3.2 正在做
 
-| 能力 | 状态 | 下一步 |
-| --- | --- | --- |
-| repository integration tests | In Progress | 扩展创建员工、创建角色、分配角色、唯一约束冲突覆盖 |
-| 默认 repository 切换 | In Progress | CI DB E2E 稳定后，将非测试部署默认切到 PostgreSQL |
+| 切片 | 能力 | 状态 | 下一步 |
+| --- | --- | --- | --- |
+| M1-5 | repository integration tests + database error mapping | In Progress | 扩展创建员工、创建角色、分配角色、唯一约束冲突覆盖，并把数据库错误映射为统一错误 |
+| M1-6 | 默认 repository 切换 | In Progress | CI DB E2E 稳定后，将非测试部署默认切到 PostgreSQL |
 
 ### 3.3 未开始
 
-| 能力 | 状态 | 启动条件 |
-| --- | --- | --- |
-| 数据库错误映射 | Pending | repository 写操作开始实现后补齐 |
-| 内存 store 降级为测试专用 | Pending | PostgreSQL E2E 通过后执行 |
-| `docs/platform-core.md` 数据库实现状态 | Pending | M1 退出前更新 |
+| 切片 | 能力 | 状态 | 启动条件 |
+| --- | --- | --- | --- |
+| M1-7 | 内存 store 降级为测试专用 | Pending | PostgreSQL E2E 通过后执行 |
+| M1-8 | `docs/platform-core.md` 数据库实现状态 | Pending | M1 退出前更新 |
 
 ### 3.4 M1 剩余交付清单
 
@@ -120,5 +120,4 @@ M1-5: repository integration tests + database error mapping
 
 | 阻塞项 | 状态 | 处理 |
 | --- | --- | --- |
-| `pnpm-lock.yaml` 未提交 | Blocked | 需要在稳定网络环境生成并提交，然后 CI 改为 frozen lockfile |
-| 数据库集成测试基础设施 | Done | CI 已提供 PostgreSQL service，本地可用临时 PostgreSQL 容器运行 `pnpm test:e2e:postgres` |
+| 无 | Done | 当前没有阻塞 M1 继续推进的基础设施问题 |

@@ -28,6 +28,19 @@ docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.y
 docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.yml up -d
 ```
 
+如果构建环境访问默认 npm registry 不稳定，可在有网构建机指定内部镜像或可信镜像：
+
+```bash
+NPM_REGISTRY=https://registry.npmjs.org/ docker compose -f infra/docker-compose.prod.yml build
+```
+
+Windows PowerShell:
+
+```powershell
+$env:NPM_REGISTRY="https://registry.npmjs.org/"
+pnpm docker:build
+```
+
 首次部署或 schema 变更后执行数据库初始化：
 
 PowerShell:

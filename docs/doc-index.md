@@ -138,6 +138,6 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 
 后续建议补充：
 
-- `docs/testing-strategy.md`
-- `docs/offline-deployment-runbook.md`
-- `docs/domain-glossary.md`
+- `docs/testing-strategy.md`：建议在 M2 启动前完成，统一单元、集成、E2E、数据库测试、mock 边界和 CI 门禁。
+- `docs/offline-deployment-runbook.md`：建议在 M8 启动前完成；其中 Docker 镜像导出、导入和数据库迁移演练可在 M1-M3 逐步补充。
+- `docs/domain-glossary.md`：建议在 M4 启动前完成，至少覆盖在位状态、审批实例、工作汇报、数据范围、通知事件等核心概念。

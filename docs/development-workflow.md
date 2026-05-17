@@ -11,13 +11,7 @@ pnpm install
 
 `pnpm-lock.yaml` 必须提交到 Git，保证 CI、开发环境、内网构建使用一致依赖版本。
 
-当前仓库处于初始基建期，如果还没有 `pnpm-lock.yaml`，CI 可临时使用：
-
-```bash
-pnpm install --no-frozen-lockfile
-```
-
-一旦锁文件提交，CI 和本地交付检查必须改为：
+CI、本地交付检查和 Docker 构建必须使用：
 
 ```bash
 pnpm install --frozen-lockfile

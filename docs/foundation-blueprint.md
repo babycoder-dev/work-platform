@@ -303,6 +303,7 @@ Windows 7 只保证 Web UI 核心功能可用。
 交付：
 
 - 数据库迁移工具选型与配置。
+- `pnpm-lock.yaml` 提交并通过 CI frozen lockfile 安装验证。
 - `platform` schema 初版。
 - PostgreSQL repository。
 - seed 初始企业、部门、权限、角色、管理员。
@@ -315,6 +316,7 @@ Windows 7 只保证 Web UI 核心功能可用。
 退出标准：
 
 - 删除或降级内存 store 为测试专用。
+- `pnpm-lock.yaml` 已提交，CI 使用 frozen lockfile 安装。
 - Docker Compose 启动后可登录管理员。
 - CI 包含数据库 E2E。
 
@@ -482,7 +484,7 @@ docker compose -f infra/docker-compose.prod.yml build
 | 权限只做接口，不做菜单 | Web Shell 无法精确控制入口 | M2 做菜单与权限注册 |
 | OpenIM 直接侵入业务 | IM 难替换，合规风险扩大 | 只通过 im-adapter-api 和 ImProvider |
 | 桌面端复制业务规则 | 多端行为不一致 | 桌面端只调用公开 API |
-| 无 lockfile | 依赖不可复现 | 网络稳定后补 `pnpm-lock.yaml` |
+| 无 lockfile | 依赖不可复现，内网离线部署不可验证 | M1 退出前提交 `pnpm-lock.yaml`，CI 改为 frozen lockfile |
 | CI 只测构建不测部署 | 内网迁移不可控 | 保留 docker build，后续增加部署冒烟测试 |
 | Drizzle Kit API 快速迭代 | 迁移生成行为漂移 | 锁定版本，提交 SQL 迁移，CI 执行迁移验证 |
 | 无备份恢复演练 | 内网数据故障不可恢复 | M8 前补 PostgreSQL 备份、恢复、回滚演练 |

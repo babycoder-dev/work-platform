@@ -74,13 +74,21 @@
 - 把密码写入日志。
 - 把密码放入 URL query。
 
-推荐：
+当前 M1 实现：
+
+```text
+scrypt
+```
+
+M1 第一切片采用 Node.js 内置 `scrypt`，原因是避免在内网构建和 CI 中引入原生密码库编译风险。该实现必须记录参数版本、独立 salt，并通过统一接口封装。
+
+长期推荐迁移目标：
 
 ```text
 argon2id
 ```
 
-当前 M1 第一切片采用 Node.js 内置 `scrypt`，原因是避免在内网构建和 CI 中引入原生密码库编译风险。该实现必须记录参数版本、独立 salt，并通过统一接口封装，后续可迁移到 argon2id。
+迁移到 argon2id 前必须补充实现记录或 ADR，说明参数、构建影响、内网离线部署影响和兼容迁移策略。
 
 最低要求：
 
@@ -130,6 +138,7 @@ maxFailedAttempts: 5
 - token 必须有过期时间。
 - token 失效后必须返回 `登录状态无效`。
 - logout 或禁用用户后应能撤销 session。
+- M1 后 session 持久化到 `platform.sessions`，access token 只以 hash 形式入库；内存 session 只能作为测试 fixture 或开发 fallback。
 
 禁止：
 
@@ -409,11 +418,11 @@ M1 之后新增：
 | --- | --- | --- |
 | 内存 store | 仍在使用 | M1 替换为 PostgreSQL |
 | 开发默认密码 | `admin/admin123` | M1 改为安装初始化 |
-| 明文密码 | 内存开发实现存在 | M1 引入 argon2id |
-| session 内存存储 | 当前存在 | M1 持久化 session |
+| 明文密码 | M1 已引入 `scrypt` 强 hash，argon2id 为后续迁移目标 | M1 退出前确认生产路径无明文密码 |
+| session 内存存储 | PostgreSQL 模式已写入 `platform.sessions` | M1 退出前将内存 session 降级为测试专用 |
 | 审计日志未闭环 | 未完成 | M2 完成审计 service |
 | 菜单权限未闭环 | 未完成 | M2 完成菜单与权限注册 |
-| lockfile 缺失 | 当前缺失 | 网络稳定后补充 |
+| lockfile 缺失 | 已生成 `pnpm-lock.yaml`，CI 已切换 frozen lockfile | M1 退出前保持 lockfile 与依赖声明同步 |
 
 ## 16. 变更门禁
 

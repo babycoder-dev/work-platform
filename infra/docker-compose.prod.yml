@@ -32,6 +32,7 @@ services:
       dockerfile: infra/docker/Dockerfile.node-service
       args:
         SERVICE_NAME: '@work/platform-api'
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://work:${POSTGRES_PASSWORD:-work}@postgres:5432/work_platform
@@ -56,6 +57,7 @@ services:
       dockerfile: infra/docker/Dockerfile.node-service
       args:
         SERVICE_NAME: '@work/gateway-api'
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     environment:
       PORT: 3000
       PLATFORM_API_URL: http://platform-api:3001
@@ -74,6 +76,7 @@ services:
       dockerfile: infra/docker/Dockerfile.node-service
       args:
         SERVICE_NAME: '@work/notification-api'
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     environment:
       PORT: 3004
       DATABASE_URL: postgresql://work:${POSTGRES_PASSWORD:-work}@postgres:5432/work_platform
@@ -90,6 +93,7 @@ services:
       dockerfile: infra/docker/Dockerfile.node-service
       args:
         SERVICE_NAME: '@work/im-adapter-api'
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     environment:
       PORT: 3003
       OPENIM_API_BASE_URL: ${OPENIM_API_BASE_URL:-http://openim-server:10002}
@@ -103,6 +107,7 @@ services:
       dockerfile: infra/docker/Dockerfile.node-service
       args:
         SERVICE_NAME: '@work/realtime-gateway'
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     environment:
       PORT: 3005
       REDIS_URL: redis://redis:6379
@@ -116,6 +121,8 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/Dockerfile.web-shell
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     ports:
       - '8080:80'
     depends_on:

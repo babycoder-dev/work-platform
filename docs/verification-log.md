@@ -2,6 +2,44 @@
 
 ## 2026-05-17
 
+### Lockfile And Document Review Follow-up
+
+Change set:
+
+- Added `pnpm-lock.yaml`.
+- Changed GitHub Actions install to `pnpm install --frozen-lockfile`.
+- Changed production Dockerfiles to copy `pnpm-lock.yaml` and run frozen lockfile installs.
+- Added configurable Docker build registry through `NPM_REGISTRY`.
+- Closed M1 RFC open questions as decided records.
+- Aligned security baseline wording for current `scrypt` password hashing and future argon2id migration.
+- Marked PostgreSQL-backed session storage as the M1 session target.
+- Updated document gap milestones in `docs/doc-index.md`.
+- Updated foundation progress for the lockfile hard gate.
+
+Completed locally:
+
+```powershell
+pnpm install --lockfile-only --ignore-scripts --registry=https://registry.npmjs.org
+pnpm install --frozen-lockfile
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'; pnpm docker:build
+```
+
+Result:
+
+- `pnpm-lock.yaml` generated successfully.
+- Frozen lockfile install passed.
+- `pnpm verify` passed.
+- Docker production build passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+- Dockerfiles and Compose still default to `https://registry.npmjs.org/`; `NPM_REGISTRY` exists for controlled build environments that need an internal or regional mirror.
+
+Notes:
+
+- Direct local PostgreSQL E2E via temporary Docker port mapping was not completed in this run because Docker Desktop did not publish Postgres host ports consistently on this machine, and direct container-IP connections were unstable. The CI PostgreSQL service path remains configured and had passed in the prior gate.
+- Lint still reports existing warnings for skipped Nx ProjectGraph boundary checks and two underscore-prefixed unused parameters, but no lint errors.
+
+## 2026-05-17
+
 ### Architecture Document Review Fixes
 
 Change set:

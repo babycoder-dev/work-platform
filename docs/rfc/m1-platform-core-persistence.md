@@ -445,6 +445,7 @@ pnpm db:migrate:check
 
 M1 完成必须满足：
 
+- `pnpm-lock.yaml` 已提交，CI 使用 frozen lockfile 安装。
 - `platform-api` 默认使用 PostgreSQL repository。
 - `platform` schema 可从空库迁移生成。
 - seed 可幂等执行。
@@ -457,18 +458,14 @@ M1 完成必须满足：
 - `docs/platform-core.md` 更新为数据库实现状态。
 - `docs/verification-log.md` 记录验证结果。
 
-## 18. 开放问题
+## 18. 决定记录
 
-实现前需要确认或通过 ADR/RFC 补充：
+以下问题已经关闭，后续如需修改必须补充 ADR 或新 RFC：
 
-- session store 首期使用 PostgreSQL 还是 Redis。
-- 初始管理员密码是环境变量注入还是安装命令生成。
-- 是否在 M1 一并建立 `module_manifests` 和 `menus` 空表。
-- 数据库迁移脚本是否放在 app 内，还是根目录统一管理。
-- 是否立即引入 OpenAPI 生成，还是 M2/M3 再做。
-
-默认建议：
-
-- session 首期使用 PostgreSQL，Redis 作为 M3 实时/缓存能力再接入。
-- 初始管理员密码通过环境变量注入，缺失时开发环境使用安全提示，生产环境启动失败。
-- M1 预建 `module_manifests` 和 `menus` 空表，M2 再补业务逻辑。
+| 问题 | 决定 |
+| --- | --- |
+| session store 首期使用 PostgreSQL 还是 Redis | M1 使用 PostgreSQL `platform.sessions`，Redis 作为 M3 实时/缓存能力再接入 |
+| 初始管理员密码是环境变量注入还是安装命令生成 | 通过环境变量注入；生产环境缺失时启动或 seed 失败，开发环境可使用安全提示 |
+| 是否在 M1 一并建立 `module_manifests` 和 `menus` 空表 | M1 预建空表，M2 再补业务逻辑和注册闭环 |
+| 数据库迁移脚本是否放在 app 内，还是根目录统一管理 | 迁移执行入口在根脚本，迁移文件跟随 `platform-api` 数据库实现提交 |
+| 是否立即引入 OpenAPI 生成，还是 M2/M3 再做 | M1 不引入 OpenAPI 生成；M2/M3 在权限菜单和 Shell API 稳定后补齐 |
