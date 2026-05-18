@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { CreateRoleInput } from '@work/platform-contract';
+import type { CreateRoleInput, CurrentUserDto } from '@work/platform-contract';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
 @Injectable()
@@ -9,6 +9,14 @@ export class RbacService {
   async listPermissions() {
     return {
       items: await this.repository.listPermissions(),
+    };
+  }
+
+  async listCurrentUserMenus(currentUser: CurrentUserDto) {
+    return {
+      items: await this.repository.listMenusByPermissionCodes(
+        currentUser.permissions.map((permission) => permission.code),
+      ),
     };
   }
 

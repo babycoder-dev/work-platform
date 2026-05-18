@@ -28,6 +28,17 @@ export class AuthService {
       userId: employee.id,
       expiresAt: new Date(Date.now() + this.accessTokenTtlSeconds * 1000).toISOString(),
     });
+    await this.repository.recordAuditLog({
+      actorUserId: employee.id,
+      actorAccount: employee.account,
+      action: 'auth.login',
+      resourceType: 'platform.session',
+      resourceId: employee.id,
+      result: 'success',
+      metadata: {
+        account: employee.account,
+      },
+    });
 
     return {
       accessToken,

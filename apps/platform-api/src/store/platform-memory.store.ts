@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
+  CreateAuditLogInput,
   CreateDepartmentInput,
   CreateEmployeeInput,
   CreateRoleInput,
   DepartmentDto,
   EmployeeDto,
   EnterpriseDto,
+  MenuDto,
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
@@ -38,7 +40,9 @@ export class PlatformMemoryStore implements PlatformRepository {
   readonly identities = new Map<string, LocalIdentity>();
   readonly accessSessions = new Map<string, AccessSession>();
   readonly permissions = new Map<string, PermissionDto>();
+  readonly menus = new Map<string, MenuDto>();
   readonly roles = new Map<string, RoleDto>();
+  readonly auditLogs: CreateAuditLogInput[] = [];
 
   constructor() {
     this.seed();
@@ -133,6 +137,14 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.permissions.get(code);
   }
 
+  async listMenusByPermissionCodes(permissionCodes: string[]): Promise<MenuDto[]> {
+    const granted = new Set(permissionCodes);
+    return Array.from(this.menus.values())
+      .filter((menu) => menu.status === 'active')
+      .filter((menu) => !menu.permissionCode || granted.has(menu.permissionCode))
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title));
+  }
+
   async upsertPermission(permission: PermissionDto): Promise<PermissionDto> {
     this.permissions.set(permission.code, permission);
     return permission;
@@ -197,6 +209,10 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.accessSessions.get(accessToken);
   }
 
+  async recordAuditLog(input: CreateAuditLogInput): Promise<void> {
+    this.auditLogs.push(input);
+  }
+
   private seed() {
     const rootDepartment: DepartmentDto = {
       id: 'dept-root',
@@ -225,6 +241,49 @@ export class PlatformMemoryStore implements PlatformRepository {
 
     for (const permission of seedPermissions) {
       this.permissions.set(permission.code, permission);
+    }
+
+    const seedMenus: MenuDto[] = [
+      {
+        id: 'menu-platform-org',
+        moduleName: 'platform',
+        title: '组织架构',
+        path: '/platform/org',
+        permissionCode: 'platform:org:view',
+        sortOrder: 10,
+        status: 'active',
+      },
+      {
+        id: 'menu-platform-employees',
+        moduleName: 'platform',
+        title: '员工管理',
+        path: '/platform/employees',
+        permissionCode: 'platform:employee:view',
+        sortOrder: 20,
+        status: 'active',
+      },
+      {
+        id: 'menu-platform-roles',
+        moduleName: 'platform',
+        title: '角色权限',
+        path: '/platform/roles',
+        permissionCode: 'platform:role:view',
+        sortOrder: 30,
+        status: 'active',
+      },
+      {
+        id: 'menu-presence-board',
+        moduleName: 'presence',
+        title: '在位看板',
+        path: '/presence/board',
+        permissionCode: 'presence:board:view',
+        sortOrder: 100,
+        status: 'active',
+      },
+    ];
+
+    for (const menu of seedMenus) {
+      this.menus.set(menu.id, menu);
     }
 
     const adminRole: RoleDto = {

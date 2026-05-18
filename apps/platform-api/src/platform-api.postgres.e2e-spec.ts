@@ -1,8 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { configurePlatformHttp } from '@work/nest-common';
+import { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { readPlatformDatabaseConfig } from './db/db.config';
 import { runMigrations } from './db/migrate';
 import { PlatformModule } from './platform.module';
 import { seedPlatform } from './seeds/seed-platform';
@@ -12,6 +14,7 @@ const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123
 
 describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
   let app: INestApplication;
+  let pool: Pool;
   let previousRepositoryDriver: string | undefined;
 
   beforeAll(async () => {
@@ -21,6 +24,11 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
 
     await runMigrations();
     await seedPlatform();
+    const databaseConfig = readPlatformDatabaseConfig();
+    pool = new Pool({
+      connectionString: databaseConfig.databaseUrl,
+      ssl: databaseConfig.ssl ? { rejectUnauthorized: false } : undefined,
+    });
 
     const moduleRef = await Test.createTestingModule({
       imports: [PlatformModule],
@@ -33,6 +41,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
 
   afterAll(async () => {
     await app?.close();
+    await pool?.end();
     if (previousRepositoryDriver === undefined) {
       delete process.env.PLATFORM_REPOSITORY_DRIVER;
     } else {
@@ -41,6 +50,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
   });
 
   it('logs in with seeded postgres admin and persists an access session', async () => {
+    const auditCountBeforeLogin = await countSuccessfulAdminLogins(pool);
     const loginResponse = await request(app.getHttpServer())
       .post('/api/platform/auth/login')
       .send({
@@ -65,6 +75,27 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
         }),
       ]),
     );
+
+    const menusResponse = await request(app.getHttpServer())
+      .get('/api/platform/menus/my')
+      .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+      .expect(200);
+
+    expect(menusResponse.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: '组织架构',
+          permissionCode: 'platform:org:view',
+        }),
+        expect.objectContaining({
+          title: '在位看板',
+          permissionCode: 'presence:board:view',
+        }),
+      ]),
+    );
+
+    const auditCountAfterLogin = await countSuccessfulAdminLogins(pool);
+    expect(auditCountAfterLogin).toBeGreaterThan(auditCountBeforeLogin);
   });
 
   it('creates a postgres-backed employee with a hashed local identity', async () => {
@@ -112,3 +143,17 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     expect(limitedLoginResponse.body.user.permissions).toEqual([]);
   });
 });
+
+async function countSuccessfulAdminLogins(pool: Pool): Promise<number> {
+  const auditResult = await pool.query<{ count: string }>(
+    `
+      SELECT count(*)::text AS count
+      FROM platform.audit_logs
+      WHERE actor_account = 'admin'
+        AND action = 'auth.login'
+        AND result = 'success'
+    `,
+  );
+
+  return Number(auditResult.rows[0].count);
+}

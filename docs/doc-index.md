@@ -55,7 +55,18 @@ docs/deployment.md
 docs/development-workflow.md
 ```
 
-### 2.4 新增业务模块
+### 2.4 开始 M2 权限、菜单、审计闭环
+
+```text
+docs/foundation-blueprint.md
+docs/foundation-progress.md
+docs/rfc/m2-permission-menu-audit.md
+docs/platform-core.md
+docs/security-baseline.md
+docs/module-contract.md
+```
+
+### 2.5 新增业务模块
 
 ```text
 docs/foundation-blueprint.md

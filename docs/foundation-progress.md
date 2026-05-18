@@ -15,7 +15,7 @@
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
-| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Pending | M1 已完成，可启动 RFC 和首个实现切片 |
+| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | In Progress | M2 RFC 已启动；M2-1 当前用户菜单和登录审计已完成本地验证，等待 CI 闭环 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Pending | 依赖 M1/M2 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
@@ -99,28 +99,62 @@
 
 无。后续进入 M2 权限、菜单、审计闭环。
 
-## 4. 当前下一步
+## 4. M2 权限、菜单、审计闭环
+
+状态：In Progress
+
+目标：
+
+- 模块权限、菜单、审计统一接入 Platform Core。
+- 业务模块不得绕过 Platform Core 自建权限、菜单或审计来源。
+- 为 M3 Web Shell 和后续业务模块接入提供可验证的平台链路。
+
+### 4.1 已完成
+
+| 切片 | 能力 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| M2-0 | M2 RFC | Done | `docs/rfc/m2-permission-menu-audit.md` 已定义权限、菜单、审计闭环范围 |
+| M2-1 | 当前用户菜单 + 登录审计 | Done | `GET /api/platform/menus/my` 已按当前用户权限过滤菜单；登录成功写入 `platform.audit_logs` |
+| M2-1 | 菜单 seed | Done | 平台首批菜单已随 seed 幂等写入 `platform.menus` |
+| M2-1 | 测试覆盖 | Done | 已覆盖内存 E2E、PostgreSQL E2E、repository integration、lint/typecheck |
+
+### 4.2 正在做
+
+| 切片 | 能力 | 状态 | 下一步 |
+| --- | --- | --- | --- |
+| M2-1 | CI 与交付闭环 | In Progress | 完成本地 `pnpm verify`、Docker build、提交推送，并观察 GitHub Actions |
+
+### 4.3 未开始
+
+| 切片 | 能力 | 状态 | 启动条件 |
+| --- | --- | --- | --- |
+| M2-2 | module manifest 注册闭环 | Pending | M2-1 合并后启动 |
+| M2-3 | 平台关键写操作审计覆盖 | Pending | 部门、员工、角色写接口落地时同步接入 |
+| M2-4 | Web Shell 菜单消费 | Pending | M3 启动时接入 |
+
+## 5. 当前下一步
 
 当前建议执行：
 
 ```text
-M2: 权限、菜单、审计闭环 RFC 与首个实现切片
+M2-1: 完成本地 verify、Docker build、代码审查、提交推送和 CI 观察
 ```
 
 验收标准：
 
-- 明确 M2 范围和退出标准。
-- 将 `module_manifests`、`menus`、权限注册、审计写入串成闭环。
+- `GET /api/platform/menus/my` 按当前用户权限过滤菜单。
+- 登录成功写入 `platform.audit_logs`。
 - 保持 `platform-api` 默认 PostgreSQL 路径。
-- 新增测试覆盖权限菜单和审计核心路径。
+- 新增测试覆盖菜单过滤和审计写入。
+- `pnpm verify`、`pnpm test:db`、PostgreSQL E2E、Docker build 通过。
 
-## 5. 当前阻塞项
+## 6. 当前阻塞项
 
 | 阻塞项 | 状态 | 处理 |
 | --- | --- | --- |
-| 无 | Done | 当前没有阻塞 M1 继续推进的基础设施问题 |
+| 无 | Done | 当前没有阻塞 M2-1 收尾的基础设施问题 |
 
-## 6. M8 前置交付风险
+## 7. M8 前置交付风险
 
 | 切片 | 风险 | 状态 | 处理 |
 | --- | --- | --- | --- |

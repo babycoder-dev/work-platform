@@ -93,6 +93,40 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       [employee.id],
     );
     expect(storedSession.rows[0].access_token_hash).not.toBe(accessToken);
+
+    await repository.recordAuditLog({
+      actorUserId: employee.id,
+      actorAccount: employee.account,
+      action: 'integration.audit',
+      resourceType: 'platform.employee',
+      resourceId: employee.id,
+      result: 'success',
+      metadata: {
+        source: 'repository.integration',
+      },
+    });
+    const auditLog = await pool.query<{ action: string; actor_account: string }>(
+      `
+        SELECT action, actor_account
+        FROM platform.audit_logs
+        WHERE action = 'integration.audit'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+    );
+    expect(auditLog.rows[0]).toEqual({
+      action: 'integration.audit',
+      actor_account: employee.account,
+    });
+  });
+
+  it('lists menus allowed by permission codes', async () => {
+    await expect(repository.listMenusByPermissionCodes(['platform:org:view'])).resolves.toEqual([
+      expect.objectContaining({
+        title: '组织架构',
+        permissionCode: 'platform:org:view',
+      }),
+    ]);
   });
 
   it('maps unique constraint violations to platform duplicate errors', async () => {

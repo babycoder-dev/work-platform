@@ -10,6 +10,7 @@ import {
   DEFAULT_ADMIN_USER_ID,
   DEFAULT_DEPARTMENT_ID,
   DEFAULT_ENTERPRISE_ID,
+  platformSeedMenus,
   platformSeedPermissions,
 } from './seed-data';
 
@@ -39,6 +40,7 @@ export async function seedPlatform(): Promise<SeedPlatformResult> {
       const enterpriseId = await upsertEnterprise(client, bootstrapConfig.enterpriseCode, bootstrapConfig.enterpriseName);
       const departmentId = await upsertRootDepartment(client, enterpriseId);
       await upsertPermissions(client);
+      await upsertMenus(client);
       const adminRoleId = await upsertAdminRole(client, enterpriseId);
       await grantRolePermissions(client, adminRoleId);
       const adminUserId = await upsertAdminEmployee(client, {
@@ -126,6 +128,46 @@ async function upsertPermissions(client: Client): Promise<void> {
           updated_at = now()
       `,
       [permission.code, permission.name, permission.moduleName, permission.description ?? null],
+    );
+  }
+}
+
+async function upsertMenus(client: Client): Promise<void> {
+  for (const menu of platformSeedMenus) {
+    await client.query(
+      `
+        INSERT INTO platform.menus (
+          id,
+          module_name,
+          parent_id,
+          title,
+          path,
+          permission_code,
+          sort_order,
+          status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (id)
+        DO UPDATE SET
+          module_name = EXCLUDED.module_name,
+          parent_id = EXCLUDED.parent_id,
+          title = EXCLUDED.title,
+          path = EXCLUDED.path,
+          permission_code = EXCLUDED.permission_code,
+          sort_order = EXCLUDED.sort_order,
+          status = EXCLUDED.status,
+          updated_at = now()
+      `,
+      [
+        menu.id,
+        menu.moduleName,
+        menu.parentId ?? null,
+        menu.title,
+        menu.path,
+        menu.permissionCode ?? null,
+        menu.sortOrder,
+        menu.status,
+      ],
     );
   }
 }

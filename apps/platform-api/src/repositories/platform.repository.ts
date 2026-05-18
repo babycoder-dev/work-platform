@@ -1,10 +1,12 @@
 import type {
   CreateDepartmentInput,
+  CreateAuditLogInput,
   CreateEmployeeInput,
   CreateRoleInput,
   DepartmentDto,
   EmployeeDto,
   EnterpriseDto,
+  MenuDto,
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
@@ -35,10 +37,12 @@ export interface PlatformRepository {
   findAccessSession(accessToken: string): Promise<AccessSession | undefined>;
   listPermissions(): Promise<PermissionDto[]>;
   findPermissionByCode(code: string): Promise<PermissionDto | undefined>;
+  listMenusByPermissionCodes(permissionCodes: string[]): Promise<MenuDto[]>;
   listRoles(): Promise<RoleDto[]>;
   findRoleById(id: string): Promise<RoleDto | undefined>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;
   setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined>;
+  recordAuditLog(input: CreateAuditLogInput): Promise<void>;
 }
 
 export const PLATFORM_REPOSITORY = Symbol('PLATFORM_REPOSITORY');

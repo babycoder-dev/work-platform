@@ -11,6 +11,7 @@ import { PermissionGuard } from './rbac/permission.guard';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from './repositories/platform.repository';
 import { PostgresPlatformRepository } from './repositories/postgres-platform.repository';
 import { readPlatformRepositoryDriver } from './repositories/repository-driver.config';
+import { MenuController } from './rbac/menu.controller';
 import { RoleController } from './rbac/role.controller';
 import { RbacService } from './rbac/rbac.service';
 import { PlatformMemoryStore } from './store/platform-memory.store';
@@ -26,6 +27,7 @@ import { EmployeeService } from './users/employee.service';
     EnterpriseController,
     DepartmentController,
     EmployeeController,
+    MenuController,
     PermissionController,
     RoleController,
   ],

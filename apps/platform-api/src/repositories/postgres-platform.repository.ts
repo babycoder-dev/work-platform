@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
+  CreateAuditLogInput,
   CreateDepartmentInput,
   CreateEmployeeInput,
   CreateRoleInput,
@@ -8,6 +9,7 @@ import type {
   EmployeeDto,
   EmployeeStatus,
   EnterpriseDto,
+  MenuDto,
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
@@ -57,6 +59,17 @@ interface PermissionRow {
   name: string;
   module_name: string;
   description: string | null;
+}
+
+interface MenuRow {
+  id: string;
+  module_name: string;
+  parent_id: string | null;
+  title: string;
+  path: string;
+  permission_code: string | null;
+  sort_order: number;
+  status: MenuDto['status'];
 }
 
 interface RoleRow {
@@ -350,6 +363,21 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return mapFirst(result, mapPermission);
   }
 
+  async listMenusByPermissionCodes(permissionCodes: string[]): Promise<MenuDto[]> {
+    const result = await this.pool.query<MenuRow>(
+      `
+        SELECT id, module_name, parent_id, title, path, permission_code, sort_order, status
+        FROM platform.menus
+        WHERE status = 'active'
+          AND (permission_code IS NULL OR permission_code = ANY($1::varchar[]))
+        ORDER BY sort_order, title
+      `,
+      [permissionCodes],
+    );
+
+    return result.rows.map(mapMenu);
+  }
+
   async listRoles(): Promise<RoleDto[]> {
     const result = await this.pool.query<RoleRow>(roleSelectSql('WHERE r.deleted_at IS NULL ORDER BY r.code'));
 
@@ -431,6 +459,38 @@ export class PostgresPlatformRepository implements PlatformRepository {
     } finally {
       client.release();
     }
+  }
+
+  async recordAuditLog(input: CreateAuditLogInput): Promise<void> {
+    await this.pool.query(
+      `
+        INSERT INTO platform.audit_logs (
+          actor_user_id,
+          actor_account,
+          action,
+          resource_type,
+          resource_id,
+          trace_id,
+          ip,
+          user_agent,
+          result,
+          metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `,
+      [
+        input.actorUserId ?? null,
+        input.actorAccount ?? null,
+        input.action,
+        input.resourceType,
+        input.resourceId ?? null,
+        input.traceId ?? null,
+        input.ip ?? null,
+        input.userAgent ?? null,
+        input.result,
+        input.metadata ? JSON.stringify(input.metadata) : null,
+      ],
+    );
   }
 }
 
@@ -542,6 +602,19 @@ function mapPermission(row: PermissionRow): PermissionDto {
     name: row.name,
     moduleName: row.module_name,
     description: row.description ?? undefined,
+  };
+}
+
+function mapMenu(row: MenuRow): MenuDto {
+  return {
+    id: row.id,
+    moduleName: row.module_name,
+    parentId: row.parent_id ?? undefined,
+    title: row.title,
+    path: row.path,
+    permissionCode: row.permission_code ?? undefined,
+    sortOrder: row.sort_order,
+    status: row.status,
   };
 }
 

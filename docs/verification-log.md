@@ -2,6 +2,47 @@
 
 ## 2026-05-18
 
+### M2 Permission Menu Audit Start
+
+Change set:
+
+- Added M2 RFC for permission, menu, and audit closure.
+- Added menu and audit contract DTOs.
+- Seeded first platform menus.
+- Added `GET /api/platform/menus/my`, filtered by current user permissions.
+- Added repository support for permission-filtered menus and audit log writes.
+- Added successful login audit writes.
+- Updated Platform Core docs and progress tracker for M2.
+
+Verification:
+
+```powershell
+pnpm --filter @work/platform-api lint
+pnpm --filter @work/platform-api typecheck
+pnpm --filter @work/platform-contract typecheck
+pnpm test -- apps/platform-api/src/auth/auth.service.spec.ts apps/platform-api/src/store/platform-memory.store.spec.ts apps/platform-api/src/repositories/postgres-platform.repository.integration.spec.ts
+pnpm test:e2e
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_INTEGRATION='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm test:db
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_E2E='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'; Remove-Item Env:\PLATFORM_REPOSITORY_DRIVER -ErrorAction SilentlyContinue
+pnpm test:e2e:postgres
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose -f infra/docker-compose.prod.yml build --progress plain
+```
+
+Result:
+
+- Platform API lint passed; only the existing Nx ProjectGraph boundary warnings were emitted.
+- Platform API and platform contract typechecks passed.
+- Targeted auth, memory store, and repository tests passed; repository integration tests were also executed against PostgreSQL through `pnpm test:db`.
+- Memory E2E passed: admin sees allowed menus and a limited user receives an empty menu list.
+- PostgreSQL E2E passed: seed admin sees seed menus and successful login writes `platform.audit_logs`.
+- `pnpm verify` passed.
+- Full production Docker Compose build passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+
+## 2026-05-18
+
 ### Default PostgreSQL Repository Switch
 
 Change set:

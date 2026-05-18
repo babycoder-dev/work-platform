@@ -104,6 +104,27 @@ describe('platform-api', () => {
     );
   });
 
+  it('lists menus allowed by the current user permissions', async () => {
+    const token = await loginAsAdmin();
+    const response = await request(app.getHttpServer())
+      .get('/api/platform/menus/my')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(response.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: '组织架构',
+          permissionCode: 'platform:org:view',
+        }),
+        expect.objectContaining({
+          title: '在位看板',
+          permissionCode: 'presence:board:view',
+        }),
+      ]),
+    );
+  });
+
   it('rejects users without required permissions', async () => {
     const adminToken = await loginAsAdmin();
     await request(app.getHttpServer())
@@ -138,6 +159,12 @@ describe('platform-api', () => {
         message: '权限不足',
       }),
     );
+
+    const menusResponse = await request(app.getHttpServer())
+      .get('/api/platform/menus/my')
+      .set('Authorization', `Bearer ${limitedLogin.body.accessToken}`)
+      .expect(200);
+    expect(menusResponse.body.items).toEqual([]);
   });
 
   it('rejects invalid request bodies with normalized validation errors', async () => {
