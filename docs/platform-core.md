@@ -32,7 +32,7 @@ GET  /api/platform/auth/password-policy
 ```
 
 除登录和密码策略外，Platform Core API 默认需要 `Authorization: Bearer <accessToken>`。
-开发期 access token 由 `AuthService` 写入 repository 会话存储，后续持久化实现应替换为数据库或 Redis backed session/token store。
+access token 由 `AuthService` 写入 repository 会话存储。默认 PostgreSQL 实现只保存 token hash，不保存明文 token。
 
 企业与组织：
 
@@ -81,16 +81,16 @@ platform:role:manage
 platform:permission:view
 ```
 
-## 4. 开发期种子账号
+## 4. 种子账号
 
-仅开发期内存实现使用：
+PostgreSQL seed 默认创建管理员账号：
 
 ```text
 account: admin
-password: admin123
+password: 由 PLATFORM_BOOTSTRAP_ADMIN_PASSWORD 注入
 ```
 
-正式持久化实现必须改为安装初始化流程生成初始管理员密码，并强制首次登录修改。
+生产环境必须显式设置 `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD`，且不得使用 `admin123`。内存 repository 仅用于测试或显式本地 fallback，仍保留 `admin/admin123` 方便无数据库 smoke。
 
 ## 5. 数据范围
 
@@ -104,16 +104,16 @@ company
 custom
 ```
 
-## 6. 后续持久化替换
+## 6. Repository 实现
 
-当前 `platform-api` 使用内存 repository，目的是先稳定 API 边界。
+当前 `platform-api` 默认使用 PostgreSQL repository。内存 repository 仅作为测试 fixture 或显式本地 fallback，不作为生产默认实现。
 
-后续替换为数据库实现时：
+Repository 边界保持：
 
 - Controller 不变。
 - Contract 不变。
 - Service 方法语义不变。
-- 只替换 repository 实现层。
+- 存储实现只在 provider 层选择。
 
 Repository 接口：
 
@@ -121,32 +121,27 @@ Repository 接口：
 apps/platform-api/src/repositories/platform.repository.ts
 ```
 
-当前实现：
-
-```text
-apps/platform-api/src/store/platform-memory.store.ts
-```
-
-未来 PostgreSQL 实现建议：
+默认实现：
 
 ```text
 apps/platform-api/src/repositories/postgres-platform.repository.ts
 ```
 
-Nest provider 只需要从：
+测试/fallback 实现：
 
-```ts
-{
-  provide: PLATFORM_REPOSITORY,
-  useExisting: PlatformMemoryStore,
-}
+```text
+apps/platform-api/src/store/platform-memory.store.ts
 ```
 
-切换为：
+Provider 通过 `PLATFORM_REPOSITORY_DRIVER` 选择实现：
 
-```ts
-{
-  provide: PLATFORM_REPOSITORY,
-  useClass: PostgresPlatformRepository,
-}
+```text
+unset 或 postgres -> PostgresPlatformRepository
+memory          -> PlatformMemoryStore
+```
+
+无数据库场景必须显式设置：
+
+```powershell
+$env:PLATFORM_REPOSITORY_DRIVER="memory"
 ```

@@ -1,5 +1,47 @@
 # Verification Log
 
+## 2026-05-18
+
+### Default PostgreSQL Repository Switch
+
+Change set:
+
+- Changed `platform-api` repository driver default from `memory` to `postgres`.
+- Kept `PlatformMemoryStore` as an explicit test/local fallback through `PLATFORM_REPOSITORY_DRIVER=memory`.
+- Updated memory E2E to opt into the memory repository explicitly.
+- Updated PostgreSQL E2E to prove the unset driver path uses PostgreSQL by default.
+- Updated Platform Core docs, M1 RFC status, README, foundation progress, and Compose smoke documentation.
+- Added configurable `PLATFORM_API_HOST_PORT` for direct platform-api deployment smoke.
+
+Completed locally:
+
+```powershell
+pnpm test -- apps/platform-api/src/repositories/repository-driver.config.spec.ts
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_E2E='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'; Remove-Item Env:\PLATFORM_REPOSITORY_DRIVER -ErrorAction SilentlyContinue
+pnpm test:e2e:postgres
+pnpm test:e2e
+$env:RUN_POSTGRES_INTEGRATION='true'
+pnpm test:db
+pnpm verify
+docker compose -f infra/docker-compose.prod.yml config --quiet
+$env:NPM_REGISTRY='https://registry.npmmirror.com'; docker compose -f infra/docker-compose.prod.yml build platform-api --progress plain
+$env:POSTGRES_HOST_PORT='55432'; $env:PLATFORM_API_HOST_PORT='3001'; docker compose -f infra/docker-compose.prod.yml up -d postgres platform-api
+Invoke-RestMethod http://localhost:3001/api/platform/health
+$env:NPM_REGISTRY='https://registry.npmmirror.com'; docker compose -f infra/docker-compose.prod.yml build --progress plain
+```
+
+Result:
+
+- Repository driver config tests passed: default is PostgreSQL, memory remains explicit fallback.
+- PostgreSQL E2E passed with `PLATFORM_REPOSITORY_DRIVER` unset.
+- Memory E2E passed with explicit `PLATFORM_REPOSITORY_DRIVER=memory`.
+- PostgreSQL repository integration passed.
+- `pnpm verify` passed.
+- Compose config validation passed.
+- First platform-api image build attempt hit transient `ECONNRESET` against the default npm registry; retry with `NPM_REGISTRY=https://registry.npmmirror.com` passed.
+- Compose platform-api smoke passed: `GET /api/platform/health` returned `{"status":"ok","service":"platform-api"}`.
+- Full production Docker Compose build passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+
 ## 2026-05-17
 
 ### Compose PostgreSQL Volume Reset And Port Override

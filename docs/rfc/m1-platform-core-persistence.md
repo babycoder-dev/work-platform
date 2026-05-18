@@ -31,13 +31,20 @@ M1 不实现以下内容：
 
 这些能力在 M2 之后逐步进入。
 
-## 3. 当前状态
+## 3. 实现状态
 
-当前 `platform-api` 使用内存 repository：
+`platform-api` 已默认使用 PostgreSQL repository：
 
 ```text
 apps/platform-api/src/repositories/platform.repository.ts
+apps/platform-api/src/repositories/postgres-platform.repository.ts
+```
+
+内存实现保留为测试 fixture 和显式本地 fallback：
+
+```text
 apps/platform-api/src/store/platform-memory.store.ts
+PLATFORM_REPOSITORY_DRIVER=memory
 ```
 
 当前已具备：
@@ -50,15 +57,12 @@ apps/platform-api/src/store/platform-memory.store.ts
 - DTO 校验。
 - 统一错误格式。
 - E2E 覆盖登录、未登录、无权限、非法 token、非法 body。
-
-主要缺口：
-
-- 数据不持久。
-- 密码明文存储。
-- session 仅内存有效。
-- 无数据库迁移。
-- 无安装初始化流程。
-- 无唯一约束和事务边界。
+- PostgreSQL 迁移与幂等 seed。
+- scrypt 密码 hash。
+- PostgreSQL-backed session，token 入库只保存 hash。
+- PostgreSQL repository integration test。
+- PostgreSQL E2E。
+- 数据库唯一约束/外键错误映射。
 
 ## 4. 技术选择
 

@@ -106,3 +106,5 @@ pnpm db:setup
 ```
 
 `pnpm db:setup` 依赖 `DATABASE_URL`，会执行 PostgreSQL 迁移并写入平台基础 seed 数据。开发环境默认管理员为 `admin/admin123`；生产环境必须通过 `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD` 显式注入初始密码。
+
+`platform-api` 默认使用 PostgreSQL repository。需要无数据库的本地 API smoke 或单测 fixture 时，显式设置 `PLATFORM_REPOSITORY_DRIVER=memory`。

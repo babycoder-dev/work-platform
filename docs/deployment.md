@@ -33,6 +33,7 @@ docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.y
 ```env
 POSTGRES_HOST_PORT=55432
 REDIS_HOST_PORT=56379
+PLATFORM_API_HOST_PORT=3001
 ```
 
 如果构建环境访问默认 npm registry 不稳定，可在有网构建机指定内部镜像或可信镜像：
@@ -89,7 +90,34 @@ pnpm db:setup
 
 OpenIM 独立部署，不默认塞进主 compose。
 
-### 2.1 当前镜像边界
+### 2.1 Compose Smoke
+
+M1-M3 阶段的本地部署 smoke 先采用手动命令，M8 前必须自动化到发布验收流程。
+
+前置条件：
+
+- `infra/release/.env.prod` 已设置 `POSTGRES_PASSWORD`、`PLATFORM_BOOTSTRAP_ADMIN_PASSWORD`。
+- 如宿主机 `5432` 或 `6379` 已被占用，已设置 `POSTGRES_HOST_PORT` 或 `REDIS_HOST_PORT`。
+- 已执行 `pnpm db:setup` 初始化数据库。
+
+最小 smoke：
+
+```powershell
+docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.yml up -d postgres redis platform-api
+Invoke-RestMethod http://localhost:3001/api/platform/health
+```
+
+完整 smoke：
+
+```powershell
+docker compose --env-file infra/release/.env.prod -f infra/docker-compose.prod.yml up -d
+Invoke-RestMethod http://localhost:3000/api/health
+Invoke-RestMethod http://localhost:3001/api/platform/health
+```
+
+当前 CI 已覆盖 `db:setup`、PostgreSQL repository integration、PostgreSQL E2E 和 production Docker build。服务启动后的 Compose API smoke 在 M8 前补为自动化 gate。
+
+### 2.2 当前镜像边界
 
 M1-M3 阶段的 Node 服务镜像共用 `infra/docker/Dockerfile.node-service`，通过 `SERVICE_NAME` 决定启动哪个服务。该 Dockerfile 会复制当前 monorepo 的 `apps`、`packages`、`modules` 目录，因此每个 Node 服务镜像包含完整工作区源码和依赖。
 

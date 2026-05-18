@@ -14,8 +14,8 @@
 | 阶段 | 目标 | 状态 | 当前结论 |
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
-| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | In Progress | lockfile hard gate 已解除；PostgreSQL repository 和 CI 数据库 E2E 已接入，默认切换和错误映射尚未完成 |
-| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Pending | 等 M1 repository/session 闭环后启动 |
+| M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
+| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Pending | M1 已完成，可启动 RFC 和首个实现切片 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Pending | 依赖 M1/M2 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
@@ -46,7 +46,7 @@
 
 ## 3. M1 平台核心持久化
 
-状态：In Progress
+状态：Done
 
 目标：
 
@@ -79,46 +79,40 @@
 | CI PostgreSQL E2E | Done | GitHub Actions verify job 执行 `pnpm test:e2e:postgres` |
 | lockfile hard gate | Done | `pnpm-lock.yaml` 已生成，CI 和 Docker 构建已切换为 frozen lockfile |
 | database error mapper | Done | PostgreSQL `23505`/`23503` 已映射为 `PLATFORM_DUPLICATE_RESOURCE`/`PLATFORM_REFERENCE_NOT_FOUND` |
-| repository integration gate | In Progress | `pnpm test:db` 已加入 CI；本地临时 PostgreSQL 已通过，等待远端 CI 确认 |
+| repository integration gate | Done | `pnpm test:db` 已加入 CI；本地真实 PostgreSQL 和远端 CI 均已通过 |
+| default repository switch | Done | `platform-api` 默认使用 PostgreSQL；`memory` 必须显式设置 `PLATFORM_REPOSITORY_DRIVER=memory` |
+| memory store fallback | Done | 内存实现保留为测试 fixture 和显式本地 fallback，不作为生产默认路径 |
 
 ### 3.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| M1-5 | repository integration tests + database error mapping | In Progress | 代码、本地真实 PostgreSQL 验证与 CI gate 已接入；等待远端 CI 通过后标记 Done |
-| M1-6 | 默认 repository 切换 | In Progress | 等 M1-5 错误映射完成后一并切换，避免默认生产路径暴露未映射数据库错误 |
+| 无 | Done | M1 代码、测试、CI、Docker build、文档和 smoke 规划已完成 |
 
 ### 3.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| M1-7 | 内存 store 降级为测试专用 | Pending | PostgreSQL E2E 通过后执行 |
-| M1-8 | `docs/platform-core.md` 数据库实现状态 | Pending | M1 退出前更新 |
-| M1-9 | docker compose deployment smoke 规划 | Pending | M1 退出前明确 smoke 命令和 CI/M8 落点，M8 前实现自动化 |
+| 无 | Done | M1 无剩余切片 |
 
 ### 3.4 M1 剩余交付清单
 
-1. 扩展 PostgreSQL repository integration test。
-2. 统一数据库错误映射。
-3. 将内存 store 降级为测试专用。
-4. 更新 `docs/platform-core.md` 和 `docs/verification-log.md`。
-5. 明确 docker compose smoke test 的命令、执行环境和 M8 自动化落点。
+无。后续进入 M2 权限、菜单、审计闭环。
 
 ## 4. 当前下一步
 
 当前建议执行：
 
 ```text
-M1-5: repository integration tests + database error mapping
+M2: 权限、菜单、审计闭环 RFC 与首个实现切片
 ```
 
 验收标准：
 
-- PostgreSQL integration tests 覆盖创建员工、角色、分配角色、session。
-- 唯一约束和外键错误映射为统一业务错误或 HTTP 错误。
-- controller 不直接暴露 PostgreSQL 原始错误。
-- `pnpm verify` 通过。
-- `pnpm docker:build` 通过。
+- 明确 M2 范围和退出标准。
+- 将 `module_manifests`、`menus`、权限注册、审计写入串成闭环。
+- 保持 `platform-api` 默认 PostgreSQL 路径。
+- 新增测试覆盖权限菜单和审计核心路径。
 
 ## 5. 当前阻塞项
 

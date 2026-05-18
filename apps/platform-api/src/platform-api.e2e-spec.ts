@@ -7,8 +7,12 @@ import { PlatformModule } from './platform.module';
 
 describe('platform-api', () => {
   let app: INestApplication;
+  let previousRepositoryDriver: string | undefined;
 
   beforeAll(async () => {
+    previousRepositoryDriver = process.env.PLATFORM_REPOSITORY_DRIVER;
+    process.env.PLATFORM_REPOSITORY_DRIVER = 'memory';
+
     const moduleRef = await Test.createTestingModule({
       imports: [PlatformModule],
     }).compile();
@@ -19,7 +23,12 @@ describe('platform-api', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
+    if (previousRepositoryDriver === undefined) {
+      delete process.env.PLATFORM_REPOSITORY_DRIVER;
+    } else {
+      process.env.PLATFORM_REPOSITORY_DRIVER = previousRepositoryDriver;
+    }
   });
 
   it('logs in and returns current user permissions', async () => {

@@ -12,9 +12,11 @@ const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123
 
 describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
   let app: INestApplication;
+  let previousRepositoryDriver: string | undefined;
 
   beforeAll(async () => {
-    process.env.PLATFORM_REPOSITORY_DRIVER = 'postgres';
+    previousRepositoryDriver = process.env.PLATFORM_REPOSITORY_DRIVER;
+    delete process.env.PLATFORM_REPOSITORY_DRIVER;
     process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ??= adminPassword;
 
     await runMigrations();
@@ -31,6 +33,11 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
 
   afterAll(async () => {
     await app?.close();
+    if (previousRepositoryDriver === undefined) {
+      delete process.env.PLATFORM_REPOSITORY_DRIVER;
+    } else {
+      process.env.PLATFORM_REPOSITORY_DRIVER = previousRepositoryDriver;
+    }
   });
 
   it('logs in with seeded postgres admin and persists an access session', async () => {
