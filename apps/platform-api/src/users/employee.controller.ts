@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Inject, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { dtoValidationPipe } from '@work/nest-common';
 import { PlatformAuthGuard } from '../auth/platform-auth.guard';
+import type { PlatformRequest } from '../auth/request-user';
+import { buildPlatformAuditContext } from '../auth/request-user';
 import { PermissionGuard } from '../rbac/permission.guard';
 import { RequirePermissions } from '../rbac/require-permissions.decorator';
 import { AssignEmployeeRolesDto, CreateEmployeeDto, UpdateEmployeeStatusDto } from './employee.dto';
@@ -19,8 +21,11 @@ export class EmployeeController {
 
   @Post()
   @RequirePermissions('platform:employee:create')
-  createEmployee(@Body(dtoValidationPipe(CreateEmployeeDto)) input: CreateEmployeeDto) {
-    return this.employeeService.createEmployee(input);
+  createEmployee(
+    @Body(dtoValidationPipe(CreateEmployeeDto)) input: CreateEmployeeDto,
+    @Req() request: PlatformRequest,
+  ) {
+    return this.employeeService.createEmployee(input, buildPlatformAuditContext(request));
   }
 
   @Put(':id/status')
@@ -28,8 +33,9 @@ export class EmployeeController {
   updateStatus(
     @Param('id') id: string,
     @Body(dtoValidationPipe(UpdateEmployeeStatusDto)) input: UpdateEmployeeStatusDto,
+    @Req() request: PlatformRequest,
   ) {
-    return this.employeeService.updateStatus(id, input);
+    return this.employeeService.updateStatus(id, input, buildPlatformAuditContext(request));
   }
 
   @Put(':id/roles')
@@ -37,10 +43,14 @@ export class EmployeeController {
   assignRoles(
     @Param('id') id: string,
     @Body(dtoValidationPipe(AssignEmployeeRolesDto)) input: AssignEmployeeRolesDto,
+    @Req() request: PlatformRequest,
   ) {
-    return this.employeeService.assignRoles({
-      userId: id,
-      roleIds: input.roleIds,
-    });
+    return this.employeeService.assignRoles(
+      {
+        userId: id,
+        roleIds: input.roleIds,
+      },
+      buildPlatformAuditContext(request),
+    );
   }
 }

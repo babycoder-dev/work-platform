@@ -108,7 +108,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     );
   });
 
-  it('creates a postgres-backed employee with a hashed local identity', async () => {
+  it('creates postgres-backed platform resources and writes audit logs', async () => {
     const uniqueSuffix = Date.now().toString();
     const account = `postgres-user-${uniqueSuffix}`;
     const employeeNo = `PG${uniqueSuffix}`;
@@ -120,12 +120,39 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       })
       .expect(201);
 
+    const departmentResponse = await request(app.getHttpServer())
+      .post('/api/platform/departments')
+      .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+      .set('X-Trace-Id', `trace-postgres-department-${uniqueSuffix}`)
+      .set('X-Forwarded-For', '203.0.113.20, 10.0.0.1')
+      .set('User-Agent', 'postgres-write-agent')
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        code: `PGD${uniqueSuffix}`,
+        name: 'Postgres Department',
+      })
+      .expect(201);
+
+    const roleResponse = await request(app.getHttpServer())
+      .post('/api/platform/roles')
+      .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+      .set('X-Trace-Id', `trace-postgres-role-${uniqueSuffix}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        code: `postgres-role-${uniqueSuffix}`,
+        name: 'Postgres Role',
+        permissionCodes: ['platform:org:view'],
+        dataScope: 'self',
+      })
+      .expect(201);
+
     const employeeResponse = await request(app.getHttpServer())
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+      .set('X-Trace-Id', `trace-postgres-employee-${uniqueSuffix}`)
       .send({
         enterpriseId: '00000000-0000-0000-0000-000000000001',
-        departmentId: '00000000-0000-0000-0000-000000000002',
+        departmentId: departmentResponse.body.id,
         employeeNo,
         account,
         name: 'Postgres User',
@@ -151,6 +178,51 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
 
     expect(limitedLoginResponse.body.user.name).toBe('Postgres User');
     expect(limitedLoginResponse.body.user.permissions).toEqual([]);
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${employeeResponse.body.id}/status`)
+      .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+      .set('X-Trace-Id', `trace-postgres-status-${uniqueSuffix}`)
+      .send({
+        status: 'disabled',
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${employeeResponse.body.id}/roles`)
+      .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+      .set('X-Trace-Id', `trace-postgres-roles-${uniqueSuffix}`)
+      .send({
+        roleIds: [roleResponse.body.id],
+      })
+      .expect(200);
+
+    await expect(fetchAuditActionsByTraceSuffix(pool, uniqueSuffix)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'platform.department.create',
+          trace_id: `trace-postgres-department-${uniqueSuffix}`,
+          ip: '203.0.113.20',
+          user_agent: 'postgres-write-agent',
+        }),
+        expect.objectContaining({
+          action: 'platform.role.create',
+          trace_id: `trace-postgres-role-${uniqueSuffix}`,
+        }),
+        expect.objectContaining({
+          action: 'platform.employee.create',
+          trace_id: `trace-postgres-employee-${uniqueSuffix}`,
+        }),
+        expect.objectContaining({
+          action: 'platform.employee.status.update',
+          trace_id: `trace-postgres-status-${uniqueSuffix}`,
+        }),
+        expect.objectContaining({
+          action: 'platform.employee.roles.assign',
+          trace_id: `trace-postgres-roles-${uniqueSuffix}`,
+        }),
+      ]),
+    );
   });
 });
 
@@ -183,4 +255,24 @@ async function fetchLatestSuccessfulAdminLogin(pool: Pool) {
   );
 
   return auditResult.rows[0];
+}
+
+async function fetchAuditActionsByTraceSuffix(pool: Pool, suffix: string) {
+  const auditResult = await pool.query<{
+    action: string;
+    actor_account: string | null;
+    trace_id: string | null;
+    ip: string | null;
+    user_agent: string | null;
+  }>(
+    `
+      SELECT action, actor_account, trace_id, ip, user_agent
+      FROM platform.audit_logs
+      WHERE trace_id LIKE $1
+      ORDER BY created_at ASC
+    `,
+    [`trace-postgres-%-${suffix}`],
+  );
+
+  return auditResult.rows;
 }

@@ -13,6 +13,7 @@ export interface LoginResult {
 
 export interface CurrentUserDto {
   id: string;
+  account: string;
   employeeNo: string;
   name: string;
   enterpriseId: string;

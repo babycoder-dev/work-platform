@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CreateRoleInput, CurrentUserDto } from '@work/platform-contract';
+import type { PlatformAuditContext } from '../auth/request-user';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
 @Injectable()
@@ -32,7 +33,26 @@ export class RbacService {
     };
   }
 
-  async createRole(input: CreateRoleInput) {
-    return this.repository.createRole(input);
+  async createRole(input: CreateRoleInput, auditContext: PlatformAuditContext = {}) {
+    const role = await this.repository.createRole(input);
+    await this.repository.recordAuditLog({
+      actorUserId: auditContext.actorUserId,
+      actorAccount: auditContext.actorAccount,
+      action: 'platform.role.create',
+      resourceType: 'platform.role',
+      resourceId: role.id,
+      traceId: auditContext.traceId,
+      ip: auditContext.ip,
+      userAgent: auditContext.userAgent,
+      result: 'success',
+      metadata: {
+        enterpriseId: role.enterpriseId,
+        code: role.code,
+        permissionCodes: role.permissionCodes,
+        dataScope: role.dataScope,
+      },
+    });
+
+    return role;
   }
 }

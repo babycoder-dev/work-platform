@@ -99,6 +99,7 @@ export class AuthService {
 
     return {
       id: employee.id,
+      account: employee.account,
       employeeNo: employee.employeeNo,
       name: employee.name,
       enterpriseId: employee.enterpriseId,

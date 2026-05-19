@@ -62,6 +62,14 @@ M2-2 收敛 module manifest 注册边界：
 - 新增 `GET /api/platform/module-manifests`，用于查看 active manifest。
 - 暂不开放运行时 manifest 写接口，避免未完成签名、审批和模块包校验前引入危险动态注册面。
 
+M2-3 覆盖平台关键写操作审计：
+
+- 创建部门写入 `platform.department.create`。
+- 创建员工写入 `platform.employee.create`。
+- 修改员工状态写入 `platform.employee.status.update`。
+- 分配员工角色写入 `platform.employee.roles.assign`。
+- 创建角色写入 `platform.role.create`。
+
 ## 5. API
 
 ```text
@@ -105,7 +113,7 @@ result: success
 - `ip` 优先使用 `X-Forwarded-For` 首个地址，其次 `X-Real-IP`、框架解析 IP、socket 远端地址。
 - `userAgent` 来自 `User-Agent` 请求头。
 
-后续切片再覆盖：
+M2-3 覆盖：
 
 - 创建部门。
 - 创建员工。
@@ -116,7 +124,8 @@ result: success
 审计失败策略：
 
 - 平台关键写操作的审计写入与业务操作保持同一 repository 边界。
-- M2-1 登录审计写入失败时允许请求失败，优先保证审计链路可见，不吞掉持久化错误。
+- M2 登录和平台写操作的审计写入失败时允许请求失败，优先保证审计链路可见，不吞掉持久化错误。
+- 当前不把业务写入和审计写入强行塞进同一个数据库事务；后续如果引入 repository unit-of-work，再收敛为原子事务。
 
 ## 7. 模块接入约束
 
@@ -143,6 +152,7 @@ M2-1 必须覆盖：
 - 单元测试：disabled 角色不得贡献当前用户权限；审计写入失败不得被吞掉。
 - E2E：`/menus/my` 未登录返回 401。
 - E2E：有 `platform:permission:view` 的用户可查看 module manifest，无权限用户被拒绝。
+- E2E：平台关键写操作写入审计日志，并包含 traceId、ip、userAgent。
 - `pnpm verify` 通过。
 - `pnpm test:db` 通过。
 - CI 通过。

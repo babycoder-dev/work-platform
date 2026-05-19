@@ -2,6 +2,48 @@
 
 ## 2026-05-19
 
+### M2 Platform Write Audit Coverage
+
+Change set:
+
+- Added shared request audit context extraction for authenticated Platform API requests.
+- Added `account` to `CurrentUserDto` so platform write audits can record actor account.
+- Added audit writes for department creation, employee creation, employee status updates, employee role assignment, and role creation.
+- Added memory E2E and PostgreSQL E2E coverage for platform write audit actions and request context propagation.
+- Updated Platform Core docs, M2 RFC, and foundation progress.
+
+Verification:
+
+```powershell
+pnpm --filter @work/platform-contract typecheck
+pnpm --filter @work/platform-api typecheck
+pnpm --filter @work/platform-api lint
+pnpm test -- apps/platform-api/src/audit/platform-write-audit.spec.ts
+pnpm test -- apps/platform-api/src/auth/auth.service.spec.ts apps/platform-api/src/store/platform-memory.store.spec.ts
+pnpm test:e2e
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_INTEGRATION='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm test:db
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_E2E='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'; Remove-Item Env:\PLATFORM_REPOSITORY_DRIVER -ErrorAction SilentlyContinue
+pnpm test:e2e:postgres
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose --progress plain -f infra/docker-compose.prod.yml build
+```
+
+Result:
+
+- Platform contract and Platform API typechecks passed.
+- Platform API lint passed; only existing Nx ProjectGraph boundary warnings were emitted.
+- Platform write audit service tests passed, including audit failure propagation.
+- Targeted auth and memory store unit tests passed.
+- Memory E2E passed, including platform write audit assertions.
+- PostgreSQL repository integration passed.
+- PostgreSQL E2E passed, including department, role, employee, status, and role-assignment audit persistence.
+- `pnpm verify` passed.
+- First Docker build attempt hit a transient Docker Hub metadata EOF for `node:22-bookworm-slim`; retry passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+
+## 2026-05-19
+
 ### M2 Module Manifest Registration
 
 Change set:

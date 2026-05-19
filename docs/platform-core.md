@@ -155,7 +155,7 @@ $env:PLATFORM_REPOSITORY_DRIVER="memory"
 
 ## 7. 审计
 
-Platform Core 写入 `platform.audit_logs`。M2-1 已覆盖登录成功审计：
+Platform Core 写入 `platform.audit_logs`。M2 已覆盖登录成功和平台关键写操作审计：
 
 ```text
 action: auth.login
@@ -166,4 +166,14 @@ ip: X-Forwarded-For 首个地址，或 X-Real-IP / request.ip / socket remote ad
 userAgent: User-Agent 请求头
 ```
 
-后续平台写操作必须逐步纳入审计，包括创建员工、创建部门、创建角色和分配角色。
+平台写操作审计动作：
+
+```text
+platform.department.create
+platform.employee.create
+platform.employee.status.update
+platform.employee.roles.assign
+platform.role.create
+```
+
+审计记录必须包含 actor、action、resource、result、traceId、ip、userAgent 和必要 metadata。当前策略是不吞掉审计写入错误：业务写入成功但审计写入失败时，请求仍失败，优先暴露审计链路问题。后续如引入 repository unit-of-work，再将业务写入和审计写入收敛为原子事务。

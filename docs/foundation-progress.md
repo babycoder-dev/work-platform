@@ -15,7 +15,7 @@
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
-| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | In Progress | M2-2 module manifest 注册闭环已完成；下一步进入平台关键写操作审计覆盖 |
+| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | In Progress | M2-3 平台关键写操作审计覆盖已完成本地验证；下一步观察 CI |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Pending | 依赖 M1/M2 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
@@ -125,13 +125,13 @@
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| M2-2 | 交付闭环 | Done | 本地 `pnpm verify`、PostgreSQL 集成/E2E、Docker build、代码审查已完成 |
+| M2-2 | 交付闭环 | Done | 本地 `pnpm verify`、PostgreSQL 集成/E2E、Docker build、代码审查、CI 已完成 |
+| M2-3 | 平台关键写操作审计覆盖 | Done | 部门、员工、角色写接口审计、单测、内存 E2E、PostgreSQL E2E 和 Docker build 已完成 |
 
 ### 4.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| M2-3 | 平台关键写操作审计覆盖 | Pending | M2-2 交付闭环完成后启动 |
 | M2-4 | Web Shell 菜单消费 | Pending | M3 启动时接入 |
 
 ## 5. 当前下一步

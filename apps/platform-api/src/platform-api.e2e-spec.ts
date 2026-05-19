@@ -4,9 +4,11 @@ import { configurePlatformHttp } from '@work/nest-common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PlatformModule } from './platform.module';
+import { PlatformMemoryStore } from './store/platform-memory.store';
 
 describe('platform-api', () => {
   let app: INestApplication;
+  let memoryStore: PlatformMemoryStore;
   let previousRepositoryDriver: string | undefined;
 
   beforeAll(async () => {
@@ -18,6 +20,7 @@ describe('platform-api', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    memoryStore = moduleRef.get(PlatformMemoryStore);
     configurePlatformHttp(app, { globalPrefix: 'api/platform' });
     await app.init();
   });
@@ -231,6 +234,112 @@ describe('platform-api', () => {
     );
     expect(response.body.message).toContain('initialPassword');
     expect(response.body.message).toContain('unknownField');
+  });
+
+  it('writes audit logs for platform write operations', async () => {
+    const token = await loginAsAdmin();
+    const suffix = Date.now().toString();
+
+    const departmentResponse = await request(app.getHttpServer())
+      .post('/api/platform/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-department-${suffix}`)
+      .set('X-Forwarded-For', '198.51.100.20, 10.0.0.1')
+      .set('User-Agent', 'memory-e2e-agent')
+      .send({
+        enterpriseId: 'ent-default',
+        code: `AUDIT${suffix}`,
+        name: '审计测试部门',
+      })
+      .expect(201);
+
+    const roleResponse = await request(app.getHttpServer())
+      .post('/api/platform/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-role-${suffix}`)
+      .send({
+        enterpriseId: 'ent-default',
+        code: `audit-role-${suffix}`,
+        name: '审计测试角色',
+        permissionCodes: ['platform:org:view'],
+        dataScope: 'self',
+      })
+      .expect(201);
+
+    const employeeResponse = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-employee-${suffix}`)
+      .send({
+        enterpriseId: 'ent-default',
+        departmentId: departmentResponse.body.id,
+        employeeNo: `AU${suffix}`,
+        account: `audit-user-${suffix}`,
+        name: '审计测试员工',
+        initialPassword: 'Passw0rd1',
+        roleIds: [roleResponse.body.id],
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${employeeResponse.body.id}/status`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-status-${suffix}`)
+      .send({
+        status: 'disabled',
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${employeeResponse.body.id}/roles`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-roles-${suffix}`)
+      .send({
+        roleIds: [],
+      })
+      .expect(200);
+
+    expect(memoryStore.auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actorAccount: 'admin',
+          action: 'platform.department.create',
+          resourceId: departmentResponse.body.id,
+          traceId: `trace-department-${suffix}`,
+          ip: '198.51.100.20',
+          userAgent: 'memory-e2e-agent',
+          result: 'success',
+        }),
+        expect.objectContaining({
+          actorAccount: 'admin',
+          action: 'platform.role.create',
+          resourceId: roleResponse.body.id,
+          traceId: `trace-role-${suffix}`,
+          result: 'success',
+        }),
+        expect.objectContaining({
+          actorAccount: 'admin',
+          action: 'platform.employee.create',
+          resourceId: employeeResponse.body.id,
+          traceId: `trace-employee-${suffix}`,
+          result: 'success',
+        }),
+        expect.objectContaining({
+          actorAccount: 'admin',
+          action: 'platform.employee.status.update',
+          resourceId: employeeResponse.body.id,
+          traceId: `trace-status-${suffix}`,
+          result: 'success',
+        }),
+        expect.objectContaining({
+          actorAccount: 'admin',
+          action: 'platform.employee.roles.assign',
+          resourceId: employeeResponse.body.id,
+          traceId: `trace-roles-${suffix}`,
+          result: 'success',
+        }),
+      ]),
+    );
   });
 
   it('returns normalized errors with trace id', async () => {
