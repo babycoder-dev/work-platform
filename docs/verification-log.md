@@ -1,5 +1,44 @@
 # Verification Log
 
+## 2026-05-19
+
+### M2 Review Follow-up
+
+Change set:
+
+- Fixed disabled roles contributing permissions to `CurrentUserDto`.
+- Added login audit context propagation for trace id, client IP, and user agent.
+- Added tests for disabled role permission filtering, audit write failure, `/menus/my` 401, and PostgreSQL audit context persistence.
+- Marked pre-manifest business-module permissions as M2-1 placeholders.
+- Moved `setUserRoles` employee lookup into the same PostgreSQL transaction as role replacement.
+- Updated M2 RFC, Platform Core docs, and foundation progress.
+
+Verification:
+
+```powershell
+pnpm --filter @work/platform-api lint
+pnpm --filter @work/platform-api typecheck
+pnpm test -- apps/platform-api/src/auth/auth.service.spec.ts
+pnpm test:e2e
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_INTEGRATION='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm test:db
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_E2E='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'; Remove-Item Env:\PLATFORM_REPOSITORY_DRIVER -ErrorAction SilentlyContinue
+pnpm test:e2e:postgres
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose --progress plain -f infra/docker-compose.prod.yml build
+```
+
+Result:
+
+- Platform API lint and typecheck passed.
+- Auth service tests passed, including disabled role filtering and audit failure propagation.
+- Memory E2E passed, including `/menus/my` 401 coverage.
+- PostgreSQL repository integration passed.
+- PostgreSQL E2E passed, including audit trace id, IP, and user agent persistence.
+- `pnpm verify` passed.
+- Full production Docker Compose build passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+
 ## 2026-05-18
 
 ### M2 Permission Menu Audit Start

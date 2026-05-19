@@ -14,6 +14,9 @@ export const platformSeedPermissions: PermissionDto[] = [
   { code: 'platform:role:view', name: '查看角色', moduleName: 'platform' },
   { code: 'platform:role:manage', name: '管理角色', moduleName: 'platform' },
   { code: 'platform:permission:view', name: '查看权限', moduleName: 'platform' },
+
+  // M2-1 placeholder permissions for upcoming modules. M2-2 must migrate these
+  // declarations behind the module manifest registration boundary.
   { code: 'presence:board:view', name: '查看在位看板', moduleName: 'presence' },
   { code: 'presence:status:create', name: '登记在位状态', moduleName: 'presence' },
   { code: 'approval:task:approve', name: '处理审批任务', moduleName: 'approval' },

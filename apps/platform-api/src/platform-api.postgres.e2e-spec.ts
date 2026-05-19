@@ -53,6 +53,9 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     const auditCountBeforeLogin = await countSuccessfulAdminLogins(pool);
     const loginResponse = await request(app.getHttpServer())
       .post('/api/platform/auth/login')
+      .set('X-Trace-Id', 'trace-postgres-login')
+      .set('X-Forwarded-For', '203.0.113.10, 10.0.0.1')
+      .set('User-Agent', 'postgres-e2e-agent')
       .send({
         account: 'admin',
         password: adminPassword,
@@ -96,6 +99,13 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
 
     const auditCountAfterLogin = await countSuccessfulAdminLogins(pool);
     expect(auditCountAfterLogin).toBeGreaterThan(auditCountBeforeLogin);
+    await expect(fetchLatestSuccessfulAdminLogin(pool)).resolves.toEqual(
+      expect.objectContaining({
+        trace_id: 'trace-postgres-login',
+        ip: '203.0.113.10',
+        user_agent: 'postgres-e2e-agent',
+      }),
+    );
   });
 
   it('creates a postgres-backed employee with a hashed local identity', async () => {
@@ -149,11 +159,28 @@ async function countSuccessfulAdminLogins(pool: Pool): Promise<number> {
     `
       SELECT count(*)::text AS count
       FROM platform.audit_logs
-      WHERE actor_account = 'admin'
+      WHERE trace_id = 'trace-postgres-login'
+        AND actor_account = 'admin'
         AND action = 'auth.login'
         AND result = 'success'
     `,
   );
 
   return Number(auditResult.rows[0].count);
+}
+
+async function fetchLatestSuccessfulAdminLogin(pool: Pool) {
+  const auditResult = await pool.query<{ trace_id: string | null; ip: string | null; user_agent: string | null }>(
+    `
+      SELECT trace_id, ip, user_agent
+      FROM platform.audit_logs
+      WHERE actor_account = 'admin'
+        AND action = 'auth.login'
+        AND result = 'success'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+  );
+
+  return auditResult.rows[0];
 }

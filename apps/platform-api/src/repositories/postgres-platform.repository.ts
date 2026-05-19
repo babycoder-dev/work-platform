@@ -227,9 +227,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
   }
 
   async findEmployeeById(id: string): Promise<EmployeeDto | undefined> {
-    const result = await this.pool.query<EmployeeRow>(employeeSelectSql('WHERE e.id = $1 AND e.deleted_at IS NULL'), [id]);
-
-    return mapFirst(result, mapEmployee);
+    return findEmployeeById(this.pool, id);
   }
 
   async validatePassword(account: string, password: string): Promise<EmployeeDto | undefined> {
@@ -440,7 +438,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      const employee = await this.findEmployeeById(userId);
+      const employee = await findEmployeeById(client, userId);
       if (!employee) {
         await client.query('ROLLBACK');
         return undefined;
@@ -516,6 +514,12 @@ function employeeSelectSql(suffix: string): string {
     FROM platform.employees e
     ${suffix}
   `;
+}
+
+async function findEmployeeById(executor: QueryExecutor, id: string): Promise<EmployeeDto | undefined> {
+  const result = await executor.query<EmployeeRow>(employeeSelectSql('WHERE e.id = $1 AND e.deleted_at IS NULL'), [id]);
+
+  return mapFirst(result, mapEmployee);
 }
 
 function roleSelectSql(suffix: string): string {

@@ -70,6 +70,7 @@ POST /api/platform/roles
 权限码由 Platform Core 统一维护。业务模块不得自行发明员工、角色、权限来源；如果需要新权限，先在对应模块 contract/文档中声明，再由 Platform Core 注册。
 
 菜单由 Platform Core 统一返回。`GET /api/platform/menus/my` 只返回当前用户有权限访问的 active 菜单；业务模块不得自行绕过平台菜单源在 Shell 中注册入口。
+当前用户权限只从 active 角色计算；disabled 角色不得贡献菜单权限、接口权限或数据范围。
 
 当前内置平台权限：
 
@@ -157,6 +158,9 @@ Platform Core 写入 `platform.audit_logs`。M2-1 已覆盖登录成功审计：
 action: auth.login
 resourceType: platform.session
 result: success
+traceId: 请求 trace id
+ip: X-Forwarded-For 首个地址，或 X-Real-IP / request.ip / socket remote address
+userAgent: User-Agent 请求头
 ```
 
 后续平台写操作必须逐步纳入审计，包括创建员工、创建部门、创建角色和分配角色。

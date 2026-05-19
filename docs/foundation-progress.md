@@ -15,7 +15,7 @@
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
-| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | In Progress | M2 RFC 已启动；M2-1 当前用户菜单和登录审计已完成本地验证，等待 CI 闭环 |
+| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | In Progress | M2-1 已完成；外部审查 P2 已处理，等待本次 CI 闭环后进入 M2-2 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Pending | 依赖 M1/M2 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
@@ -115,6 +115,7 @@
 | --- | --- | --- | --- |
 | M2-0 | M2 RFC | Done | `docs/rfc/m2-permission-menu-audit.md` 已定义权限、菜单、审计闭环范围 |
 | M2-1 | 当前用户菜单 + 登录审计 | Done | `GET /api/platform/menus/my` 已按当前用户权限过滤菜单；登录成功写入 `platform.audit_logs` |
+| M2-1 | 外部审查 P2 修复 | Done | disabled 角色不再贡献当前用户权限；登录审计已写入 traceId、ip、userAgent |
 | M2-1 | 菜单 seed | Done | 平台首批菜单已随 seed 幂等写入 `platform.menus` |
 | M2-1 | 测试覆盖 | Done | 已覆盖内存 E2E、PostgreSQL E2E、repository integration、lint/typecheck |
 
@@ -122,7 +123,7 @@
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| M2-1 | CI 与交付闭环 | In Progress | 完成本地 `pnpm verify`、Docker build、提交推送，并观察 GitHub Actions |
+| M2-1 | 审查修复交付闭环 | In Progress | 完成本地 `pnpm verify`、Docker build、提交推送，并观察 GitHub Actions |
 
 ### 4.3 未开始
 

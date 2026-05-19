@@ -57,6 +57,18 @@ describe('platform-api', () => {
     );
   });
 
+  it('rejects current user menu requests without access token', async () => {
+    const response = await request(app.getHttpServer()).get('/api/platform/menus/my').expect(401);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_401',
+        message: '未登录',
+      }),
+    );
+  });
+
   it('rejects protected endpoints with malformed authorization header', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/platform/departments')

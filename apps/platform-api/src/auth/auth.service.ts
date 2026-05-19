@@ -10,13 +10,19 @@ import type {
 } from '@work/platform-contract';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
+export interface LoginAuditContext {
+  traceId?: string;
+  ip?: string;
+  userAgent?: string;
+}
+
 @Injectable()
 export class AuthService {
   private readonly accessTokenTtlSeconds = 7200;
 
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
-  async login(input: LoginInput): Promise<LoginResult> {
+  async login(input: LoginInput, auditContext: LoginAuditContext = {}): Promise<LoginResult> {
     const employee = await this.repository.validatePassword(input.account, input.password);
     if (!employee || employee.status !== 'active') {
       throw new UnauthorizedException('账号或密码错误');
@@ -34,6 +40,9 @@ export class AuthService {
       action: 'auth.login',
       resourceType: 'platform.session',
       resourceId: employee.id,
+      traceId: auditContext.traceId,
+      ip: auditContext.ip,
+      userAgent: auditContext.userAgent,
       result: 'success',
       metadata: {
         account: employee.account,
@@ -81,7 +90,7 @@ export class AuthService {
       ? await this.repository.findDepartmentById(employee.departmentId)
       : undefined;
     const roleResults = await Promise.all(employee.roleIds.map((roleId) => this.repository.findRoleById(roleId)));
-    const roles = roleResults.filter((role): role is RoleDto => role !== undefined);
+    const roles = roleResults.filter((role): role is RoleDto => role !== undefined && role.status === 'active');
     const permissionCodes = new Set(roles.flatMap((role) => role.permissionCodes));
     const permissionResults = await Promise.all(
       Array.from(permissionCodes).map((code) => this.repository.findPermissionByCode(code)),
