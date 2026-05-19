@@ -10,6 +10,7 @@ import {
   DEFAULT_ADMIN_USER_ID,
   DEFAULT_DEPARTMENT_ID,
   DEFAULT_ENTERPRISE_ID,
+  platformModuleManifests,
   platformSeedMenus,
   platformSeedPermissions,
 } from './seed-data';
@@ -39,6 +40,7 @@ export async function seedPlatform(): Promise<SeedPlatformResult> {
     try {
       const enterpriseId = await upsertEnterprise(client, bootstrapConfig.enterpriseCode, bootstrapConfig.enterpriseName);
       const departmentId = await upsertRootDepartment(client, enterpriseId);
+      await upsertModuleManifests(client);
       await upsertPermissions(client);
       await upsertMenus(client);
       const adminRoleId = await upsertAdminRole(client, enterpriseId);
@@ -112,6 +114,35 @@ async function upsertRootDepartment(client: Client, enterpriseId: string): Promi
   );
 
   return result.rows[0].id;
+}
+
+async function upsertModuleManifests(client: Client): Promise<void> {
+  for (const manifest of platformModuleManifests) {
+    await client.query(
+      `
+        INSERT INTO platform.module_manifests (id, module_name, manifest, status)
+        VALUES ($1, $2, $3::jsonb, $4)
+        ON CONFLICT (module_name)
+        DO UPDATE SET
+          manifest = EXCLUDED.manifest,
+          status = EXCLUDED.status,
+          updated_at = now()
+      `,
+      [
+        manifest.id,
+        manifest.moduleName,
+        JSON.stringify({
+          displayName: manifest.displayName,
+          description: manifest.description,
+          apiPrefix: manifest.apiPrefix,
+          webEntry: manifest.webEntry,
+          permissions: manifest.permissions,
+          menus: manifest.menus,
+        }),
+        manifest.status,
+      ],
+    );
+  }
 }
 
 async function upsertPermissions(client: Client): Promise<void> {

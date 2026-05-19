@@ -7,6 +7,7 @@ import type {
   EmployeeDto,
   EnterpriseDto,
   MenuDto,
+  ModuleManifestDto,
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
@@ -38,6 +39,7 @@ export interface PlatformRepository {
   listPermissions(): Promise<PermissionDto[]>;
   findPermissionByCode(code: string): Promise<PermissionDto | undefined>;
   listMenusByPermissionCodes(permissionCodes: string[]): Promise<MenuDto[]>;
+  listActiveModuleManifests(): Promise<ModuleManifestDto[]>;
   listRoles(): Promise<RoleDto[]>;
   findRoleById(id: string): Promise<RoleDto | undefined>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;

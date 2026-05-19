@@ -20,6 +20,26 @@ contract/
 
 ## 2. Manifest
 
+Platform Core 当前使用 `ModuleManifestDto` 作为持久化 manifest 结构：
+
+```ts
+export interface ModuleManifestDto {
+  id: string;
+  moduleName: string;
+  displayName: string;
+  description?: string;
+  apiPrefix: string;
+  webEntry?: string;
+  permissions: PermissionDto[];
+  menus: MenuDto[];
+  status: 'active' | 'disabled';
+}
+```
+
+M2-2 起，平台 seed 的权限和菜单从 manifest 派生。业务模块接入时应先声明 manifest，再由 Platform Core 注册权限点和菜单。
+
+前端模块可继续使用 Shell 侧模块定义，但字段必须能映射到 Platform Core manifest：
+
 ```ts
 export interface WorkModuleManifest {
   name: string;

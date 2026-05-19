@@ -55,6 +55,7 @@ PUT  /api/platform/employees/:id/roles
 
 ```text
 GET  /api/platform/menus/my
+GET  /api/platform/module-manifests
 GET  /api/platform/permissions
 GET  /api/platform/roles
 POST /api/platform/roles
@@ -68,6 +69,8 @@ POST /api/platform/roles
 - `PermissionGuard`：读取 `@RequirePermissions(...)` 元数据，校验当前用户权限码。
 
 权限码由 Platform Core 统一维护。业务模块不得自行发明员工、角色、权限来源；如果需要新权限，先在对应模块 contract/文档中声明，再由 Platform Core 注册。
+
+模块 manifest 由 Platform Core 统一登记。M2-2 起，seed 权限和菜单必须从 manifest 定义派生；不得在 manifest 之外单独维护同一模块的权限点或菜单入口。`GET /api/platform/module-manifests` 需要 `platform:permission:view`，用于查看当前 active 模块 manifest。
 
 菜单由 Platform Core 统一返回。`GET /api/platform/menus/my` 只返回当前用户有权限访问的 active 菜单；业务模块不得自行绕过平台菜单源在 Shell 中注册入口。
 当前用户权限只从 active 角色计算；disabled 角色不得贡献菜单权限、接口权限或数据范围。

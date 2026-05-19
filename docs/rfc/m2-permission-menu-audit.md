@@ -45,7 +45,7 @@ M1 已完成：
 - seed 初始化平台权限、管理员角色和管理员账号。
 - `PermissionGuard` 基于当前用户权限码做接口鉴权。
 
-## 4. 首个切片
+## 4. 切片计划
 
 M2-1 先做最小闭环：
 
@@ -54,6 +54,13 @@ M2-1 先做最小闭环：
 - 菜单按当前用户权限过滤。
 - 登录成功写入 `platform.audit_logs`。
 - repository integration 和 E2E 覆盖菜单与审计。
+
+M2-2 收敛 module manifest 注册边界：
+
+- `platform.module_manifests` 由 seed 幂等写入。
+- 权限点和菜单从 manifest 定义派生，不再维护孤立 placeholder 权限。
+- 新增 `GET /api/platform/module-manifests`，用于查看 active manifest。
+- 暂不开放运行时 manifest 写接口，避免未完成签名、审批和模块包校验前引入危险动态注册面。
 
 ## 5. API
 
@@ -122,7 +129,7 @@ result: success
 - Web entry 或后续 remote entry。
 
 M2-1 暂不实现 manifest 注册 API，先用 seed 固化平台菜单；M2 后续切片补 `module_manifests` 注册闭环。
-M2-1 中 presence、approval、report 相关权限属于 placeholder，M2-2 必须迁移到 manifest 注册边界后再继续扩展。
+M2-2 后，presence、approval、report 相关权限必须从 manifest 定义派生。
 
 ## 8. 测试要求
 
@@ -132,8 +139,10 @@ M2-1 必须覆盖：
 - PostgreSQL E2E：管理员可看到 seed 菜单，登录写入审计日志。
 - PostgreSQL E2E：登录审计写入 traceId、ip、userAgent。
 - Repository integration：菜单权限过滤、审计写入。
+- Repository integration：active module manifest 可从 PostgreSQL 读取。
 - 单元测试：disabled 角色不得贡献当前用户权限；审计写入失败不得被吞掉。
 - E2E：`/menus/my` 未登录返回 401。
+- E2E：有 `platform:permission:view` 的用户可查看 module manifest，无权限用户被拒绝。
 - `pnpm verify` 通过。
 - `pnpm test:db` 通过。
 - CI 通过。

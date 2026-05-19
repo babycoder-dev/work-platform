@@ -43,6 +43,18 @@ export interface MenuDto {
   status: 'active' | 'disabled';
 }
 
+export interface ModuleManifestDto {
+  id: string;
+  moduleName: string;
+  displayName: string;
+  description?: string;
+  apiPrefix: string;
+  webEntry?: string;
+  permissions: PermissionDto[];
+  menus: MenuDto[];
+  status: 'active' | 'disabled';
+}
+
 export type AuditResult = 'success' | 'failure';
 
 export interface CreateAuditLogInput {

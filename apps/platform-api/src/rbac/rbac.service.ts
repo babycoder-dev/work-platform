@@ -20,6 +20,12 @@ export class RbacService {
     };
   }
 
+  async listModuleManifests() {
+    return {
+      items: await this.repository.listActiveModuleManifests(),
+    };
+  }
+
   async listRoles() {
     return {
       items: await this.repository.listRoles(),

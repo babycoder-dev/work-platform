@@ -10,6 +10,7 @@ import type {
   EmployeeStatus,
   EnterpriseDto,
   MenuDto,
+  ModuleManifestDto,
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
@@ -70,6 +71,13 @@ interface MenuRow {
   permission_code: string | null;
   sort_order: number;
   status: MenuDto['status'];
+}
+
+interface ModuleManifestRow {
+  id: string;
+  module_name: string;
+  manifest: unknown;
+  status: ModuleManifestDto['status'];
 }
 
 interface RoleRow {
@@ -376,6 +384,19 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return result.rows.map(mapMenu);
   }
 
+  async listActiveModuleManifests(): Promise<ModuleManifestDto[]> {
+    const result = await this.pool.query<ModuleManifestRow>(
+      `
+        SELECT id, module_name, manifest, status
+        FROM platform.module_manifests
+        WHERE status = 'active'
+        ORDER BY module_name
+      `,
+    );
+
+    return result.rows.map(mapModuleManifest);
+  }
+
   async listRoles(): Promise<RoleDto[]> {
     const result = await this.pool.query<RoleRow>(roleSelectSql('WHERE r.deleted_at IS NULL ORDER BY r.code'));
 
@@ -619,6 +640,34 @@ function mapMenu(row: MenuRow): MenuDto {
     permissionCode: row.permission_code ?? undefined,
     sortOrder: row.sort_order,
     status: row.status,
+  };
+}
+
+function mapModuleManifest(row: ModuleManifestRow): ModuleManifestDto {
+  const manifest = asModuleManifestPayload(row.manifest);
+  return {
+    id: row.id,
+    moduleName: row.module_name,
+    displayName: manifest.displayName,
+    description: manifest.description,
+    apiPrefix: manifest.apiPrefix,
+    webEntry: manifest.webEntry,
+    permissions: manifest.permissions,
+    menus: manifest.menus,
+    status: row.status,
+  };
+}
+
+function asModuleManifestPayload(value: unknown): Omit<ModuleManifestDto, 'id' | 'moduleName' | 'status'> {
+  const payload = value && typeof value === 'object' ? value as Partial<ModuleManifestDto> : {};
+
+  return {
+    displayName: typeof payload.displayName === 'string' ? payload.displayName : '',
+    description: typeof payload.description === 'string' ? payload.description : undefined,
+    apiPrefix: typeof payload.apiPrefix === 'string' ? payload.apiPrefix : '',
+    webEntry: typeof payload.webEntry === 'string' ? payload.webEntry : undefined,
+    permissions: Array.isArray(payload.permissions) ? payload.permissions as PermissionDto[] : [],
+    menus: Array.isArray(payload.menus) ? payload.menus as MenuDto[] : [],
   };
 }
 

@@ -12,6 +12,7 @@ import { PLATFORM_REPOSITORY, type PlatformRepository } from './repositories/pla
 import { PostgresPlatformRepository } from './repositories/postgres-platform.repository';
 import { readPlatformRepositoryDriver } from './repositories/repository-driver.config';
 import { MenuController } from './rbac/menu.controller';
+import { ModuleManifestController } from './rbac/module-manifest.controller';
 import { RoleController } from './rbac/role.controller';
 import { RbacService } from './rbac/rbac.service';
 import { PlatformMemoryStore } from './store/platform-memory.store';
@@ -28,6 +29,7 @@ import { EmployeeService } from './users/employee.service';
     DepartmentController,
     EmployeeController,
     MenuController,
+    ModuleManifestController,
     PermissionController,
     RoleController,
   ],

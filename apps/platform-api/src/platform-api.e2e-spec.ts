@@ -137,6 +137,27 @@ describe('platform-api', () => {
     );
   });
 
+  it('lists module manifests for users with platform permission visibility', async () => {
+    const token = await loginAsAdmin();
+    const response = await request(app.getHttpServer())
+      .get('/api/platform/module-manifests')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(response.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          moduleName: 'platform',
+          apiPrefix: '/api/platform',
+        }),
+        expect.objectContaining({
+          moduleName: 'presence',
+          apiPrefix: '/api/presence',
+        }),
+      ]),
+    );
+  });
+
   it('rejects users without required permissions', async () => {
     const adminToken = await loginAsAdmin();
     await request(app.getHttpServer())
@@ -177,6 +198,11 @@ describe('platform-api', () => {
       .set('Authorization', `Bearer ${limitedLogin.body.accessToken}`)
       .expect(200);
     expect(menusResponse.body.items).toEqual([]);
+
+    await request(app.getHttpServer())
+      .get('/api/platform/module-manifests')
+      .set('Authorization', `Bearer ${limitedLogin.body.accessToken}`)
+      .expect(403);
   });
 
   it('rejects invalid request bodies with normalized validation errors', async () => {

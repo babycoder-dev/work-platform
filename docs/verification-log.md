@@ -2,6 +2,48 @@
 
 ## 2026-05-19
 
+### M2 Module Manifest Registration
+
+Change set:
+
+- Added `ModuleManifestDto` to the platform contract.
+- Made platform seed permissions and menus derive from `platformModuleManifests`.
+- Seeded `platform.module_manifests` idempotently before permissions and menus.
+- Added repository support for listing active module manifests in memory and PostgreSQL implementations.
+- Added `GET /api/platform/module-manifests`, protected by `platform:permission:view`.
+- Updated module contract, Platform Core docs, M2 RFC, and foundation progress.
+
+Verification:
+
+```powershell
+pnpm --filter @work/platform-contract typecheck
+pnpm --filter @work/platform-api lint
+pnpm --filter @work/platform-api typecheck
+pnpm test -- apps/platform-api/src/seeds/seed-data.spec.ts apps/platform-api/src/store/platform-memory.store.spec.ts apps/platform-api/src/auth/auth.service.spec.ts
+pnpm test:e2e
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_INTEGRATION='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm test:db
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_E2E='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'; Remove-Item Env:\PLATFORM_REPOSITORY_DRIVER -ErrorAction SilentlyContinue
+pnpm test:e2e:postgres
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose --progress plain -f infra/docker-compose.prod.yml build
+```
+
+Result:
+
+- Platform contract and Platform API typechecks passed.
+- Platform API lint passed; only existing Nx ProjectGraph boundary warnings were emitted.
+- Seed data tests passed, including manifest-derived permissions and menus.
+- Memory E2E passed, including module manifest API authorization.
+- PostgreSQL repository integration passed, including active module manifest listing.
+- PostgreSQL E2E passed.
+- `pnpm verify` passed.
+- Full production Docker Compose build passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+- Self-review found no P2 or higher issues. Runtime manifest writes remain intentionally out of scope until validation, signing/review, and package verification are designed.
+
+## 2026-05-19
+
 ### M2 Review Follow-up
 
 Change set:

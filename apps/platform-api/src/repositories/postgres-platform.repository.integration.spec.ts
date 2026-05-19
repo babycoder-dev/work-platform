@@ -129,6 +129,31 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     ]);
   });
 
+  it('lists active module manifests', async () => {
+    await expect(repository.listActiveModuleManifests()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          moduleName: 'platform',
+          apiPrefix: '/api/platform',
+          permissions: expect.arrayContaining([
+            expect.objectContaining({
+              code: 'platform:permission:view',
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          moduleName: 'presence',
+          apiPrefix: '/api/presence',
+          menus: expect.arrayContaining([
+            expect.objectContaining({
+              path: '/presence/board',
+            }),
+          ]),
+        }),
+      ]),
+    );
+  });
+
   it('maps unique constraint violations to platform duplicate errors', async () => {
     await expect(
       repository.createDepartment({

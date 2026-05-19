@@ -9,6 +9,7 @@ import type {
   EmployeeDto,
   EnterpriseDto,
   MenuDto,
+  ModuleManifestDto,
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
@@ -17,6 +18,7 @@ import type {
   CreateAccessSessionInput,
   PlatformRepository,
 } from '../repositories/platform.repository';
+import { platformModuleManifests } from '../seeds/seed-data';
 
 interface LocalIdentity {
   userId: string;
@@ -41,6 +43,7 @@ export class PlatformMemoryStore implements PlatformRepository {
   readonly accessSessions = new Map<string, AccessSession>();
   readonly permissions = new Map<string, PermissionDto>();
   readonly menus = new Map<string, MenuDto>();
+  readonly moduleManifests = new Map<string, ModuleManifestDto>();
   readonly roles = new Map<string, RoleDto>();
   readonly auditLogs: CreateAuditLogInput[] = [];
 
@@ -145,6 +148,12 @@ export class PlatformMemoryStore implements PlatformRepository {
       .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title));
   }
 
+  async listActiveModuleManifests(): Promise<ModuleManifestDto[]> {
+    return Array.from(this.moduleManifests.values())
+      .filter((manifest) => manifest.status === 'active')
+      .sort((left, right) => left.moduleName.localeCompare(right.moduleName));
+  }
+
   async upsertPermission(permission: PermissionDto): Promise<PermissionDto> {
     this.permissions.set(permission.code, permission);
     return permission;
@@ -224,64 +233,16 @@ export class PlatformMemoryStore implements PlatformRepository {
     };
     this.departments.set(rootDepartment.id, rootDepartment);
 
-    const seedPermissions: PermissionDto[] = [
-      { code: 'platform:org:view', name: '查看组织', moduleName: 'platform' },
-      { code: 'platform:org:manage', name: '管理组织', moduleName: 'platform' },
-      { code: 'platform:employee:view', name: '查看员工', moduleName: 'platform' },
-      { code: 'platform:employee:create', name: '创建员工', moduleName: 'platform' },
-      { code: 'platform:employee:manage', name: '管理员工', moduleName: 'platform' },
-      { code: 'platform:role:view', name: '查看角色', moduleName: 'platform' },
-      { code: 'platform:role:manage', name: '管理角色', moduleName: 'platform' },
-      { code: 'platform:permission:view', name: '查看权限', moduleName: 'platform' },
-      { code: 'presence:board:view', name: '查看在位看板', moduleName: 'presence' },
-      { code: 'presence:status:create', name: '登记在位状态', moduleName: 'presence' },
-      { code: 'approval:task:approve', name: '处理审批任务', moduleName: 'approval' },
-      { code: 'report:weekly:view', name: '查看周报', moduleName: 'report' },
-    ];
+    for (const manifest of platformModuleManifests) {
+      this.moduleManifests.set(manifest.moduleName, manifest);
+    }
 
+    const seedPermissions = platformModuleManifests.flatMap((manifest) => manifest.permissions);
     for (const permission of seedPermissions) {
       this.permissions.set(permission.code, permission);
     }
 
-    const seedMenus: MenuDto[] = [
-      {
-        id: 'menu-platform-org',
-        moduleName: 'platform',
-        title: '组织架构',
-        path: '/platform/org',
-        permissionCode: 'platform:org:view',
-        sortOrder: 10,
-        status: 'active',
-      },
-      {
-        id: 'menu-platform-employees',
-        moduleName: 'platform',
-        title: '员工管理',
-        path: '/platform/employees',
-        permissionCode: 'platform:employee:view',
-        sortOrder: 20,
-        status: 'active',
-      },
-      {
-        id: 'menu-platform-roles',
-        moduleName: 'platform',
-        title: '角色权限',
-        path: '/platform/roles',
-        permissionCode: 'platform:role:view',
-        sortOrder: 30,
-        status: 'active',
-      },
-      {
-        id: 'menu-presence-board',
-        moduleName: 'presence',
-        title: '在位看板',
-        path: '/presence/board',
-        permissionCode: 'presence:board:view',
-        sortOrder: 100,
-        status: 'active',
-      },
-    ];
-
+    const seedMenus = platformModuleManifests.flatMap((manifest) => manifest.menus);
     for (const menu of seedMenus) {
       this.menus.set(menu.id, menu);
     }
