@@ -1,74 +1,212 @@
 :root {
-  color: #172033;
-  background: #f5f7fb;
+  color: #182230;
+  background: #f4f6f8;
   font-family:
     Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
 }
 
 .shell {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 248px minmax(0, 1fr);
 }
 
 .shell__sidebar {
-  background: #111827;
+  background: #15202b;
   color: #f8fafc;
-  padding: 24px 18px;
+  padding: 24px 16px;
 }
 
 .shell__brand {
   font-size: 18px;
   font-weight: 700;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .shell__nav {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
-.shell__nav a {
-  border-radius: 8px;
-  padding: 10px 12px;
+.shell__nav-item {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #dbe4ef;
+  min-height: 40px;
+  padding: 9px 12px;
+  text-align: left;
 }
 
-.shell__nav a:hover {
-  background: rgb(255 255 255 / 10%);
+.shell__nav-item:hover,
+.shell__nav-item--active {
+  background: #244057;
+  color: #ffffff;
 }
 
 .shell__content {
-  padding: 32px;
+  min-width: 0;
+  padding: 28px;
 }
 
 .shell__header {
-  align-items: baseline;
+  align-items: center;
   display: flex;
+  justify-content: space-between;
   gap: 16px;
 }
 
 .shell__header h1 {
   font-size: 24px;
-  margin: 0;
+  margin: 0 0 4px;
 }
 
 .shell__header span {
-  color: #64748b;
+  color: #667085;
+}
+
+.shell__account {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.shell__account button,
+.login__panel button {
+  background: #1f7a5f;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  min-height: 36px;
+  padding: 8px 14px;
 }
 
 .shell__panel {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d9e0e8;
   border-radius: 8px;
-  margin-top: 24px;
+  margin-top: 22px;
+  min-height: 280px;
   padding: 20px;
+}
+
+.shell__error,
+.login__error {
+  background: #fff1f0;
+  border: 1px solid #ffccc7;
+  border-radius: 6px;
+  color: #a8071a;
+  margin-top: 16px;
+  padding: 10px 12px;
+}
+
+.login {
+  align-items: center;
+  display: flex;
+  min-height: 100vh;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login__panel {
+  background: #ffffff;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  width: min(100%, 380px);
+  padding: 26px;
+}
+
+.login__panel h1 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.login__panel p {
+  color: #667085;
+  margin: 6px 0 0;
+}
+
+.login__panel label {
+  color: #344054;
+  display: grid;
+  gap: 7px;
+}
+
+.login__panel input {
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.login__panel button:disabled {
+  background: #9aa6b2;
+  cursor: default;
+}
+
+.home h2 {
+  font-size: 20px;
+  margin: 0 0 18px;
+}
+
+.home dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.home dl div {
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.home dt {
+  color: #667085;
+  margin-bottom: 8px;
+}
+
+.home dd {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .shell__sidebar {
+    padding: 16px;
+  }
+
+  .shell__content {
+    padding: 18px;
+  }
+
+  .shell__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

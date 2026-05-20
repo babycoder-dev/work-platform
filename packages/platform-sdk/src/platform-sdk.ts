@@ -1,8 +1,9 @@
 export interface CurrentUser {
   id: string;
+  account: string;
   name: string;
-  departmentId: string;
-  departmentName: string;
+  departmentId?: string;
+  departmentName?: string;
   permissions: string[];
 }
 

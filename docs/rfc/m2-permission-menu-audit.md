@@ -70,10 +70,18 @@ M2-3 覆盖平台关键写操作审计：
 - 分配员工角色写入 `platform.employee.roles.assign`。
 - 创建角色写入 `platform.role.create`。
 
+M2-4 让 Web Shell 消费平台链路：
+
+- 新增 `GET /api/platform/auth/me`，用于已有 access token 恢复当前用户。
+- Web Shell 登录后保存 access token。
+- Web Shell 从 `GET /api/platform/menus/my` 获取导航，不再使用本地 manifest 菜单作为导航来源。
+- Web Shell 只加载当前用户拥有权限的模块路由。
+
 ## 5. API
 
 ```text
 GET /api/platform/menus/my
+GET /api/platform/auth/me
 ```
 
 认证：
@@ -153,6 +161,7 @@ M2-1 必须覆盖：
 - E2E：`/menus/my` 未登录返回 401。
 - E2E：有 `platform:permission:view` 的用户可查看 module manifest，无权限用户被拒绝。
 - E2E：平台关键写操作写入审计日志，并包含 traceId、ip、userAgent。
+- Web Shell：导航由 Platform Core 菜单返回值驱动，路由匹配受当前用户权限保护。
 - `pnpm verify` 通过。
 - `pnpm test:db` 通过。
 - CI 通过。

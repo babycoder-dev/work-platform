@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "@work/http-client": "workspace:*",
+    "@work/platform-contract": "workspace:*",
     "@work/platform-sdk": "workspace:*",
     "@work/presence-contract": "workspace:*",
     "@work/presence-web": "workspace:*",

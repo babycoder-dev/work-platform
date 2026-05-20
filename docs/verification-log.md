@@ -1,5 +1,54 @@
 # Verification Log
 
+## 2026-05-20
+
+### M2 Web Shell Platform Menu Consumption
+
+Change set:
+
+- Added `GET /api/platform/auth/me` for access-token based current user recovery.
+- Updated Web Shell to login through Platform Core, persist access token, load current user, and render navigation from `GET /api/platform/menus/my`.
+- Added route permission matching so local module routes are loaded only when current user permissions allow them.
+- Added Workbench navigation unit tests.
+- Added Vite dev proxy and Nginx production proxy for `/api/platform`.
+- Updated Platform Core docs, M2 RFC, and foundation progress.
+
+Verification:
+
+```powershell
+pnpm install --lockfile-only
+pnpm install
+pnpm --filter @work/platform-api typecheck
+pnpm --filter @work/workbench-shell typecheck
+pnpm --filter @work/workbench-shell lint
+pnpm test -- apps/workbench-shell/src/app/navigation.spec.ts
+pnpm test:e2e
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_INTEGRATION='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'
+pnpm test:db
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'; $env:RUN_POSTGRES_E2E='true'; $env:NODE_ENV='production'; $env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='ci-admin-password'; Remove-Item Env:\PLATFORM_REPOSITORY_DRIVER -ErrorAction SilentlyContinue
+pnpm test:e2e:postgres
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose --progress plain -f infra/docker-compose.prod.yml build
+docker builder prune -f
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose --progress plain -f infra/docker-compose.prod.yml build
+```
+
+Result:
+
+- Lockfile and workspace install completed after adding Workbench Shell dependencies on `@work/http-client` and `@work/platform-contract`.
+- Platform API and Workbench Shell typechecks passed.
+- Workbench Shell lint passed; only existing Nx ProjectGraph and `_descriptor` warnings were emitted.
+- Workbench navigation unit tests passed.
+- Memory E2E passed, including `GET /api/platform/auth/me`.
+- PostgreSQL repository integration passed.
+- PostgreSQL E2E passed, including access-token current user recovery.
+- `pnpm verify` passed.
+- First Docker Compose production build after the frontend URL fix failed while exporting the Workbench image because Docker Desktop had a stale BuildKit snapshot (`parent snapshot ... does not exist`), not because the app build failed.
+- `docker builder prune -f` cleared the local builder cache.
+- Docker Compose production build then passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+
 ## 2026-05-19
 
 ### M2 Platform Write Audit Coverage

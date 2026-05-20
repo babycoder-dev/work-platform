@@ -119,6 +119,28 @@ describe('platform-api', () => {
     );
   });
 
+  it('returns the current user from an existing access token', async () => {
+    const token = await loginAsAdmin();
+    const response = await request(app.getHttpServer())
+      .get('/api/platform/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        account: 'admin',
+        name: '系统管理员',
+      }),
+    );
+    expect(response.body.permissions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'platform:org:view',
+        }),
+      ]),
+    );
+  });
+
   it('lists menus allowed by the current user permissions', async () => {
     const token = await loginAsAdmin();
     const response = await request(app.getHttpServer())

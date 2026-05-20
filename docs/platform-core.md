@@ -28,6 +28,7 @@ Platform Core 负责所有业务模块共享的基础能力：
 
 ```text
 POST /api/platform/auth/login
+GET  /api/platform/auth/me
 GET  /api/platform/auth/password-policy
 ```
 
@@ -72,7 +73,7 @@ POST /api/platform/roles
 
 模块 manifest 由 Platform Core 统一登记。M2-2 起，seed 权限和菜单必须从 manifest 定义派生；不得在 manifest 之外单独维护同一模块的权限点或菜单入口。`GET /api/platform/module-manifests` 需要 `platform:permission:view`，用于查看当前 active 模块 manifest。
 
-菜单由 Platform Core 统一返回。`GET /api/platform/menus/my` 只返回当前用户有权限访问的 active 菜单；业务模块不得自行绕过平台菜单源在 Shell 中注册入口。
+菜单由 Platform Core 统一返回。`GET /api/platform/menus/my` 只返回当前用户有权限访问的 active 菜单；业务模块不得自行绕过平台菜单源在 Shell 中注册入口。M2-4 起，Web Shell 登录后通过 `GET /api/platform/auth/me` 恢复当前用户，并通过 `GET /api/platform/menus/my` 渲染导航。
 当前用户权限只从 active 角色计算；disabled 角色不得贡献菜单权限、接口权限或数据范围。
 
 当前内置平台权限：
