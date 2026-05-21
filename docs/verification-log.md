@@ -2,6 +2,28 @@
 
 ## 2026-05-21
 
+### M4 Presence MVP RFC
+
+Change set:
+
+- Added `docs/rfc/m4-presence-mvp.md` for the first real business module milestone.
+- Added `docs/domain-glossary.md` to define shared platform and business terminology before M4 implementation.
+- Updated `docs/doc-index.md` with the M4 reading path and glossary responsibility.
+- Updated `docs/foundation-progress.md` to enter M4 and set M4-1 as the next implementation slice.
+
+Review focus:
+
+- Presence module must keep independent contract/API/Web/repository/schema boundaries.
+- Presence module must use Platform Core for login, permissions, menus, data scope and audit.
+- M4 implementation must replace current mock user and in-memory array behavior before production paths are accepted.
+
+Result:
+
+- M4-0 documentation slice completed.
+- Next slice is M4-1: presence contract, schema and repository.
+
+## 2026-05-21
+
 ### M3 Browser Smoke Verification
 
 Scope:

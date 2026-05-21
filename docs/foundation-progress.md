@@ -17,7 +17,7 @@
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Done | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证 |
-| M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
+| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-0 RFC 与领域术语表已补齐，下一步进入 contract、schema、repository |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
 | M7 通知、实时、IM 基建 | notification、realtime、OpenIM adapter 可用 | Pending | 当前只保留边界 |
@@ -173,23 +173,55 @@
 当前建议执行：
 
 ```text
-M4-0: 在位管理 MVP RFC 与契约设计
+M4-1: presence contract、schema、repository
 ```
 
 验收标准：
 
-- 定义在位管理 MVP 的业务边界：状态类型、时间范围、冲突规则、可见范围和审计要求。
-- 定义模块契约：权限点、菜单、API 路由、数据模型、repository 边界和测试策略。
-- 明确 M4-1 的第一个实现切片，优先支撑“全员当前状态看板 + 个人状态登记”。
-- 更新 `docs/rfc/`、`docs/platform-core.md` 或模块文档，避免业务实现先于契约。
+- 更新 `@work/presence-contract` DTO，与 `docs/rfc/m4-presence-mvp.md` 对齐。
+- 新增 `presence.status_records` migration 和 schema 定义。
+- 建立 `PresenceRepository` 边界，controller 不直接访问数据库客户端。
+- 实现 PostgreSQL repository，并保留内存 repository 作为测试 fixture。
+- 覆盖 repository integration tests：时间区间校验、重叠状态拒绝、当前状态计算。
 
 ## 7. 当前阻塞项
 
 | 阻塞项 | 状态 | 处理 |
 | --- | --- | --- |
-| 无 | Done | 当前没有阻塞 M4-0 的基础设施问题 |
+| 无 | Done | 当前没有阻塞 M4-1 的基础设施问题 |
 
-## 8. M8 前置交付风险
+## 8. M4 在位管理 MVP
+
+状态：In Progress
+
+目标：
+
+- 第一个业务模块从占位页面进入真实持久化能力。
+- 验证业务模块使用 Platform Core 登录态、权限、菜单、审计和数据范围。
+- 保持 presence 独立 contract/API/Web/repository/schema 边界。
+
+### 8.1 已完成
+
+| 切片 | 能力 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| M4-0 | RFC 与术语设计 | Done | `docs/rfc/m4-presence-mvp.md` 已定义状态模型、API、权限、数据范围、审计、事件、schema 和切片计划；`docs/domain-glossary.md` 已补齐核心术语 |
+
+### 8.2 正在做
+
+| 切片 | 能力 | 状态 | 下一步 |
+| --- | --- | --- | --- |
+| 无 | Done | 等待启动 M4-1 |
+
+### 8.3 未开始
+
+| 切片 | 能力 | 状态 | 启动条件 |
+| --- | --- | --- | --- |
+| M4-1 | contract、schema、repository | Pending | M4-0 完成 |
+| M4-2 | API、权限、审计 | Pending | M4-1 完成 |
+| M4-3 | Web 看板与登记表单 | Pending | M4-2 API 可用 |
+| M4-4 | 交付验证 | Pending | M4-3 完成 |
+
+## 9. M8 前置交付风险
 
 | 切片 | 风险 | 状态 | 处理 |
 | --- | --- | --- | --- |

@@ -73,7 +73,19 @@ docs/foundation-blueprint.md
 docs/module-contract.md
 docs/platform-core.md
 docs/security-baseline.md
+docs/domain-glossary.md
 模块自己的 contract/RFC
+```
+
+### 2.6 开始 M4 在位管理 MVP
+
+```text
+docs/foundation-progress.md
+docs/rfc/m4-presence-mvp.md
+docs/domain-glossary.md
+docs/module-contract.md
+docs/platform-core.md
+modules/presence/contract
 ```
 
 ## 3. 文档职责
@@ -88,6 +100,7 @@ docs/security-baseline.md
 | `docs/rfc/*.md` | 阶段或能力落地规格 | 每个里程碑开始前、重大功能前 |
 | `docs/platform-core.md` | Platform Core 接口和约定 | 平台核心 API、权限、认证变化 |
 | `docs/module-contract.md` | 业务模块接入规范 | 模块 manifest、contract、事件规范变化 |
+| `docs/domain-glossary.md` | 跨模块领域术语 | 进入新业务模块、核心术语变化 |
 | `docs/security-baseline.md` | 安全基线和强制要求 | 认证、授权、审计、密钥、部署安全变化 |
 | `docs/deployment.md` | 部署说明 | Docker、环境变量、部署流程变化 |
 | `docs/development-workflow.md` | 开发流程 | Git、测试、代码审查流程变化 |
@@ -146,9 +159,10 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - 基建优先 ADR：`docs/adr/0002-foundation-first-platform-plan.md`
 - M1 持久化 RFC：`docs/rfc/m1-platform-core-persistence.md`
 - 安全基线：`docs/security-baseline.md`
+- 领域术语表：`docs/domain-glossary.md`
+- M4 在位管理 MVP RFC：`docs/rfc/m4-presence-mvp.md`
 
 后续建议补充：
 
 - `docs/testing-strategy.md`：建议在 M2 启动前完成，统一单元、集成、E2E、数据库测试、mock 边界和 CI 门禁。
 - `docs/offline-deployment-runbook.md`：建议在 M8 启动前完成；其中 Docker 镜像导出、导入和数据库迁移演练可在 M1-M3 逐步补充。
-- `docs/domain-glossary.md`：建议在 M4 启动前完成，至少覆盖在位状态、审批实例、工作汇报、数据范围、通知事件等核心概念。
