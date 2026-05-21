@@ -2,6 +2,42 @@
 
 ## 2026-05-21
 
+### M3 Browser Smoke Verification
+
+Scope:
+
+- Started Workbench Shell locally at `http://127.0.0.1:5173/`.
+- Stopped the previously running compose `platform-api` container that occupied port `3001`.
+- Started the current `platform-api` source with `PLATFORM_REPOSITORY_DRIVER=memory` on port `3001`.
+- Used the browser automation session to verify the Shell against the current source tree.
+
+Verification:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3001/api/platform/health
+Invoke-WebRequest http://127.0.0.1:5173
+POST http://127.0.0.1:3001/api/platform/auth/login
+```
+
+Browser checks:
+
+- Login with `admin/admin123` succeeded against the memory repository.
+- Shell loaded current user `系统管理员` and rendered four authorized menus from Platform Core.
+- `/platform/org` rendered the mounted organization placeholder page.
+- `/platform/employees` rendered the mounted employee management placeholder page.
+- `/platform/roles` rendered the mounted role-permission placeholder page.
+- `/presence/board` rendered the mounted presence board placeholder page.
+- `/missing` rendered the unknown route state.
+- Direct access to `/platform/org` after logout returned to the login view.
+
+Result:
+
+- M3 browser-level smoke passed.
+- M3 Web Shell 可用基座 can be treated as complete.
+- Local smoke processes were stopped after verification, and the compose `platform-api` service was restored with host port `3001` mapped.
+
+## 2026-05-21
+
 ### M3 Platform Management Placeholder Routes
 
 Change set:
