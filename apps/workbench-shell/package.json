@@ -14,6 +14,7 @@
     "@work/http-client": "workspace:*",
     "@work/platform-contract": "workspace:*",
     "@work/platform-sdk": "workspace:*",
+    "@work/platform-web": "workspace:*",
     "@work/presence-contract": "workspace:*",
     "@work/presence-web": "workspace:*",
     "vite": "^6.0.5",

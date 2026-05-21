@@ -1,4 +1,5 @@
 import type { WorkWebModule } from '@work/platform-sdk';
+import { platformWebModule } from '@work/platform-web';
 import { presenceWebModule } from '@work/presence-web';
 
 class ModuleRegistry {
@@ -15,4 +16,5 @@ class ModuleRegistry {
 
 export const moduleRegistry = new ModuleRegistry();
 
+moduleRegistry.register(platformWebModule);
 moduleRegistry.register(presenceWebModule);

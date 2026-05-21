@@ -231,6 +231,9 @@ importers:
       '@work/platform-sdk':
         specifier: workspace:*
         version: link:../../packages/platform-sdk
+      '@work/platform-web':
+        specifier: workspace:*
+        version: link:../../modules/platform/web
       '@work/presence-contract':
         specifier: workspace:*
         version: link:../../modules/presence/contract
@@ -259,6 +262,19 @@ importers:
       '@work/platform-sdk':
         specifier: workspace:*
         version: link:../../../packages/platform-sdk
+
+  modules/platform/web:
+    dependencies:
+      '@work/platform-sdk':
+        specifier: workspace:*
+        version: link:../../../packages/platform-sdk
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.2
+        version: 19.2.14
 
   modules/presence/api:
     dependencies:

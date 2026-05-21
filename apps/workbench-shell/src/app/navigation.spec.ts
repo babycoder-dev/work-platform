@@ -84,6 +84,38 @@ describe('workbench navigation', () => {
       path: '/missing',
     });
   });
+
+  it('resolves platform management routes once the platform module is mounted', () => {
+    const modules = [
+      ...createModules(),
+      {
+        manifest: {
+          name: 'platform',
+          title: '平台管理',
+          basePath: '/platform',
+          apiPrefix: '/api/platform',
+          menus: [],
+          permissions: [],
+          routes: [],
+        },
+        routes: [
+          {
+            path: '/platform/employees',
+            permission: 'platform:employee:view',
+            load: async () => ({
+              default: function Page() {
+                return undefined;
+              },
+            }),
+          },
+        ],
+      },
+    ];
+
+    const resolution = resolveShellRoute(modules, [], '/platform/employees', ['platform:employee:view']);
+
+    expect(resolution.kind).toBe('loadable');
+  });
 });
 
 function createModules(): WorkWebModule[] {

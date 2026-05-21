@@ -16,7 +16,7 @@
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
-| M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | In Progress | M3-1 Shell 页面状态已完成本地验证，等待提交、推送和 CI 复核 |
+| M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | In Progress | M3-2 平台管理菜单占位页面已完成本地验证，等待提交、推送和 CI 复核 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
@@ -153,18 +153,18 @@
 | --- | --- | --- | --- |
 | M3-0 | 登录态 + 平台菜单 | Done | 随 M2-4 完成；Shell 已消费 `auth/me` 和 `menus/my` |
 | M3-1 | Shell 页面状态收口 | Done | 首页、待接入菜单、无权限直达、未知路径、模块加载失败均有明确状态；本地 verify 和 Docker build 已通过 |
+| M3-2 | 平台管理页面占位/入口体验 | Done | `@work/platform-web` 已挂载组织架构、员工管理、角色权限占位页面；`pnpm verify` 和 Docker build 已通过 |
 
 ### 5.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| 无 | Done | M3-1 本地验证已完成，等待提交、推送和 CI 复核 |
+| 无 | Done | M3-2 本地验证已完成，等待提交、推送和 CI 复核 |
 
 ### 5.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| M3-2 | 平台管理页面占位/入口体验 | Pending | M3-1 完成 |
 | M3-3 | 浏览器级 smoke 验证 | Pending | M3-1/M3-2 完成 |
 
 ## 6. 当前下一步
@@ -172,15 +172,15 @@
 当前建议执行：
 
 ```text
-M3-1: Shell 页面状态收口
+M3-2: 平台管理页面占位/入口体验
 ```
 
 验收标准：
 
-- 首页、已注册模块路由、待接入菜单、无权限直达、未知路径有明确状态。
-- 模块页面加载失败时保留错误提示，不误回首页。
-- Workbench navigation 单测覆盖状态解析。
-- `pnpm verify`、Workbench build 通过。
+- 平台管理菜单 `/platform/org`、`/platform/employees`、`/platform/roles` 已由模块路由承接。
+- Shell 点击平台管理菜单不再显示“页面待接入”。
+- 占位页面保持在 `@work/platform-web` 模块边界内，不把平台页面实现塞进 Shell。
+- `pnpm verify`、Docker build 通过。
 - 推送后 CI 通过。
 
 ## 7. 当前阻塞项

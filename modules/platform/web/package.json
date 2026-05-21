@@ -1,0 +1,22 @@
+{
+  "name": "@work/platform-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/module.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@work/platform-sdk": "workspace:*",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.2"
+  },
+  "nx": {
+    "tags": ["scope:platform", "type:feature"]
+  }
+}

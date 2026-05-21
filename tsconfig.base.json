@@ -19,6 +19,7 @@
       "@work/ui": ["packages/ui/src/index.ts"],
       "@work/im-provider": ["packages/im-provider/src/index.ts"],
       "@work/platform-contract": ["packages/platform-contract/src/index.ts"],
+      "@work/platform-web": ["modules/platform/web/src/module.ts"],
       "@work/event-bus": ["packages/event-bus/src/index.ts"],
       "@work/notification-center": ["packages/notification-center/src/index.ts"],
       "@work/presence-contract": ["modules/presence/contract/src/index.ts"],

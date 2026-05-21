@@ -2,6 +2,45 @@
 
 ## 2026-05-21
 
+### M3 Platform Management Placeholder Routes
+
+Change set:
+
+- Added `@work/platform-web` as a mounted platform management Web module.
+- Registered platform routes for `/platform/org`, `/platform/employees`, and `/platform/roles`.
+- Added lightweight platform management placeholder pages for organization, employee, and role-permission management.
+- Registered `platformWebModule` in Workbench Shell so Platform Core menus resolve to mounted routes.
+- Updated Workbench navigation tests for mounted platform management routes.
+- Updated the foundation progress board for M3-2.
+
+Verification:
+
+```powershell
+pnpm install --lockfile-only
+pnpm install
+pnpm --filter @work/platform-web typecheck
+pnpm --filter @work/platform-web lint
+pnpm --filter @work/workbench-shell typecheck
+pnpm --filter @work/workbench-shell lint
+pnpm test -- apps/workbench-shell/src/app/navigation.spec.ts
+pnpm --filter @work/workbench-shell build
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose --progress plain -f infra/docker-compose.prod.yml build
+```
+
+Result:
+
+- Lockfile and local workspace links were updated for `@work/platform-web`.
+- Platform Web typecheck and lint passed.
+- Workbench Shell typecheck and lint passed; only existing Nx ProjectGraph and `_descriptor` warnings were emitted.
+- Workbench navigation unit tests passed with 4 tests.
+- Workbench Shell production build passed and emitted platform placeholder page chunks.
+- `pnpm verify` passed.
+- Docker Compose production build passed with `NPM_REGISTRY=https://registry.npmmirror.com`.
+
+## 2026-05-21
+
 ### M3 Shell Route State Handling
 
 Change set:
