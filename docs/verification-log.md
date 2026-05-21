@@ -1,5 +1,95 @@
 # Verification Log
 
+## 2026-05-22
+
+### M3.5-A Manifest Single Source
+
+Change set:
+
+- Moved presence / approval / report platform-side `ModuleManifestDto` definitions into their contract packages.
+- Added platform-owned `platformModuleManifest` under `apps/platform-api/src/seeds/platform-module-manifest.ts`.
+- Changed `seed-data.ts` so `platform.module_manifests` receives active and disabled manifests, while permissions and menus are derived only from active manifests.
+- Kept approval and report manifests disabled until their backends ship.
+- Added the presence `presence:status:manage` permission and `/presence/register` menu to the platform-side presence manifest.
+- approval / report contract 目录在本切片被拆分为 events.ts + permissions.ts + platform-manifest.ts，与 presence 的 contract 目录结构保持一致，并避免 `index` / `platform-manifest` 循环依赖。
+
+Verification:
+
+- `pnpm install`: pass. Workspace already up to date; pnpm emitted a non-fatal registry metadata warning while checking pnpm update metadata.
+- `pnpm lint`: pass. Existing Nx ProjectGraph warnings and existing unused-parameter warnings remain.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. 12 files / 43 tests passed; PostgreSQL integration tests skipped in the normal unit run.
+- `pnpm test:e2e`: pass. Memory E2E 13 tests passed; PostgreSQL E2E skipped in the normal E2E run.
+- `pnpm build`: pass.
+
+Static assertions from seed data:
+
+- `platformModuleManifests.length === 4` (`platform`, `presence`, `approval`, `report`).
+- Disabled modules are `['approval', 'report']`.
+- `platformSeedPermissions.length === 11` (`platform` 8 + `presence` 3).
+- `platformSeedPermissions` contains no `approval:*` or `report:*` permission codes.
+- `platformSeedMenus.length === 5` (`platform` 3 + `presence` 2).
+- `platformSeedMenus` contains both `/presence/board` and `/presence/register`.
+
+The equivalent static behavior is covered by `apps/platform-api/src/seeds/seed-data.spec.ts`, especially the §4.10 vitest case `only derives permissions and menus from active manifests`.
+
+PostgreSQL verification:
+
+- Local PostgreSQL was available through Docker at `localhost:55432`.
+- The previous local compose volume was reset before this verification so the SQL assertions describe the fresh M3.5-A seed state.
+- `pnpm db:setup`: pass. Migration `0000_init_platform.sql` applied and seed returned `permissionCount=11`.
+- `pnpm test:db`: pass with `RUN_POSTGRES_INTEGRATION=true`; 6 tests passed.
+- `pnpm test:e2e:postgres`: pass with `RUN_POSTGRES_E2E=true`; 2 tests passed.
+
+```sql
+SELECT module_name, count(*) FROM platform.permissions GROUP BY module_name ORDER BY module_name;
+```
+
+```text
+ module_name | count
+-------------+-------
+ platform    |     8
+ presence    |     3
+```
+
+```sql
+SELECT module_name, count(*) FROM platform.menus GROUP BY module_name ORDER BY module_name;
+```
+
+```text
+ module_name | count
+-------------+-------
+ platform    |     3
+ presence    |     2
+```
+
+```sql
+SELECT module_name, status FROM platform.module_manifests ORDER BY module_name;
+```
+
+```text
+ module_name |  status
+-------------+----------
+ approval    | disabled
+ platform    | active
+ presence    | active
+ report      | disabled
+```
+
+Idempotency:
+
+- Reran `pnpm db:seed` against the already seeded fresh database: pass.
+
+```text
+Seeded platform foundation: {"adminPasswordUpdated":false,"adminRoleId":"00000000-0000-0000-0000-000000000004","adminUserId":"00000000-0000-0000-0000-000000000003","departmentId":"00000000-0000-0000-0000-000000000002","enterpriseId":"00000000-0000-0000-0000-000000000001","permissionCount":11}
+```
+
+- Reran the three §6.2.b SQL assertions after the second seed; the permission count, menu count and manifest status outputs remained unchanged.
+
+Follow-up:
+
+- M3.5-B ADR-0003 Gateway 边界。
+
 ## 2026-05-21
 
 ### M3.5-A Manifest Single Source
