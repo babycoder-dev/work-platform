@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { moduleRegistry } from '../module-registry/module-registry';
 import { createPlatformApiClient } from '../platform/platform-api';
 import { clearAccessToken, readAccessToken, saveAccessToken } from '../platform/session-storage';
-import { buildNavigationItems, findRouteMatch, normalizePath } from './navigation';
+import { buildNavigationItems, normalizePath, resolveShellRoute } from './navigation';
 
 type RouteComponent = ComponentType | undefined;
 
@@ -21,6 +21,7 @@ export function App() {
   const [currentPath, setCurrentPath] = useState(() => normalizePath(window.location.pathname));
   const [routeComponent, setRouteComponent] = useState<RouteComponent>();
   const [isBootstrapping, setIsBootstrapping] = useState(Boolean(session.accessToken));
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
 
@@ -78,20 +79,29 @@ export function App() {
     [session.currentUser],
   );
   const navigationItems = useMemo(() => buildNavigationItems(session.menus), [session.menus]);
+  const routeResolution = useMemo(
+    () => resolveShellRoute(modules, navigationItems, currentPath, permissionCodes),
+    [currentPath, navigationItems, permissionCodes],
+  );
 
   useEffect(() => {
-    const routeMatch = findRouteMatch(modules, currentPath, permissionCodes);
-    if (!routeMatch) {
+    if (routeResolution.kind !== 'loadable') {
       setRouteComponent(undefined);
+      setIsRouteLoading(false);
+      setErrorMessage(undefined);
       return;
     }
 
     let cancelled = false;
-    routeMatch.route
+    setRouteComponent(undefined);
+    setIsRouteLoading(true);
+    setErrorMessage(undefined);
+    routeResolution.match.route
       .load()
       .then((loaded) => {
         if (!cancelled) {
           setRouteComponent(() => loaded.default as ComponentType);
+          setErrorMessage(undefined);
         }
       })
       .catch((error) => {
@@ -99,12 +109,17 @@ export function App() {
           setRouteComponent(undefined);
           setErrorMessage(readErrorMessage(error));
         }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsRouteLoading(false);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [currentPath, permissionCodes]);
+  }, [routeResolution]);
 
   async function handleLogin(input: LoginInput) {
     setIsSubmitting(true);
@@ -149,6 +164,13 @@ export function App() {
   }
 
   const ActiveRouteComponent = routeComponent;
+  const content = renderShellContent({
+    activeRouteComponent: ActiveRouteComponent,
+    isRouteLoading,
+    menus: navigationItems.length,
+    permissions: permissionCodes.length,
+    routeResolution,
+  });
 
   return (
     <main className="shell">
@@ -181,13 +203,7 @@ export function App() {
           </div>
         </header>
         {errorMessage ? <div className="shell__error">{errorMessage}</div> : null}
-        <div className="shell__panel">
-          {ActiveRouteComponent ? (
-            <ActiveRouteComponent />
-          ) : (
-            <WorkbenchHome menus={navigationItems.length} permissions={permissionCodes.length} />
-          )}
-        </div>
+        <div className="shell__panel">{content}</div>
       </section>
     </main>
   );
@@ -252,6 +268,55 @@ function WorkbenchHome(props: { menus: number; permissions: number }) {
       </dl>
     </section>
   );
+}
+
+function ShellState(props: { title: string; description: string }) {
+  return (
+    <section className="shell-state">
+      <h2>{props.title}</h2>
+      <p>{props.description}</p>
+    </section>
+  );
+}
+
+function renderShellContent(props: {
+  activeRouteComponent: RouteComponent;
+  isRouteLoading: boolean;
+  menus: number;
+  permissions: number;
+  routeResolution: ReturnType<typeof resolveShellRoute>;
+}) {
+  if (props.isRouteLoading) {
+    return <ShellState description="正在加载模块页面。" title="加载中" />;
+  }
+
+  if (props.routeResolution.kind === 'home') {
+    return <WorkbenchHome menus={props.menus} permissions={props.permissions} />;
+  }
+
+  if (props.routeResolution.kind === 'loadable') {
+    const ActiveRouteComponent = props.activeRouteComponent;
+    return ActiveRouteComponent ? (
+      <ActiveRouteComponent />
+    ) : (
+      <ShellState description="模块入口已注册，但页面加载失败，请查看上方错误信息。" title="页面加载失败" />
+    );
+  }
+
+  if (props.routeResolution.kind === 'coming-soon') {
+    return (
+      <ShellState
+        description={`${props.routeResolution.item.title} 已由平台菜单授权，但当前 Shell 尚未接入对应页面。`}
+        title="页面待接入"
+      />
+    );
+  }
+
+  if (props.routeResolution.kind === 'forbidden') {
+    return <ShellState description="当前账号没有访问该模块页面的权限。" title="无权访问" />;
+  }
+
+  return <ShellState description={`未找到路径 ${props.routeResolution.path} 对应的页面。`} title="页面不存在" />;
 }
 
 function readErrorMessage(error: unknown): string {

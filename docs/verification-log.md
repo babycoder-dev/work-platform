@@ -1,5 +1,38 @@
 # Verification Log
 
+## 2026-05-21
+
+### M3 Shell Route State Handling
+
+Change set:
+
+- Added route resolution states for Web Shell home, loadable module pages, forbidden direct access, platform menus without mounted pages, and unknown paths.
+- Updated Web Shell content rendering so unimplemented platform menus no longer fall back to the generic home panel.
+- Added a module loading state and a dedicated module load failure state.
+- Extended Workbench navigation unit tests for route state resolution.
+- Updated the foundation progress board to close M2 and track M3-1.
+
+Verification:
+
+```powershell
+pnpm --filter @work/workbench-shell typecheck
+pnpm --filter @work/workbench-shell lint
+pnpm test -- apps/workbench-shell/src/app/navigation.spec.ts
+pnpm --filter @work/workbench-shell build
+pnpm verify
+$env:NPM_REGISTRY='https://registry.npmmirror.com'
+docker compose --progress plain -f infra/docker-compose.prod.yml build
+```
+
+Result:
+
+- Workbench Shell typecheck passed.
+- Workbench Shell lint passed; only existing Nx ProjectGraph and `_descriptor` warnings were emitted.
+- Workbench navigation unit tests passed with 3 route-state tests.
+- Workbench Shell production build passed.
+- `pnpm verify` passed after the route-state error cleanup fix.
+- Docker Compose production build passed after the final route-state error cleanup fix with `NPM_REGISTRY=https://registry.npmmirror.com`.
+
 ## 2026-05-20
 
 ### M2 Web Shell Platform Menu Consumption

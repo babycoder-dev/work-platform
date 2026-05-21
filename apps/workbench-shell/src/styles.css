@@ -192,6 +192,24 @@ button {
   margin: 0;
 }
 
+.shell-state {
+  align-items: flex-start;
+  display: grid;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.shell-state h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.shell-state p {
+  color: #667085;
+  line-height: 1.6;
+  margin: 0;
+}
+
 @media (max-width: 760px) {
   .shell {
     grid-template-columns: 1fr;

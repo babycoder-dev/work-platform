@@ -15,8 +15,8 @@
 | --- | --- | --- | --- |
 | M0 架构基线 | 统一架构、文档、CI、Docker 基线 | Done | 可以支撑基建优先开发 |
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
-| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | In Progress | M2-4 Web Shell 菜单消费已完成本地验证，等待提交、推送和 CI 复核 |
-| M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | In Progress | 登录态、平台菜单和受权限模块路由已打通，下一步补齐 Shell 体验和页面状态 |
+| M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
+| M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | In Progress | M3-1 Shell 页面状态已完成本地验证，等待提交、推送和 CI 复核 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | Pending | 依赖 M1-M3 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
@@ -101,7 +101,7 @@
 
 ## 4. M2 权限、菜单、审计闭环
 
-状态：In Progress
+状态：Done
 
 目标：
 
@@ -121,45 +121,75 @@
 | M2-2 | module manifest seed 源头 | Done | `platform.module_manifests` 幂等写入；权限和菜单从 manifest 派生 |
 | M2-2 | module manifest 只读 API | Done | `GET /api/platform/module-manifests` 由 `platform:permission:view` 保护 |
 | M2-3 | 平台关键写操作审计覆盖 | Done | 部门、员工、角色写接口审计、单测、内存 E2E、PostgreSQL E2E 和 Docker build 已完成 |
-| M2-4 | Web Shell 菜单消费 | Done | Shell 登录、`auth/me`、`menus/my` 导航、路由权限过滤、Workbench build、PostgreSQL E2E 和 Docker build 已完成 |
+| M2-4 | Web Shell 菜单消费 | Done | Shell 登录、`auth/me`、`menus/my` 导航、路由权限过滤、Workbench build、PostgreSQL E2E、Docker build 和 CI 已完成 |
 
 ### 4.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
 | M2-2 | 交付闭环 | Done | 本地 `pnpm verify`、PostgreSQL 集成/E2E、Docker build、代码审查、CI 已完成 |
-| 无 | Done | M2-4 本地验证已完成，等待提交、推送和 CI 复核 |
+| 无 | Done | M2 无剩余切片 |
 
 ### 4.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| 无 | Pending | M2-4 完成后复核 M2 是否可退出，随后进入 M3 Shell 体验补齐 |
+| 无 | Done | M2 已退出 |
 
-## 5. 当前下一步
+## 5. M3 Web Shell 可用基座
+
+状态：In Progress
+
+目标：
+
+- Shell 可通过 Platform Core 完成登录态恢复。
+- Shell 导航只由平台菜单驱动。
+- 已注册模块可按权限加载。
+- 未实现、无权限、未知路径、模块加载失败等状态可被清晰区分。
+
+### 5.1 已完成
+
+| 切片 | 能力 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| M3-0 | 登录态 + 平台菜单 | Done | 随 M2-4 完成；Shell 已消费 `auth/me` 和 `menus/my` |
+| M3-1 | Shell 页面状态收口 | Done | 首页、待接入菜单、无权限直达、未知路径、模块加载失败均有明确状态；本地 verify 和 Docker build 已通过 |
+
+### 5.2 正在做
+
+| 切片 | 能力 | 状态 | 下一步 |
+| --- | --- | --- | --- |
+| 无 | Done | M3-1 本地验证已完成，等待提交、推送和 CI 复核 |
+
+### 5.3 未开始
+
+| 切片 | 能力 | 状态 | 启动条件 |
+| --- | --- | --- | --- |
+| M3-2 | 平台管理页面占位/入口体验 | Pending | M3-1 完成 |
+| M3-3 | 浏览器级 smoke 验证 | Pending | M3-1/M3-2 完成 |
+
+## 6. 当前下一步
 
 当前建议执行：
 
 ```text
-M2 收尾: 提交 M2-4 并观察 CI，随后复核 M2 退出标准
+M3-1: Shell 页面状态收口
 ```
 
 验收标准：
 
-- `GET /api/platform/auth/me` 已通过已有 access token 恢复当前用户。
-- Web Shell 登录后已持久化 access token，并能从 Platform Core 拉取当前用户和菜单。
-- Web Shell 导航已只使用 `GET /api/platform/menus/my` 返回的 active 菜单。
-- 模块路由加载已受当前用户权限过滤保护。
-- `pnpm verify`、PostgreSQL 集成/E2E、Workbench build、Docker build 已通过。
+- 首页、已注册模块路由、待接入菜单、无权限直达、未知路径有明确状态。
+- 模块页面加载失败时保留错误提示，不误回首页。
+- Workbench navigation 单测覆盖状态解析。
+- `pnpm verify`、Workbench build 通过。
 - 推送后 CI 通过。
 
-## 6. 当前阻塞项
+## 7. 当前阻塞项
 
 | 阻塞项 | 状态 | 处理 |
 | --- | --- | --- |
-| 无 | Done | 当前没有阻塞 M2-4 提交和 CI 复核的基础设施问题 |
+| 无 | Done | 当前没有阻塞 M3-1 的基础设施问题 |
 
-## 7. M8 前置交付风险
+## 8. M8 前置交付风险
 
 | 切片 | 风险 | 状态 | 处理 |
 | --- | --- | --- | --- |
