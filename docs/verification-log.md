@@ -2,6 +2,57 @@
 
 ## 2026-05-21
 
+### M3.5-A Manifest Single Source
+
+Change set:
+
+- Moved presence / approval / report platform-side `ModuleManifestDto` definitions into their contract packages.
+- Added platform-owned `platformModuleManifest` under `apps/platform-api/src/seeds/platform-module-manifest.ts`.
+- Changed `seed-data.ts` so `platform.module_manifests` still receives active and disabled manifests, while permissions and menus are derived only from active manifests.
+- Kept approval and report manifests disabled until their backends ship.
+- Added the presence `presence:status:manage` permission and `/presence/register` menu to the platform-side presence manifest.
+- Updated E2E assertions for the new presence registration menu and active-only module manifest API behavior.
+- Updated module contract and foundation progress documentation for the manifest source rule.
+
+Implementation note:
+
+- The task package originally described importing approval/report permissions from `./index` inside their `platform-manifest.ts` files. That created an ESM circular initialization failure during `pnpm db:setup`. The final implementation splits approval/report permissions and events into dedicated files, keeps the package-root exports unchanged, and imports platform manifests from those non-circular files.
+
+Verification:
+
+```powershell
+pnpm install
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e
+pnpm build
+$env:DATABASE_URL='postgresql://work:work@localhost:55432/work_platform'
+$env:PLATFORM_BOOTSTRAP_ADMIN_PASSWORD='admin123'
+pnpm db:setup
+$env:RUN_POSTGRES_INTEGRATION='true'
+pnpm test:db
+$env:RUN_POSTGRES_E2E='true'
+pnpm test:e2e:postgres
+pnpm db:seed
+```
+
+Result:
+
+- `pnpm install` passed and updated `pnpm-lock.yaml` for new workspace dependencies.
+- `pnpm lint` passed after rerunning outside the sandbox; it emitted existing Nx ProjectGraph warnings and existing unused-variable warnings only.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 12 files / 43 tests, with PostgreSQL integration tests skipped in the normal unit run.
+- `pnpm test:e2e` passed: memory E2E 13 tests, with PostgreSQL E2E skipped in the normal E2E run.
+- `pnpm build` passed.
+- Local PostgreSQL verification was executed against Docker PostgreSQL on `localhost:55432`.
+- `pnpm db:setup` passed after the circular manifest import was fixed; result permission count is 11.
+- `pnpm test:db` passed with `RUN_POSTGRES_INTEGRATION=true`: 6 tests.
+- `pnpm test:e2e:postgres` passed with `RUN_POSTGRES_E2E=true`: 2 tests. The local already-seeded database required a one-time `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true pnpm db:seed` before this check because the existing admin password did not match `admin123`.
+- Idempotency check passed: rerunning `pnpm db:seed` on the already seeded database completed without unique constraint errors or duplicate row failures and returned `adminPasswordUpdated=false`, `permissionCount=11`.
+
+## 2026-05-21
+
 ### M4 Presence MVP RFC
 
 Change set:

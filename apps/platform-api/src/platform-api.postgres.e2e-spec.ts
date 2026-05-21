@@ -94,6 +94,10 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
           title: '在位看板',
           permissionCode: 'presence:board:view',
         }),
+        expect.objectContaining({
+          title: '状态登记',
+          permissionCode: 'presence:status:create',
+        }),
       ]),
     );
 

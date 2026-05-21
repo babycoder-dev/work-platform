@@ -158,6 +158,10 @@ describe('platform-api', () => {
           title: '在位看板',
           permissionCode: 'presence:board:view',
         }),
+        expect.objectContaining({
+          title: '状态登记',
+          permissionCode: 'presence:status:create',
+        }),
       ]),
     );
   });
@@ -174,13 +178,18 @@ describe('platform-api', () => {
         expect.objectContaining({
           moduleName: 'platform',
           apiPrefix: '/api/platform',
+          status: 'active',
         }),
         expect.objectContaining({
           moduleName: 'presence',
           apiPrefix: '/api/presence',
+          status: 'active',
         }),
       ]),
     );
+    const returnedModuleNames = (response.body.items as Array<{ moduleName: string }>).map((item) => item.moduleName);
+    expect(returnedModuleNames).not.toContain('approval');
+    expect(returnedModuleNames).not.toContain('report');
   });
 
   it('rejects users without required permissions', async () => {

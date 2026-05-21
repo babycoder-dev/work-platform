@@ -10,6 +10,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@work/platform-contract": "workspace:*",
     "@work/platform-sdk": "workspace:*"
   },
   "nx": {

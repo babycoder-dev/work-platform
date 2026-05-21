@@ -17,7 +17,8 @@
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Done | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证 |
-| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-0 RFC 与领域术语表已补齐，下一步进入 contract、schema、repository |
+| M3.5 收口切片 | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | In Progress | M3.5-A 已完成；下一步执行 M3.5-B Gateway 边界 ADR |
+| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-0 RFC 与领域术语表已补齐；M4-1 在 M3.5 退出后启动 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
 | M7 通知、实时、IM 基建 | notification、realtime、OpenIM adapter 可用 | Pending | 当前只保留边界 |
@@ -173,22 +174,52 @@
 当前建议执行：
 
 ```text
-M4-1: presence contract、schema、repository
+M3.5-B: ADR-0003 Gateway 边界
 ```
 
-验收标准：
+上一切片任务包：`docs/tasks/m3-5-a-manifest-single-source.md`。
 
-- 更新 `@work/presence-contract` DTO，与 `docs/rfc/m4-presence-mvp.md` 对齐。
-- 新增 `presence.status_records` migration 和 schema 定义。
-- 建立 `PresenceRepository` 边界，controller 不直接访问数据库客户端。
-- 实现 PostgreSQL repository，并保留内存 repository 作为测试 fixture。
-- 覆盖 repository integration tests：时间区间校验、重叠状态拒绝、当前状态计算。
+M3.5-A 完成结果：
+
+- `apps/platform-api/src/seeds/seed-data.ts` 从 `@work/presence-contract`、`@work/approval-contract`、`@work/report-contract` 导入各业务模块 manifest。
+- 平台模块自身 manifest 拆到 `apps/platform-api/src/seeds/platform-module-manifest.ts`。
+- approval / report manifest 落 `status='disabled'`，且不下发权限点和菜单。
+- presence manifest 与 `docs/rfc/m4-presence-mvp.md` §5、§6 完全一致，包含 `status:manage` 权限和 `/presence/register` 菜单。
+- 在已 seed 过的库上重跑 `pnpm db:seed` 保持幂等。
+- verification-log 锚点：`M3.5-A Manifest Single Source`。
+
+3.5-A 完成后顺序：
+
+```text
+M3.5-B  ADR-0003 Gateway 边界（保留内嵌、补 ADR 锁定 M4–M6 范围）
+M3.5-C  登录失败审计 + 锁定策略落地
+M3.5-D  首次登录改密 + 管理员重置密码端点
+M3.5-E  Platform 数据范围 resolver（PlatformScopeService）
+M3.5-F  Shell 引入 react-router-dom@6，路由拆组件
+M3.5-G  跨 schema 数据访问规则文档化（module-contract.md 增加章节）
+```
+
+M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
+
+本切片完成后，下一步为 `M3.5-B ADR-0003 Gateway 边界`。
+
+### 6.1 M3.5 收口切片
+
+| 切片 | 能力 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| M3.5-A | 让模块 manifest 由各 contract 包统一供给 | Done | 2026-05-21 完成；业务模块平台侧 manifest 已迁回各 contract 包；详见 verification-log `M3.5-A Manifest Single Source` |
+| M3.5-B | ADR-0003 Gateway 边界 | Pending | 保留内嵌，补 ADR 锁定 M4-M6 范围 |
+| M3.5-C | 登录失败审计 + 锁定策略落地 | Pending | M3.5-B 后启动 |
+| M3.5-D | 首次登录改密 + 管理员重置密码端点 | Pending | M3.5-C 后启动 |
+| M3.5-E | Platform 数据范围 resolver | Pending | M3.5-D 后启动 |
+| M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Pending | M3.5-E 后启动 |
+| M3.5-G | 跨 schema 数据访问规则文档化 | Pending | M3.5-F 后启动 |
 
 ## 7. 当前阻塞项
 
 | 阻塞项 | 状态 | 处理 |
 | --- | --- | --- |
-| 无 | Done | 当前没有阻塞 M4-1 的基础设施问题 |
+| 无 | Done | 当前没有阻塞 M3.5-B 的基础设施问题 |
 
 ## 8. M4 在位管理 MVP
 

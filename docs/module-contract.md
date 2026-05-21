@@ -38,6 +38,8 @@ export interface ModuleManifestDto {
 
 M2-2 起，平台 seed 的权限和菜单从 manifest 派生。业务模块接入时应先声明 manifest，再由 Platform Core 注册权限点和菜单。
 
+各业务模块的 `ModuleManifestDto` 由自身 contract 包导出（参见 `modules/<module>/contract/src/platform-manifest.ts`），平台模块自身由 `apps/platform-api/src/seeds/platform-module-manifest.ts` 提供。`status='disabled'` 的模块只 upsert 到 `platform.module_manifests`，不下发权限点或菜单。
+
 前端模块可继续使用 Shell 侧模块定义，但字段必须能映射到 Platform Core manifest：
 
 ```ts

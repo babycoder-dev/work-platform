@@ -13,7 +13,8 @@
 5. `docs/rfc/*.md`：某个阶段或重大能力的落地规格。
 6. `docs/architecture.md`：当前目标架构说明。
 7. `docs/module-contract.md`、`docs/platform-core.md`、`docs/im-foundation.md` 等专题文档。
-8. `docs/verification-log.md`：验证记录，不定义新规则。
+8. `docs/tasks/*.md`：单切片任务包，自包含、可执行、可验收；不定义新规则，权威性低于 RFC 与专题文档。
+9. `docs/verification-log.md`：验证记录，不定义新规则。
 
 `README.md` 和 `AGENTS.md` 是入口文件，不承载详细设计。它们必须链接到权威文档，而不是复制复杂规则。
 
