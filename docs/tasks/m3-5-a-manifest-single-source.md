@@ -51,6 +51,7 @@ M4-0 RFC（`docs/rfc/m4-presence-mvp.md`）已锁定 presence 模块的权限点
    - `WorkModuleManifest`（来自 `@work/platform-sdk`）服务于 Web Shell，沿用现有结构。
    - `ModuleManifestDto`（来自 `@work/platform-contract`）是平台 seed 的事实源。
    - 同一模块在 contract 包里同时导出两种形状；二者共享权限码与菜单 path，但不共享数据结构。
+   - 为什么不合并：`WorkModuleManifest` 是前端路由 schema（无 UUID、无 sortOrder、无 status），`ModuleManifestDto` 是数据库行 schema。两者随各自的演化轴变化，强行合并会让 contract 包同时承担两个演化轴。后续如要统一，需要单独 ADR。
 
 2. **稳定 ID 不能动**。`ModuleManifestDto.id` 与 `MenuDto.id` 必须复用现有 seed 里的 UUID，以保持幂等：
    - `platform` 模块 manifest id：`00000000-0000-0000-0000-000000000201`
@@ -59,8 +60,9 @@ M4-0 RFC（`docs/rfc/m4-presence-mvp.md`）已锁定 presence 模块的权限点
    - `report`  模块 manifest id：`00000000-0000-0000-0000-000000000204`
    - 菜单 id：platform/org `…0101`，platform/employees `…0102`，platform/roles `…0103`，presence/board `…0104`。
    - 唯一新增的菜单 id：presence/register 用 `00000000-0000-0000-0000-000000000105`。
+   - 当前 ID 段没有按模块号分配的规则。后续在 M3.5-G 跨 schema 数据访问规则文档化时，于 `docs/module-contract.md` 同步定义"模块 UUID 命名规范"，本切片不在范围内。
 
-3. **disabled 模块的语义**：`status='disabled'` 的 manifest 仍然 upsert 进 `platform.module_manifests`（这样运维能看到"模块已声明、未启用"），但它的权限点与菜单**不进入** `platform.permissions` 与 `platform.menus`。这条规则只在 seed 层实现，repository 层和 API 层不需要变更。
+3. **disabled 模块的语义**：`status='disabled'` 的 manifest 仍然 upsert 进 `platform.module_manifests`（这样运维能看到"模块已声明、未启用"），但它的权限点与菜单**不进入** `platform.permissions` 与 `platform.menus`。这条规则只在 seed 层实现，repository 层和 API 层不需要变更。disabled manifest 的 jsonb payload 仍包含完整 permissions/menus 列表，便于未来切换到 active 时一次性激活。
 
 4. **平台模块 manifest 留在 platform-api**。平台自身（企业/组织/员工/角色/权限）不是业务模块，不应外迁；但应该从 `seed-data.ts` 拆出到独立文件，便于和外来 manifest 并列。
 
@@ -70,7 +72,50 @@ M4-0 RFC（`docs/rfc/m4-presence-mvp.md`）已锁定 presence 模块的权限点
 
 7. **必须与 M4-0 RFC 对齐**：presence 在 `modules/presence/contract` 中导出的平台 manifest 必须包含所有 3 个权限点（含 `status:manage`）和 2 个菜单（board、register），路径、权限绑定、模块名都与 `docs/rfc/m4-presence-mvp.md` §5、§6 一致。
 
+8. **approval / report contract 目录必须先重构为分文件结构**。它们当前是单文件 `index.ts`（混合 `<module>Permissions` 与 `<module>Events` 常量定义）。本切片要求先把这些常量拆到 `events.ts` 与 `permissions.ts`，再让 index.ts 改为 re-export 桶。`platform-manifest.ts` 必须从兄弟文件（`./permissions`）引入，**禁止**从 `./index` 引入——后者会形成 `index → platform-manifest → index` 的循环依赖。这与 `modules/presence/contract` 当前的目录结构一致。
+
 ## 4. 文件清单与具体改动
+
+### 4.0 先重构 approval / report contract 目录（依赖前置）
+
+approval / report contract 当前是单文件 `index.ts`，内含常量定义。本切片所有后续步骤都依赖把它们拆成与 presence 一致的多文件结构，避免 platform-manifest 反向 import index 形成循环依赖。
+
+新增四个文件，内容如下。
+
+`modules/approval/contract/src/events.ts`：
+
+```ts
+export const approvalEvents = {
+  instanceCompleted: 'approval.instance.completed',
+} as const;
+```
+
+`modules/approval/contract/src/permissions.ts`：
+
+```ts
+export const approvalPermissions = {
+  instanceCreate: 'approval:instance:create',
+  taskApprove: 'approval:task:approve',
+} as const;
+```
+
+`modules/report/contract/src/events.ts`：
+
+```ts
+export const reportEvents = {
+  weeklySubmitted: 'report.weekly.submitted',
+} as const;
+```
+
+`modules/report/contract/src/permissions.ts`：
+
+```ts
+export const reportPermissions = {
+  dailyCreate: 'report:daily:create',
+  weeklyCreate: 'report:weekly:create',
+  weeklyView: 'report:weekly:view',
+} as const;
+```
 
 ### 4.1 新增：`modules/presence/contract/src/platform-manifest.ts`
 
@@ -122,7 +167,7 @@ export const presencePlatformManifest: ModuleManifestDto = {
 
 ```ts
 import type { ModuleManifestDto } from '@work/platform-contract';
-import { approvalPermissions } from './index';
+import { approvalPermissions } from './permissions';
 
 export const APPROVAL_MODULE_MANIFEST_ID = '00000000-0000-0000-0000-000000000203';
 
@@ -146,7 +191,7 @@ export const approvalPlatformManifest: ModuleManifestDto = {
 
 ```ts
 import type { ModuleManifestDto } from '@work/platform-contract';
-import { reportPermissions } from './index';
+import { reportPermissions } from './permissions';
 
 export const REPORT_MODULE_MANIFEST_ID = '00000000-0000-0000-0000-000000000204';
 
@@ -169,25 +214,35 @@ export const reportPlatformManifest: ModuleManifestDto = {
 
 ### 4.4 修改：`modules/presence/contract/src/index.ts`
 
-末尾追加：
+把文件改成 re-export 桶（按字母序，不影响功能但避免合并冲突）：
 
 ```ts
+export * from './events';
+export * from './manifest';
+export * from './permissions';
+export * from './platform-manifest';
+export * from './status.dto';
+```
+
+> 顺序对功能无影响；但所有被 `export *` 重导出的命名必须在各文件中**全局唯一**。当前没有冲突；若未来新增导出，需自行排查。
+
+### 4.5 重写：`modules/approval/contract/src/index.ts`
+
+原文件包含 `approvalPermissions` 与 `approvalEvents` 常量定义，已在 §4.0 拆出。本文件改为 re-export 桶：
+
+```ts
+export * from './events';
+export * from './permissions';
 export * from './platform-manifest';
 ```
 
-### 4.5 修改：`modules/approval/contract/src/index.ts`
+### 4.6 重写：`modules/report/contract/src/index.ts`
 
-末尾追加：
-
-```ts
-export * from './platform-manifest';
-```
-
-### 4.6 修改：`modules/report/contract/src/index.ts`
-
-末尾追加：
+同 §4.5。改写为：
 
 ```ts
+export * from './events';
+export * from './permissions';
 export * from './platform-manifest';
 ```
 
@@ -199,7 +254,9 @@ export * from './platform-manifest';
 "@work/platform-contract": "workspace:*"
 ```
 
-按字母序插入，保持现有缩进与字段顺序。三个包都要改。
+按字母序插入到 `@work/platform-sdk` 之前，保持现有缩进与字段顺序。三个包都要改。
+
+完成后必须执行 `pnpm install`（不带 `--frozen-lockfile`）让 pnpm 重新生成 `pnpm-lock.yaml`。禁止手编辑 lockfile。CI 的 verify job 才使用 `--frozen-lockfile`，本地交付时不要。
 
 ### 4.8 新增：`apps/platform-api/src/seeds/platform-module-manifest.ts`
 
@@ -437,6 +494,8 @@ expect(response.body.items).toEqual(
 
 ## 6. 验证
 
+### 6.1 命令验证
+
 按顺序执行，全部必须通过：
 
 ```powershell
@@ -447,6 +506,8 @@ pnpm test
 pnpm test:e2e
 pnpm build
 ```
+
+> `pnpm install` 不带 `--frozen-lockfile`；改了 contract 包 dependencies 后必须让 pnpm 重新生成 `pnpm-lock.yaml`。
 
 如果本机有 PostgreSQL，追加：
 
@@ -459,25 +520,102 @@ pnpm test:db
 pnpm test:e2e:postgres
 ```
 
-如果本机起不来 PostgreSQL，必须在交付说明里写明，依赖 CI 的 verify job 跑这两条；不允许跳过。
+如果本机起不来 PostgreSQL，必须在交付说明里写明，依赖 CI 的 verify job 跑这两条；不允许默不作声地跳过。
 
-幂等性手测：在已经 seed 过的库上再跑一次 `pnpm db:seed`，不应出现唯一约束错误或重复行。
+### 6.2 数据库状态断言（核心，不能省）
+
+仅证明命令通过不够。本切片的核心约束是"disabled 模块的权限**没**进 platform.permissions"。必须显式断言。
+
+**6.2.a 静态断言（任何环境都要做，写进 verification-log）**
+
+读 `apps/platform-api/src/seeds/seed-data.ts`、`platform-module-manifest.ts` 和三个 contract 包的 `platform-manifest.ts`，得到以下数字并在 verification-log 里写出来：
+
+- `platformModuleManifests.length === 4`（platform / presence / approval / report）
+- `platformModuleManifests.filter(m => m.status === 'disabled').map(m => m.moduleName)` 必须是 `['approval', 'report']`
+- `platformSeedPermissions.length === 11`（platform 8 + presence 3）
+- `platformSeedPermissions` 不包含任何以 `approval:` 或 `report:` 开头的 code
+- `platformSeedMenus.length === 5`（platform 3 + presence 2）
+- `platformSeedMenus.map(m => m.path)` 必须包含 `/presence/board` 和 `/presence/register`
+
+这些断言在 §4.10 的 spec 用例里已经覆盖（`vitest run apps/platform-api/src/seeds/seed-data.spec.ts`），但 verification-log 必须自然语言复述这几个数字，便于未来 reviewer 不跑测试也能交叉验证。
+
+**6.2.b 数据库断言（仅在本机有 PostgreSQL 时执行）**
+
+```sql
+-- 期望：platform=8, presence=3
+SELECT module_name, count(*) FROM platform.permissions GROUP BY module_name ORDER BY module_name;
+
+-- 期望：platform=3, presence=2
+SELECT module_name, count(*) FROM platform.menus GROUP BY module_name ORDER BY module_name;
+
+-- 期望：4 行；approval / report 的 status='disabled'，platform / presence 的 status='active'
+SELECT module_name, status FROM platform.module_manifests ORDER BY module_name;
+```
+
+任何一条不符合期望即视为本切片**未通过**。
+
+### 6.3 幂等性手测
+
+在已经 seed 过的库上再跑一次 `pnpm db:seed`，不应出现唯一约束错误或重复行。再次跑 6.2.b 的三条 SQL，结果必须**保持一致**（数字不变）。
 
 ## 7. 完成后更新的文档
 
-1. `docs/foundation-progress.md`
-   - 在 §6 "当前下一步" 末尾追加：本切片完成后，下一步为 `M3.5-B ADR-0003 Gateway 边界`。
-   - 在 "M3.5 收口切片" 小节里把 3.5-A 标为 Done，并写明完成时间与 verification-log 锚点。
-2. `docs/verification-log.md`
-   - 追加一条 verification 记录，包含执行的命令、结果、PostgreSQL E2E 是否本机跑过、`pnpm db:seed` 幂等性手测结果。
-3. `docs/module-contract.md`
-   - 第 2 节 "Manifest" 末尾追加：
+> 说明：以下描述均为目标"最终态"，不是相对增量。Codex 实际看到的文件可能已存在部分目标内容；以目标态为准比对当前文件，缺什么补什么、错什么改什么。
 
-     > 各业务模块的 `ModuleManifestDto` 由自身 contract 包导出（参见 `modules/<module>/contract/src/platform-manifest.ts`），平台模块自身由 `apps/platform-api/src/seeds/platform-module-manifest.ts` 提供。`status='disabled'` 的模块只 upsert 到 `platform.module_manifests`，不下发权限点或菜单。
+1. `docs/foundation-progress.md`
+   - §6 "当前下一步" 段落必须显示下一步为 `M3.5-B ADR-0003 Gateway 边界`，并在段落中包含一句指向本任务包路径的引用。
+   - §6.1 "M3.5 收口切片" 表必须存在；3.5-A 的状态必须为 `Done`，并在说明列写明完成日期（执行交付时的实际日期）与 verification-log 锚点 `M3.5-A Manifest Single Source`。
+2. `docs/verification-log.md` 顶部追加一条记录，标题 `## YYYY-MM-DD` + `### M3.5-A Manifest Single Source`，至少包含：
+   - **Change set**：列出本切片关键改动；必须显式提到 approval / report contract 目录被拆分为 events.ts + permissions.ts + platform-manifest.ts，与 presence 一致。
+   - **Verification**：
+     - 6 条命令的实际结果（pass / fail / skipped）。
+     - §6.2.a 静态断言的 6 个数字逐一复述。
+     - §6.2.b 数据库断言：本机有 PostgreSQL 时贴 SQL 实际输出；无则写 "本机无 PostgreSQL，依赖 CI verify job 兜底" 并显式列出 §4.10 的 vitest 用例已覆盖等价断言。
+     - §6.3 幂等性手测：本机有 PostgreSQL 时贴第二次 `pnpm db:seed` 的输出；无则记为 "依赖 CI"。
+   - **Follow-up**：下一切片 `M3.5-B ADR-0003 Gateway 边界`。
+3. `docs/module-contract.md` 第 2 节 "Manifest" 必须包含以下段落（位置紧跟"M2-2 起..."段之后）：
+
+   > 各业务模块的 `ModuleManifestDto` 由自身 contract 包导出（参见 `modules/<module>/contract/src/platform-manifest.ts`），平台模块自身由 `apps/platform-api/src/seeds/platform-module-manifest.ts` 提供。`status='disabled'` 的模块只 upsert 到 `platform.module_manifests`，不下发权限点或菜单。
 
 ## 8. 提交规范
 
-按 Conventional Commits 单次提交：
+按 Conventional Commits 单次提交。使用显式 `git add <files>` 列出本切片产物，**不要**用 `git add -A` / `git add .`。
+
+**包含**在本次 commit 内的文件（按 git status 分类）：
+
+modified:
+- `apps/platform-api/package.json`
+- `apps/platform-api/src/platform-api.e2e-spec.ts`
+- `apps/platform-api/src/platform-api.postgres.e2e-spec.ts`
+- `apps/platform-api/src/seeds/seed-data.spec.ts`
+- `apps/platform-api/src/seeds/seed-data.ts`
+- `docs/foundation-progress.md`
+- `docs/module-contract.md`
+- `docs/verification-log.md`
+- `modules/approval/contract/package.json`
+- `modules/approval/contract/src/index.ts`
+- `modules/presence/contract/package.json`
+- `modules/presence/contract/src/index.ts`
+- `modules/report/contract/package.json`
+- `modules/report/contract/src/index.ts`
+- `pnpm-lock.yaml`
+
+new:
+- `apps/platform-api/src/seeds/platform-module-manifest.ts`
+- `modules/approval/contract/src/events.ts`
+- `modules/approval/contract/src/permissions.ts`
+- `modules/approval/contract/src/platform-manifest.ts`
+- `modules/presence/contract/src/platform-manifest.ts`
+- `modules/report/contract/src/events.ts`
+- `modules/report/contract/src/permissions.ts`
+- `modules/report/contract/src/platform-manifest.ts`
+
+**不要**包含：
+- `docs/tasks/m3-5-a-manifest-single-source.md`（本任务包，由审查者维护）。
+- `docs/doc-index.md`（入口注册由审查者另行提交）。
+- `.tmp/` 或任何本地缓存。
+
+Commit 模板：
 
 ```
 chore: source module manifests from contract packages
@@ -486,6 +624,10 @@ Move presence / approval / report platform-side manifests into their
 contract packages so seed-data has a single source of truth. Keep
 approval and report disabled until their backends ship; disabled
 manifests no longer publish permissions or menus into platform tables.
+
+Refactor approval and report contract directories into per-concern
+files (events.ts / permissions.ts / platform-manifest.ts) to match
+the presence layout and avoid index/platform-manifest cycles.
 ```
 
 ## 9. 完成确认
