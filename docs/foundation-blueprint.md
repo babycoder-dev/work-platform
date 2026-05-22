@@ -419,6 +419,7 @@ Windows 7 只保证 Web UI 核心功能可用。
 - realtime-gateway 可用。
 - OpenIM adapter 初版。
 - 系统通知可进入站内通知和 IM。
+- 内嵌业务模块（presence/approval/report）拆分为独立服务，gateway-api 退化为纯边缘网关。详见 `docs/adr/0003-gateway-boundary.md`。
 
 退出标准：
 

@@ -174,24 +174,22 @@
 当前建议执行：
 
 ```text
-M3.5-B: ADR-0003 Gateway 边界
+M3.5-B2: ADR-0004 跨进程鉴权（Phantom Token）
 ```
 
-上一切片任务包：`docs/tasks/m3-5-a-manifest-single-source.md`。
+上一切片任务包：`docs/tasks/m3-5-b-adr-gateway-boundary.md`。
 
-M3.5-A 完成结果：
+M3.5-B 完成结果：
 
-- `apps/platform-api/src/seeds/seed-data.ts` 从 `@work/presence-contract`、`@work/approval-contract`、`@work/report-contract` 导入各业务模块 manifest。
-- 平台模块自身 manifest 拆到 `apps/platform-api/src/seeds/platform-module-manifest.ts`。
-- approval / report manifest 落 `status='disabled'`，且不下发权限点和菜单。
-- presence manifest 与 `docs/rfc/m4-presence-mvp.md` §5、§6 完全一致，包含 `status:manage` 权限和 `/presence/register` 菜单。
-- 在已 seed 过的库上重跑 `pnpm db:seed` 保持幂等。
-- verification-log 锚点：`M3.5-A Manifest Single Source`。
+- 新增 `docs/adr/0003-gateway-boundary.md`：固定 gateway-api 在 M4–M6 作为 API 组合宿主内嵌业务模块，M7 起拆为独立业务服务 + 纯边缘网关，拆分时点硬绑定 M7 里程碑。
+- 修正 `docs/architecture.md` 中与实现漂移的 gateway 描述。
+- `docs/foundation-blueprint.md` M7 交付清单补充业务服务拆分项。
+- verification-log 锚点：`M3.5-B Gateway Boundary ADR`。
 
-3.5-A 完成后顺序：
+M3.5 收口切片剩余顺序：
 
 ```text
-M3.5-B  ADR-0003 Gateway 边界（保留内嵌、补 ADR 锁定 M4–M6 范围）
+M3.5-B2 ADR-0004 跨进程鉴权（Phantom Token）
 M3.5-C  登录失败审计 + 锁定策略落地
 M3.5-D  首次登录改密 + 管理员重置密码端点
 M3.5-E  Platform 数据范围 resolver（PlatformScopeService）
@@ -201,15 +199,14 @@ M3.5-G  跨 schema 数据访问规则文档化（module-contract.md 增加章节
 
 M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
 
-本切片完成后，下一步为 `M3.5-B ADR-0003 Gateway 边界`。
-
 ### 6.1 M3.5 收口切片
 
 | 切片 | 能力 | 状态 | 说明 |
 | --- | --- | --- | --- |
 | M3.5-A | 让模块 manifest 由各 contract 包统一供给 | Done | 2026-05-21 完成；业务模块平台侧 manifest 已迁回各 contract 包；详见 verification-log `M3.5-A Manifest Single Source` |
-| M3.5-B | ADR-0003 Gateway 边界 | Pending | 保留内嵌，补 ADR 锁定 M4-M6 范围 |
-| M3.5-C | 登录失败审计 + 锁定策略落地 | Pending | M3.5-B 后启动 |
+| M3.5-B | ADR-0003 Gateway 边界 | Done | 2026-05-22 完成；ADR-0003 固定 gateway M4–M6 内嵌、M7 拆分；详见 verification-log `M3.5-B Gateway Boundary ADR` |
+| M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token） | Pending | M3.5-B 后启动 |
+| M3.5-C | 登录失败审计 + 锁定策略落地 | Pending | M3.5-B2 后启动 |
 | M3.5-D | 首次登录改密 + 管理员重置密码端点 | Pending | M3.5-C 后启动 |
 | M3.5-E | Platform 数据范围 resolver | Pending | M3.5-D 后启动 |
 | M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Pending | M3.5-E 后启动 |

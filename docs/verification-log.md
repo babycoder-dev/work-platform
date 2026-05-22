@@ -2,6 +2,32 @@
 
 ## 2026-05-22
 
+### M3.5-B Gateway Boundary ADR
+
+Change set:
+
+- Added `docs/adr/0003-gateway-boundary.md` to record the accepted gateway boundary decision.
+- Updated the two gateway descriptions in `docs/architecture.md` so M4-M6 is described as an API composition host and M7+ as a thin edge gateway.
+- Added the M7 business-service split deliverable to `docs/foundation-blueprint.md`.
+- Updated `docs/foundation-progress.md` so the next slice is M3.5-B2 ADR-0004 Phantom Token.
+
+Verification:
+
+- `git status --short` / tracked diff confirmed this slice changes only the 5 intended `.md` files; the untracked task package `docs/tasks/m3-5-b-adr-gateway-boundary.md` is intentionally excluded from the commit.
+- §6.2 A1: ADR status is `Accepted`.
+- §6.2 A2: ADR background records the drift between in-process implementation and reverse-proxy style documentation.
+- §6.2 A3: ADR decision 1 states M4-M6 gateway-api is an API composition host with embedded business modules.
+- §6.2 A4: ADR decision 2 keeps platform-api as a separate process and gives both data-boundary and security-boundary reasons.
+- §6.2 A5: ADR decision 3 states M7 splits embedded modules into standalone services plus a thin edge gateway.
+- §6.2 A6: ADR decision 4 hard-binds the split trigger to the M7 milestone.
+- §6.2 A7: ADR includes "内嵌不等于可以走捷径" and restates constitution §8 module-boundary rules.
+- §6.2 A8: ADR relationship section references ADR-0004 and constitution §11 `/api/v1` versioning.
+- §6.2 B9: `docs/foundation-blueprint.md` M7 deliverables now include the embedded business-module split, matching ADR-0003 decision 3.
+- §6.2 B10: `docs/architecture.md` section 1 and section 3 both describe the updated gateway boundary and reference `docs/adr/0003-gateway-boundary.md`.
+
+Follow-up:
+
+- M3.5-B2 ADR-0004 跨进程鉴权（Phantom Token）。
 ### M3.5-A Manifest Single Source
 
 Change set:
