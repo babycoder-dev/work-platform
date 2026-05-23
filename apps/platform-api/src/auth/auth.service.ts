@@ -9,6 +9,10 @@ import type {
   RoleDto,
 } from '@work/platform-contract';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
+import { verifyPassword } from '../security/secret-hash';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000;
 
 export interface LoginAuditContext {
   traceId?: string;
@@ -23,11 +27,90 @@ export class AuthService {
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
   async login(input: LoginInput, auditContext: LoginAuditContext = {}): Promise<LoginResult> {
-    const employee = await this.repository.validatePassword(input.account, input.password);
-    if (!employee || employee.status !== 'active') {
+    const identity = await this.repository.findLocalIdentityByAccount(input.account);
+    if (!identity) {
       throw new UnauthorizedException('账号或密码错误');
     }
 
+    const now = Date.now();
+    const lockedUntilTime = identity.lockedUntil ? Date.parse(identity.lockedUntil) : undefined;
+    if (lockedUntilTime !== undefined && lockedUntilTime > now) {
+      const remainingMinutes = Math.max(1, Math.ceil((lockedUntilTime - now) / 60000));
+      await this.repository.recordAuditLog({
+        actorUserId: identity.userId,
+        actorAccount: identity.account,
+        action: 'auth.login',
+        resourceType: 'platform.session',
+        resourceId: identity.userId,
+        traceId: auditContext.traceId,
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+        result: 'failure',
+        metadata: {
+          reason: 'account_locked',
+          remainingMinutes,
+        },
+      });
+      throw new UnauthorizedException(`账号已被锁定，请 ${remainingMinutes} 分钟后重试`);
+    }
+
+    const employee = await this.repository.findEmployeeById(identity.userId);
+    if (!employee || employee.status !== 'active') {
+      await this.repository.recordAuditLog({
+        actorUserId: identity.userId,
+        actorAccount: identity.account,
+        action: 'auth.login',
+        resourceType: 'platform.session',
+        resourceId: identity.userId,
+        traceId: auditContext.traceId,
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+        result: 'failure',
+        metadata: {
+          reason: 'employee_inactive',
+        },
+      });
+      throw new UnauthorizedException('账号或密码错误');
+    }
+
+    if (!verifyPassword(input.password, identity.passwordHash)) {
+      const isLockExpired = lockedUntilTime !== undefined && lockedUntilTime <= now;
+      const baseFailedAttempts = isLockExpired ? 0 : identity.failedAttempts;
+      const nextFailedAttempts = baseFailedAttempts + 1;
+      const willLock = nextFailedAttempts >= MAX_FAILED_ATTEMPTS;
+      const newLockedUntil = willLock ? new Date(now + LOCK_DURATION_MS).toISOString() : null;
+      await this.repository.updateLocalIdentitySecurityState(identity.userId, {
+        failedAttempts: nextFailedAttempts,
+        lockedUntil: newLockedUntil,
+      });
+      await this.repository.recordAuditLog({
+        actorUserId: identity.userId,
+        actorAccount: identity.account,
+        action: 'auth.login',
+        resourceType: 'platform.session',
+        resourceId: identity.userId,
+        traceId: auditContext.traceId,
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+        result: 'failure',
+        metadata: {
+          reason: 'wrong_password',
+          failedAttempts: nextFailedAttempts,
+          locked: willLock,
+        },
+      });
+
+      if (willLock) {
+        throw new UnauthorizedException('账号已被锁定，请 15 分钟后重试');
+      }
+      throw new UnauthorizedException('账号或密码错误');
+    }
+
+    await this.repository.updateLocalIdentitySecurityState(identity.userId, {
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastLoginAt: new Date(now).toISOString(),
+    });
     const accessToken = `dev-access-${randomUUID()}`;
     await this.repository.createAccessSession({
       accessToken,
@@ -76,6 +159,7 @@ export class AuthService {
       requireUppercase: false,
       requireSpecialChar: false,
       maxFailedAttempts: 5,
+      lockDurationMinutes: 15,
       expireDays: 90,
     };
   }

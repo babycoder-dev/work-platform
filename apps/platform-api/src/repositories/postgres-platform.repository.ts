@@ -16,8 +16,14 @@ import type {
 } from '@work/platform-contract';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { PLATFORM_DB_POOL } from '../db/db.provider';
-import { hashAccessToken, hashPassword, verifyPassword } from '../security/secret-hash';
-import type { AccessSession, CreateAccessSessionInput, PlatformRepository } from './platform.repository';
+import { hashAccessToken, hashPassword } from '../security/secret-hash';
+import type {
+  AccessSession,
+  CreateAccessSessionInput,
+  LocalIdentitySecurityState,
+  PlatformRepository,
+  UpdateLocalIdentitySecurityStateInput,
+} from './platform.repository';
 import { mapPostgresError } from './postgres-error.mapper';
 
 type QueryExecutor = Pick<Pool, 'query'> | PoolClient;
@@ -53,6 +59,15 @@ interface EmployeeRow {
   status: EmployeeStatus;
   must_change_password: boolean;
   role_ids: string[];
+}
+
+interface LocalIdentitySecurityRow {
+  user_id: string;
+  account: string;
+  password_hash: string;
+  failed_attempts: number;
+  locked_until: Date | null;
+  must_change_password: boolean;
 }
 
 interface PermissionRow {
@@ -238,22 +253,46 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return findEmployeeById(this.pool, id);
   }
 
-  async validatePassword(account: string, password: string): Promise<EmployeeDto | undefined> {
-    const identityResult = await this.pool.query<{ password_hash: string; user_id: string }>(
+  async findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined> {
+    const result = await this.pool.query<LocalIdentitySecurityRow>(
       `
-        SELECT li.user_id, li.password_hash
+        SELECT
+          li.user_id,
+          li.account,
+          li.password_hash,
+          li.failed_attempts,
+          li.locked_until,
+          li.must_change_password
         FROM platform.local_identities li
         JOIN platform.employees e ON e.id = li.user_id
         WHERE li.account = $1 AND e.deleted_at IS NULL
       `,
       [account],
     );
-    const identity = identityResult.rows[0];
-    if (!identity || !verifyPassword(password, identity.password_hash)) {
-      return undefined;
-    }
 
-    return this.findEmployeeById(identity.user_id);
+    return mapFirst(result, mapLocalIdentitySecurityState);
+  }
+
+  async updateLocalIdentitySecurityState(
+    userId: string,
+    input: UpdateLocalIdentitySecurityStateInput,
+  ): Promise<void> {
+    try {
+      await this.pool.query(
+        `
+          UPDATE platform.local_identities
+          SET
+            failed_attempts = $2,
+            locked_until = $3,
+            last_login_at = COALESCE($4, last_login_at),
+            updated_at = now()
+          WHERE user_id = $1
+        `,
+        [userId, input.failedAttempts, input.lockedUntil, input.lastLoginAt ?? null],
+      );
+    } catch (error) {
+      mapPostgresError(error);
+    }
   }
 
   async updateEmployee(employee: EmployeeDto): Promise<EmployeeDto> {
@@ -617,6 +656,17 @@ function mapEmployee(row: EmployeeRow): EmployeeDto {
     email: row.email ?? undefined,
     status: row.status,
     roleIds: row.role_ids ?? [],
+    mustChangePassword: row.must_change_password,
+  };
+}
+
+function mapLocalIdentitySecurityState(row: LocalIdentitySecurityRow): LocalIdentitySecurityState {
+  return {
+    userId: row.user_id,
+    account: row.account,
+    passwordHash: row.password_hash,
+    failedAttempts: row.failed_attempts,
+    lockedUntil: row.locked_until?.toISOString(),
     mustChangePassword: row.must_change_password,
   };
 }

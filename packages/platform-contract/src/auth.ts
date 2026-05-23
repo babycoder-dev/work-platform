@@ -30,5 +30,6 @@ export interface PasswordPolicyDto {
   requireUppercase: boolean;
   requireSpecialChar: boolean;
   maxFailedAttempts: number;
+  lockDurationMinutes: number;
   expireDays?: number;
 }

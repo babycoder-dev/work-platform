@@ -2,6 +2,36 @@
 
 ## 2026-05-23
 
+### M3.5-C Login Failure Audit and Lockout
+
+Change set:
+
+- Replaced `PlatformRepository.validatePassword` with `findLocalIdentityByAccount` and `updateLocalIdentitySecurityState`; PostgreSQL and memory implementations now expose the same local identity security-state boundary.
+- Rewrote `AuthService.login` to check active lockout before password verification, audit disabled/locked/wrong-password attempts, update failed-attempt counters, lock for 15 minutes after 5 failures, reset counters on success, and keep unknown accounts unaudited.
+- Added `lockDurationMinutes` to `PasswordPolicyDto` and `getPasswordPolicy()`.
+- Expanded `auth.service.spec.ts`, memory store tests, PostgreSQL repository integration tests, memory E2E, and PostgreSQL E2E for lockout and local identity state.
+- Updated `docs/security-baseline.md` §3.2/§3.4/§15, `docs/platform-core.md` §3.2, and `docs/foundation-progress.md` §6/§6.1.
+
+Verification:
+
+- `pnpm install`: pass. Workspace already up to date; pnpm emitted a non-fatal metadata fetch warning through `127.0.0.1:10808`.
+- `pnpm lint`: pass. Existing Nx ProjectGraph warnings remain; existing unused-parameter warnings remain in `modules/presence/api/src/status/presence-status.service.ts` and `apps/workbench-shell/src/module-registry/load-remote-module.ts`.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. 12 files / 52 tests passed; PostgreSQL integration tests skipped in the normal unit run.
+- `pnpm test:e2e`: pass. Memory E2E 14 tests passed; PostgreSQL E2E skipped in the normal E2E run.
+- `pnpm build`: pass.
+- PostgreSQL path: `$env:DATABASE_URL='postgresql://work:work@localhost:5432/work_platform'; pnpm db:setup` failed locally with PostgreSQL password authentication failure for user `work`; Docker Desktop engine was not running, so `pnpm test:db` and `pnpm test:e2e:postgres` were not run locally and remain CI-covered.
+- `auth.service.spec.ts`用例数：6 -> 14。
+- §6.2 assertion 1: `auth.service.spec.ts` increased from 6 to 14 tests and all passed.
+- §6.2 assertion 2: `auth.service.spec.ts` test `rejects locked accounts before checking the password` and memory E2E test `locks after five wrong passwords and rejects the correct password while locked` verify that a correct password during lockout still returns 401 with the lockout message.
+- §6.2 assertion 3: `auth.service.spec.ts` test `resets the failed-attempt base after an expired lock` verifies `failedAttempts: 1` rather than 6 after an expired lock.
+- §6.2 assertion 4: `auth.service.spec.ts` test `does not write audit logs for unknown accounts` verifies unknown accounts do not call `recordAuditLog`.
+- §6.2 assertion 5: `auth.service.spec.ts` test `returns the lock duration in the password policy` verifies `lockDurationMinutes: 15`.
+
+Follow-up:
+
+- M3.5-D 首次登录改密 + 管理员重置密码端点。
+
 ### M3.5-B2 Phantom Token ADR
 
 Change set:

@@ -16,16 +16,21 @@ import type {
 import type {
   AccessSession,
   CreateAccessSessionInput,
+  LocalIdentitySecurityState,
   PlatformRepository,
+  UpdateLocalIdentitySecurityStateInput,
 } from '../repositories/platform.repository';
+import { hashPassword } from '../security/secret-hash';
 import { platformModuleManifests } from '../seeds/seed-data';
 
 interface LocalIdentity {
   userId: string;
   account: string;
-  password: string;
+  passwordHash: string;
   failedAttempts: number;
-  lockedAt?: string;
+  lockedUntil?: string;
+  lastLoginAt?: string;
+  mustChangePassword: boolean;
 }
 
 @Injectable()
@@ -103,8 +108,9 @@ export class PlatformMemoryStore implements PlatformRepository {
     this.identities.set(input.account, {
       userId: employee.id,
       account: input.account,
-      password: input.initialPassword,
+      passwordHash: hashPassword(input.initialPassword),
       failedAttempts: 0,
+      mustChangePassword: true,
     });
 
     return employee;
@@ -123,13 +129,25 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.employees.get(identity.userId);
   }
 
-  async validatePassword(account: string, password: string): Promise<EmployeeDto | undefined> {
+  async findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined> {
     const identity = this.identities.get(account);
-    if (!identity || identity.password !== password) {
-      return undefined;
+    return identity ? { ...identity } : undefined;
+  }
+
+  async updateLocalIdentitySecurityState(
+    userId: string,
+    input: UpdateLocalIdentitySecurityStateInput,
+  ): Promise<void> {
+    const identity = Array.from(this.identities.values()).find((item) => item.userId === userId);
+    if (!identity) {
+      return;
     }
 
-    return this.employees.get(identity.userId);
+    identity.failedAttempts = input.failedAttempts;
+    identity.lockedUntil = input.lockedUntil ?? undefined;
+    if (input.lastLoginAt !== undefined) {
+      identity.lastLoginAt = input.lastLoginAt;
+    }
   }
 
   async listPermissions(): Promise<PermissionDto[]> {
@@ -273,8 +291,9 @@ export class PlatformMemoryStore implements PlatformRepository {
     this.identities.set(admin.account, {
       userId: admin.id,
       account: admin.account,
-      password: 'admin123',
+      passwordHash: hashPassword('admin123'),
       failedAttempts: 0,
+      mustChangePassword: true,
     });
   }
 }

@@ -95,6 +95,17 @@ platform:permission:view
 
 M4 起 gateway-api 内嵌业务模块时，由 gateway 侧的鉴权 guard 调用 `GET /api/platform/auth/me` 完成 introspection，把 `currentUser` 注入进程内 request；业务模块不直接连 `platform` 数据库验证令牌。跨进程认证的整体模式（对外 opaque、introspection 复用 `/auth/me`、M7 引入内部 JWT）见 `docs/adr/0004-cross-process-auth-phantom-token.md`。
 
+## 3.2 登录失败审计与账号锁定
+
+`POST /api/platform/auth/login` 的失败语义：
+
+- 密码错误时累加 `platform.local_identities.failed_attempts`；连续失败达到 5 次时设置 `locked_until = now() + 15 分钟`，账号进入锁定状态。
+- 锁定期内任何登录尝试直接返回 401 "账号已被锁定，请 N 分钟后重试"，不验证密码、不消耗服务端密码 hash 计算。
+- 锁定到期视为已过，下一次失败时计数从 1 重新开始（即"过期锁定不累计旧失败数"）。
+- 登录成功时 `failed_attempts` 重置为 0、`locked_until` 清空、`last_login_at` 更新。
+- 所有登录尝试（成功 / 密码错 / 锁定期内尝试 / 禁用员工尝试）都写入 `platform.audit_logs`，`action: 'auth.login'`，`result: 'success' | 'failure'`，`metadata` 含 `reason` 与 `failedAttempts` 等上下文。**账号不存在不写审计**（防止审计表被用于账号枚举）。
+- 锁定参数（5 次 / 15 分钟）由 `getPasswordPolicy()` 暴露给前端，前端可在登录界面提示用户。
+
 ## 4. 种子账号
 
 PostgreSQL seed 默认创建管理员账号：

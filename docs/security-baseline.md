@@ -65,6 +65,8 @@
 账号或密码错误
 ```
 
+**例外**：账号触发锁定阈值或处于锁定期内时，响应必须明确告知"账号已被锁定，请 N 分钟后重试"（含剩余分钟数）。理由：本系统默认企业内网部署、面向已知用户群体，"账号是否存在"已不构成核心信息泄露（用户在登录页已输入账号）；反之，不告知锁定会让用户反复重试，徒增 platform-api 负载和审计噪音。
+
 ### 3.3 密码存储
 
 禁止：
@@ -106,6 +108,7 @@ requireNumber: true
 requireUppercase: false
 requireSpecialChar: false
 maxFailedAttempts: 5
+lockDurationMinutes: 15
 ```
 
 生产环境建议：
@@ -116,6 +119,7 @@ requireNumber: true
 requireUppercase: true
 requireSpecialChar: false
 maxFailedAttempts: 5
+lockDurationMinutes: 15
 ```
 
 首期必须具备字段：
@@ -433,6 +437,7 @@ M1 之后新增：
 | 审计日志未闭环 | 未完成 | M2 完成审计 service |
 | 菜单权限未闭环 | 未完成 | M2 完成菜单与权限注册 |
 | lockfile 缺失 | 已生成 `pnpm-lock.yaml`，CI 已切换 frozen lockfile | M1 退出前保持 lockfile 与依赖声明同步 |
+| 登录失败审计 + 锁定策略 | M3.5-C 已实装 5 次失败锁定 15 分钟、所有失败/锁定写入审计 | 完成于 M3.5-C，详见 verification-log `M3.5-C Login Failure Audit and Lockout` |
 
 ## 16. 变更门禁
 

@@ -1,6 +1,9 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import type { EmployeeDto, PermissionDto, RoleDto } from '@work/platform-contract';
+import { describe, expect, it, vi } from 'vitest';
 import { AuthService } from './auth.service';
+import type { PlatformRepository } from '../repositories/platform.repository';
+import { hashPassword } from '../security/secret-hash';
 import { PlatformMemoryStore } from '../store/platform-memory.store';
 
 describe('AuthService', () => {
@@ -103,4 +106,270 @@ describe('AuthService', () => {
 
     await expect(service.authenticateAccessToken('dev-access-expired')).rejects.toThrow(UnauthorizedException);
   });
+
+  it('resets failed attempts after a successful login', async () => {
+    const repository = createRepositoryMock();
+    const passwordHash = hashPassword('admin123');
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash,
+      failedAttempts: 2,
+      mustChangePassword: false,
+    });
+    const service = new AuthService(repository);
+
+    await service.login({ account: 'admin', password: 'admin123' });
+
+    expect(repository.updateLocalIdentitySecurityState).toHaveBeenCalledWith(
+      employee.id,
+      expect.objectContaining({
+        failedAttempts: 0,
+        lockedUntil: null,
+        lastLoginAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('increments failed attempts and audits a wrong password', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 0,
+      mustChangePassword: false,
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.login({ account: 'admin', password: 'wrong-password' })).rejects.toThrow('账号或密码错误');
+
+    expect(repository.updateLocalIdentitySecurityState).toHaveBeenCalledWith(employee.id, {
+      failedAttempts: 1,
+      lockedUntil: null,
+    });
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'failure',
+        metadata: {
+          reason: 'wrong_password',
+          failedAttempts: 1,
+          locked: false,
+        },
+      }),
+    );
+  });
+
+  it('locks the account after the fifth wrong password', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 4,
+      mustChangePassword: false,
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.login({ account: 'admin', password: 'wrong-password' })).rejects.toThrow(
+      '账号已被锁定，请 15 分钟后重试',
+    );
+
+    expect(repository.updateLocalIdentitySecurityState).toHaveBeenCalledWith(
+      employee.id,
+      expect.objectContaining({
+        failedAttempts: 5,
+        lockedUntil: expect.any(String),
+      }),
+    );
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'failure',
+        metadata: {
+          reason: 'wrong_password',
+          failedAttempts: 5,
+          locked: true,
+        },
+      }),
+    );
+  });
+
+  it('rejects locked accounts before checking the password', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 5,
+      lockedUntil: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      mustChangePassword: false,
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.login({ account: 'admin', password: 'admin123' })).rejects.toThrow(
+      '账号已被锁定，请 10 分钟后重试',
+    );
+
+    expect(repository.findEmployeeById).not.toHaveBeenCalled();
+    expect(repository.updateLocalIdentitySecurityState).not.toHaveBeenCalled();
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'failure',
+        metadata: {
+          reason: 'account_locked',
+          remainingMinutes: 10,
+        },
+      }),
+    );
+  });
+
+  it('resets the failed-attempt base after an expired lock', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 5,
+      lockedUntil: new Date(Date.now() - 60 * 1000).toISOString(),
+      mustChangePassword: false,
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.login({ account: 'admin', password: 'wrong-password' })).rejects.toThrow('账号或密码错误');
+
+    expect(repository.updateLocalIdentitySecurityState).toHaveBeenCalledWith(employee.id, {
+      failedAttempts: 1,
+      lockedUntil: null,
+    });
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          reason: 'wrong_password',
+          failedAttempts: 1,
+          locked: false,
+        },
+      }),
+    );
+  });
+
+  it('does not write audit logs for unknown accounts', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue(undefined);
+    const service = new AuthService(repository);
+
+    await expect(service.login({ account: 'missing', password: 'wrong-password' })).rejects.toThrow('账号或密码错误');
+
+    expect(repository.recordAuditLog).not.toHaveBeenCalled();
+    expect(repository.updateLocalIdentitySecurityState).not.toHaveBeenCalled();
+  });
+
+  it('audits inactive employees without updating identity state', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 0,
+      mustChangePassword: false,
+    });
+    repository.findEmployeeById.mockResolvedValue({
+      ...employee,
+      status: 'disabled',
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.login({ account: 'admin', password: 'admin123' })).rejects.toThrow('账号或密码错误');
+
+    expect(repository.updateLocalIdentitySecurityState).not.toHaveBeenCalled();
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'failure',
+        metadata: {
+          reason: 'employee_inactive',
+        },
+      }),
+    );
+  });
+
+  it('returns the lock duration in the password policy', () => {
+    const service = new AuthService(createRepositoryMock());
+
+    expect(service.getPasswordPolicy()).toEqual(
+      expect.objectContaining({
+        maxFailedAttempts: 5,
+        lockDurationMinutes: 15,
+      }),
+    );
+  });
 });
+
+const employee: EmployeeDto = {
+  id: 'user-admin',
+  enterpriseId: 'ent-default',
+  employeeNo: '000001',
+  account: 'admin',
+  name: '系统管理员',
+  departmentId: 'dept-root',
+  status: 'active',
+  roleIds: ['role-admin'],
+  mustChangePassword: false,
+};
+
+const role: RoleDto = {
+  id: 'role-admin',
+  enterpriseId: 'ent-default',
+  code: 'admin',
+  name: '系统管理员',
+  permissionCodes: ['platform:org:view'],
+  dataScope: 'company',
+  status: 'active',
+};
+
+const permission: PermissionDto = {
+  code: 'platform:org:view',
+  name: '查看组织架构',
+  moduleName: 'platform',
+};
+
+function createRepositoryMock() {
+  return {
+    listEnterprises: vi.fn().mockResolvedValue([]),
+    listDepartments: vi.fn().mockResolvedValue([]),
+    createDepartment: vi.fn(),
+    findDepartmentById: vi.fn().mockResolvedValue({
+      id: 'dept-root',
+      enterpriseId: 'ent-default',
+      code: 'HQ',
+      name: '总部',
+      sortOrder: 1,
+      status: 'active',
+    }),
+    listEmployees: vi.fn().mockResolvedValue([]),
+    createEmployee: vi.fn(),
+    findEmployeeById: vi.fn().mockResolvedValue(employee),
+    findLocalIdentityByAccount: vi.fn(),
+    updateLocalIdentitySecurityState: vi.fn().mockResolvedValue(undefined),
+    updateEmployee: vi.fn(),
+    createAccessSession: vi.fn().mockImplementation(async (input) => input),
+    findAccessSession: vi.fn().mockResolvedValue(undefined),
+    listPermissions: vi.fn().mockResolvedValue([]),
+    findPermissionByCode: vi.fn().mockResolvedValue(permission),
+    listMenusByPermissionCodes: vi.fn().mockResolvedValue([]),
+    listActiveModuleManifests: vi.fn().mockResolvedValue([]),
+    listRoles: vi.fn().mockResolvedValue([]),
+    findRoleById: vi.fn().mockResolvedValue(role),
+    createRole: vi.fn(),
+    setUserRoles: vi.fn(),
+    recordAuditLog: vi.fn().mockResolvedValue(undefined),
+  } as PlatformRepository & {
+    findLocalIdentityByAccount: ReturnType<typeof vi.fn>;
+    updateLocalIdentitySecurityState: ReturnType<typeof vi.fn>;
+    findEmployeeById: ReturnType<typeof vi.fn>;
+    findDepartmentById: ReturnType<typeof vi.fn>;
+    findPermissionByCode: ReturnType<typeof vi.fn>;
+    findRoleById: ReturnType<typeof vi.fn>;
+    createAccessSession: ReturnType<typeof vi.fn>;
+    findAccessSession: ReturnType<typeof vi.fn>;
+    recordAuditLog: ReturnType<typeof vi.fn>;
+  };
+}

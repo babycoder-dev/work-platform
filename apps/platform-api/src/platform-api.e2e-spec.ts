@@ -394,6 +394,70 @@ describe('platform-api', () => {
     );
   });
 
+  describe('auth.login lockout', () => {
+    it('locks after five wrong passwords and rejects the correct password while locked', async () => {
+      const suffix = Date.now().toString();
+      const account = `lockout-user-${suffix}`;
+      await memoryStore.createEmployee({
+        enterpriseId: 'ent-default',
+        employeeNo: `LO${suffix}`,
+        account,
+        name: '锁定测试用户',
+        initialPassword: 'Passw0rd1',
+      });
+
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        await request(app.getHttpServer())
+          .post('/api/platform/auth/login')
+          .send({
+            account,
+            password: 'wrong-password',
+          })
+          .expect(401)
+          .expect((response) => {
+            expect(response.body.message).toBe('账号或密码错误');
+          });
+      }
+
+      await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account,
+          password: 'wrong-password',
+        })
+        .expect(401)
+        .expect((response) => {
+          expect(response.body.message).toContain('账号已被锁定');
+        });
+
+      await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account,
+          password: 'Passw0rd1',
+        })
+        .expect(401)
+        .expect((response) => {
+          expect(response.body.message).toContain('账号已被锁定');
+        });
+
+      const loginAudits = memoryStore.auditLogs.filter(
+        (audit) => audit.action === 'auth.login' && audit.actorAccount === account,
+      );
+      expect(loginAudits.filter((audit) => audit.result === 'failure')).toHaveLength(6);
+      expect(loginAudits.filter((audit) => audit.result === 'success')).toHaveLength(0);
+      expect(loginAudits.at(-2)?.metadata).toEqual({
+        reason: 'wrong_password',
+        failedAttempts: 5,
+        locked: true,
+      });
+      expect(loginAudits.at(-1)?.metadata).toEqual({
+        reason: 'account_locked',
+        remainingMinutes: 15,
+      });
+    });
+  });
+
   async function loginAsAdmin(): Promise<string> {
     const response = await request(app.getHttpServer())
       .post('/api/platform/auth/login')

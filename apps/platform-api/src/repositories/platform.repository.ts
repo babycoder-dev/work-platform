@@ -24,6 +24,21 @@ export interface CreateAccessSessionInput {
   expiresAt: string;
 }
 
+export interface LocalIdentitySecurityState {
+  userId: string;
+  account: string;
+  passwordHash: string;
+  failedAttempts: number;
+  lockedUntil?: string;
+  mustChangePassword: boolean;
+}
+
+export interface UpdateLocalIdentitySecurityStateInput {
+  failedAttempts: number;
+  lockedUntil: string | null;
+  lastLoginAt?: string;
+}
+
 export interface PlatformRepository {
   listEnterprises(): Promise<EnterpriseDto[]>;
   listDepartments(): Promise<DepartmentDto[]>;
@@ -32,7 +47,8 @@ export interface PlatformRepository {
   listEmployees(): Promise<EmployeeDto[]>;
   createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto>;
   findEmployeeById(id: string): Promise<EmployeeDto | undefined>;
-  validatePassword(account: string, password: string): Promise<EmployeeDto | undefined>;
+  findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined>;
+  updateLocalIdentitySecurityState(userId: string, input: UpdateLocalIdentitySecurityStateInput): Promise<void>;
   updateEmployee(employee: EmployeeDto): Promise<EmployeeDto>;
   createAccessSession(input: CreateAccessSessionInput): Promise<AccessSession>;
   findAccessSession(accessToken: string): Promise<AccessSession | undefined>;

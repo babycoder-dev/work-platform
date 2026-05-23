@@ -174,22 +174,24 @@
 当前建议执行：
 
 ```text
-M3.5-C: 登录失败审计 + 锁定策略落地
+M3.5-D: 首次登录改密 + 管理员重置密码端点
 ```
 
-上一切片任务包：`docs/tasks/m3-5-b2-adr-phantom-token.md`。
+上一切片任务包：`docs/tasks/m3-5-c-login-failure-audit-lockout.md`。
 
-M3.5-B2 完成结果：
+M3.5-C 完成结果：
 
-- 新增 `docs/adr/0004-cross-process-auth-phantom-token.md`：确立跨进程认证采用 Phantom Token——对外 opaque 令牌，网关 introspection 复用 `GET /api/platform/auth/me`，M4–M6 只做 introspection、M7 才引入短命内部 JWT。
-- `docs/security-baseline.md` 第 4 节新增"跨进程认证（Phantom Token）"小节。
-- `docs/platform-core.md` 第 3 节补充 `/auth/me` 的 introspection 职责说明。
-- verification-log 锚点：`M3.5-B2 Phantom Token ADR`。
+- `apps/platform-api/src/auth/auth.service.ts` 实装登录失败计数、连续 5 次错误密码锁定 15 分钟、锁定期内拒绝、登录成功重置计数。
+- `apps/platform-api/src/repositories/platform.repository.ts` 删除 `validatePassword`，新增 `findLocalIdentityByAccount` 与 `updateLocalIdentitySecurityState`；PostgreSQL 与内存两套实现同步更新。
+- 所有登录尝试（成功、密码错、锁定期内尝试、禁用员工尝试）写入 `platform.audit_logs`；账号不存在不写审计。
+- `docs/security-baseline.md` §3.2 加锁定例外条款、§3.4 加 `lockDurationMinutes: 15`、§15 风险表加完成行。
+- `docs/platform-core.md` 第 3 节新增 §3.2 登录失败审计与锁定说明。
+- `packages/platform-contract/src/auth.ts` `PasswordPolicyDto` 加 `lockDurationMinutes`。
+- verification-log 锚点：`M3.5-C Login Failure Audit and Lockout`。
 
 M3.5 收口切片剩余顺序：
 
 ```text
-M3.5-C  登录失败审计 + 锁定策略落地
 M3.5-D  首次登录改密 + 管理员重置密码端点
 M3.5-E  Platform 数据范围 resolver（PlatformScopeService）
 M3.5-F  Shell 引入 react-router-dom@6，路由拆组件
@@ -205,7 +207,7 @@ M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
 | M3.5-A | 让模块 manifest 由各 contract 包统一供给 | Done | 2026-05-21 完成；业务模块平台侧 manifest 已迁回各 contract 包；详见 verification-log `M3.5-A Manifest Single Source` |
 | M3.5-B | ADR-0003 Gateway 边界 | Done | 2026-05-22 完成；ADR-0003 固定 gateway M4–M6 内嵌、M7 拆分；详见 verification-log `M3.5-B Gateway Boundary ADR` |
 | M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token） | Done | 2026-05-23 完成；ADR-0004 确立 Phantom Token、introspection 复用 `/auth/me`；详见 verification-log `M3.5-B2 Phantom Token ADR` |
-| M3.5-C | 登录失败审计 + 锁定策略落地 | Pending | M3.5-B2 后启动 |
+| M3.5-C | 登录失败审计 + 锁定策略落地 | Done | 2026-05-23 完成；5 次失败锁定 15 分钟、登录失败审计闭合；详见 verification-log `M3.5-C Login Failure Audit and Lockout` |
 | M3.5-D | 首次登录改密 + 管理员重置密码端点 | Pending | M3.5-C 后启动 |
 | M3.5-E | Platform 数据范围 resolver | Pending | M3.5-D 后启动 |
 | M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Pending | M3.5-E 后启动 |

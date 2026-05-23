@@ -8,6 +8,7 @@ import {
   DEFAULT_ENTERPRISE_ID,
 } from '../seeds/seed-data';
 import { seedPlatform } from '../seeds/seed-platform';
+import { verifyPassword } from '../security/secret-hash';
 import { PostgresPlatformRepository } from './postgres-platform.repository';
 
 const runPostgresIntegration = process.env.RUN_POSTGRES_INTEGRATION === 'true';
@@ -58,9 +59,16 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     });
 
     expect(employee.roleIds).toEqual([role.id]);
-    await expect(repository.validatePassword(employee.account, 'Passw0rd1')).resolves.toMatchObject({
-      id: employee.id,
-    });
+    const identity = await repository.findLocalIdentityByAccount(employee.account);
+    expect(identity).toEqual(
+      expect.objectContaining({
+        userId: employee.id,
+        account: employee.account,
+        failedAttempts: 0,
+      }),
+    );
+    expect(identity?.lockedUntil).toBeUndefined();
+    expect(verifyPassword('Passw0rd1', identity?.passwordHash ?? '')).toBe(true);
 
     const reassigned = await repository.setUserRoles(employee.id, []);
     expect(reassigned).toMatchObject({
@@ -152,6 +160,47 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
         }),
       ]),
     );
+  });
+
+  it('reads and updates local identity security state', async () => {
+    await repository.updateLocalIdentitySecurityState(DEFAULT_ADMIN_USER_ID, {
+      failedAttempts: 0,
+      lockedUntil: null,
+    });
+    const identity = await repository.findLocalIdentityByAccount('admin');
+    expect(identity).toEqual(
+      expect.objectContaining({
+        userId: DEFAULT_ADMIN_USER_ID,
+        account: 'admin',
+        failedAttempts: 0,
+      }),
+    );
+    expect(identity?.lockedUntil).toBeUndefined();
+
+    const lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const lastLoginAt = new Date(Date.now()).toISOString();
+    await repository.updateLocalIdentitySecurityState(DEFAULT_ADMIN_USER_ID, {
+      failedAttempts: 3,
+      lockedUntil,
+      lastLoginAt,
+    });
+    await expect(repository.findLocalIdentityByAccount('admin')).resolves.toEqual(
+      expect.objectContaining({
+        failedAttempts: 3,
+        lockedUntil,
+      }),
+    );
+
+    await repository.updateLocalIdentitySecurityState(DEFAULT_ADMIN_USER_ID, {
+      failedAttempts: 0,
+      lockedUntil: null,
+    });
+    await expect(repository.findLocalIdentityByAccount('admin')).resolves.toEqual(
+      expect.objectContaining({
+        failedAttempts: 0,
+      }),
+    );
+    expect((await repository.findLocalIdentityByAccount('admin'))?.lockedUntil).toBeUndefined();
   });
 
   it('maps unique constraint violations to platform duplicate errors', async () => {

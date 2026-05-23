@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { verifyPassword } from '../security/secret-hash';
 import { PlatformMemoryStore } from './platform-memory.store';
 
 describe('PlatformMemoryStore', () => {
@@ -17,12 +18,15 @@ describe('PlatformMemoryStore', () => {
         name: '总部',
       }),
     ]);
-    await expect(store.validatePassword('admin', 'admin123')).resolves.toEqual(
+    const identity = await store.findLocalIdentityByAccount('admin');
+    expect(identity).toEqual(
       expect.objectContaining({
         account: 'admin',
-        name: '系统管理员',
+        failedAttempts: 0,
       }),
     );
+    expect(identity?.lockedUntil).toBeUndefined();
+    expect(verifyPassword('admin123', identity?.passwordHash ?? '')).toBe(true);
     expect((await store.listPermissions()).length).toBeGreaterThan(0);
   });
 
@@ -50,7 +54,40 @@ describe('PlatformMemoryStore', () => {
 
     const updated = await store.setUserRoles(employee.id, ['role-admin']);
 
+    const identity = await store.findLocalIdentityByAccount('zhangsan');
     expect(updated?.roleIds).toEqual(['role-admin']);
-    expect((await store.validatePassword('zhangsan', 'Passw0rd'))?.id).toBe(employee.id);
+    expect(identity?.userId).toBe(employee.id);
+    expect(verifyPassword('Passw0rd', identity?.passwordHash ?? '')).toBe(true);
+  });
+
+  it('updates local identity security state', async () => {
+    const store = new PlatformMemoryStore();
+    const lockedUntil = '2099-01-01T00:15:00.000Z';
+    const lastLoginAt = '2099-01-01T00:00:00.000Z';
+
+    await store.updateLocalIdentitySecurityState('user-admin', {
+      failedAttempts: 3,
+      lockedUntil,
+      lastLoginAt,
+    });
+    await expect(store.findLocalIdentityByAccount('admin')).resolves.toEqual(
+      expect.objectContaining({
+        failedAttempts: 3,
+        lockedUntil,
+        lastLoginAt,
+      }),
+    );
+
+    await store.updateLocalIdentitySecurityState('user-admin', {
+      failedAttempts: 0,
+      lockedUntil: null,
+    });
+    await expect(store.findLocalIdentityByAccount('admin')).resolves.toEqual(
+      expect.objectContaining({
+        failedAttempts: 0,
+        lastLoginAt,
+      }),
+    );
+    expect((await store.findLocalIdentityByAccount('admin'))?.lockedUntil).toBeUndefined();
   });
 });

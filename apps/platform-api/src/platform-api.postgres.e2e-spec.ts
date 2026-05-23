@@ -29,6 +29,13 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       connectionString: databaseConfig.databaseUrl,
       ssl: databaseConfig.ssl ? { rejectUnauthorized: false } : undefined,
     });
+    await pool.query(
+      `
+        UPDATE platform.local_identities
+        SET failed_attempts = 0, locked_until = NULL, updated_at = now()
+        WHERE account = 'admin'
+      `,
+    );
 
     const moduleRef = await Test.createTestingModule({
       imports: [PlatformModule],
@@ -228,6 +235,114 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       ]),
     );
   });
+
+  it('locks postgres-backed accounts after five wrong passwords', async () => {
+    const uniqueSuffix = Date.now().toString();
+    const account = `lockout-test-${uniqueSuffix}`;
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'admin',
+        password: adminPassword,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        employeeNo: `LK${uniqueSuffix}`,
+        account,
+        name: 'Lockout Test User',
+        initialPassword: 'Passw0rd1',
+      })
+      .expect(201);
+
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account,
+          password: 'wrong-password',
+        })
+        .expect(401)
+        .expect((response) => {
+          expect(response.body.message).toBe('账号或密码错误');
+        });
+    }
+
+    await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account,
+        password: 'wrong-password',
+      })
+      .expect(401)
+      .expect((response) => {
+        expect(response.body.message).toContain('账号已被锁定');
+      });
+
+    await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account,
+        password: 'Passw0rd1',
+      })
+      .expect(401)
+      .expect((response) => {
+        expect(response.body.message).toContain('账号已被锁定');
+      });
+
+    await expect(fetchLoginAuditsByAccount(pool, account)).resolves.toEqual([
+      expect.objectContaining({
+        result: 'failure',
+        metadata: expect.objectContaining({
+          failedAttempts: 1,
+          locked: false,
+          reason: 'wrong_password',
+        }),
+      }),
+      expect.objectContaining({
+        result: 'failure',
+        metadata: expect.objectContaining({
+          failedAttempts: 2,
+          locked: false,
+          reason: 'wrong_password',
+        }),
+      }),
+      expect.objectContaining({
+        result: 'failure',
+        metadata: expect.objectContaining({
+          failedAttempts: 3,
+          locked: false,
+          reason: 'wrong_password',
+        }),
+      }),
+      expect.objectContaining({
+        result: 'failure',
+        metadata: expect.objectContaining({
+          failedAttempts: 4,
+          locked: false,
+          reason: 'wrong_password',
+        }),
+      }),
+      expect.objectContaining({
+        result: 'failure',
+        metadata: expect.objectContaining({
+          failedAttempts: 5,
+          locked: true,
+          reason: 'wrong_password',
+        }),
+      }),
+      expect.objectContaining({
+        result: 'failure',
+        metadata: expect.objectContaining({
+          reason: 'account_locked',
+        }),
+      }),
+    ]);
+  });
 });
 
 async function countSuccessfulAdminLogins(pool: Pool): Promise<number> {
@@ -276,6 +391,24 @@ async function fetchAuditActionsByTraceSuffix(pool: Pool, suffix: string) {
       ORDER BY created_at ASC
     `,
     [`trace-postgres-%-${suffix}`],
+  );
+
+  return auditResult.rows;
+}
+
+async function fetchLoginAuditsByAccount(pool: Pool, account: string) {
+  const auditResult = await pool.query<{
+    result: string;
+    metadata: Record<string, unknown>;
+  }>(
+    `
+      SELECT result, metadata
+      FROM platform.audit_logs
+      WHERE actor_account = $1
+        AND action = 'auth.login'
+      ORDER BY created_at ASC
+    `,
+    [account],
   );
 
   return auditResult.rows;
