@@ -174,22 +174,21 @@
 当前建议执行：
 
 ```text
-M3.5-B2: ADR-0004 跨进程鉴权（Phantom Token）
+M3.5-C: 登录失败审计 + 锁定策略落地
 ```
 
-上一切片任务包：`docs/tasks/m3-5-b-adr-gateway-boundary.md`。
+上一切片任务包：`docs/tasks/m3-5-b2-adr-phantom-token.md`。
 
-M3.5-B 完成结果：
+M3.5-B2 完成结果：
 
-- 新增 `docs/adr/0003-gateway-boundary.md`：固定 gateway-api 在 M4–M6 作为 API 组合宿主内嵌业务模块，M7 起拆为独立业务服务 + 纯边缘网关，拆分时点硬绑定 M7 里程碑。
-- 修正 `docs/architecture.md` 中与实现漂移的 gateway 描述。
-- `docs/foundation-blueprint.md` M7 交付清单补充业务服务拆分项。
-- verification-log 锚点：`M3.5-B Gateway Boundary ADR`。
+- 新增 `docs/adr/0004-cross-process-auth-phantom-token.md`：确立跨进程认证采用 Phantom Token——对外 opaque 令牌，网关 introspection 复用 `GET /api/platform/auth/me`，M4–M6 只做 introspection、M7 才引入短命内部 JWT。
+- `docs/security-baseline.md` 第 4 节新增"跨进程认证（Phantom Token）"小节。
+- `docs/platform-core.md` 第 3 节补充 `/auth/me` 的 introspection 职责说明。
+- verification-log 锚点：`M3.5-B2 Phantom Token ADR`。
 
 M3.5 收口切片剩余顺序：
 
 ```text
-M3.5-B2 ADR-0004 跨进程鉴权（Phantom Token）
 M3.5-C  登录失败审计 + 锁定策略落地
 M3.5-D  首次登录改密 + 管理员重置密码端点
 M3.5-E  Platform 数据范围 resolver（PlatformScopeService）
@@ -205,7 +204,7 @@ M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
 | --- | --- | --- | --- |
 | M3.5-A | 让模块 manifest 由各 contract 包统一供给 | Done | 2026-05-21 完成；业务模块平台侧 manifest 已迁回各 contract 包；详见 verification-log `M3.5-A Manifest Single Source` |
 | M3.5-B | ADR-0003 Gateway 边界 | Done | 2026-05-22 完成；ADR-0003 固定 gateway M4–M6 内嵌、M7 拆分；详见 verification-log `M3.5-B Gateway Boundary ADR` |
-| M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token） | Pending | M3.5-B 后启动 |
+| M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token） | Done | 2026-05-23 完成；ADR-0004 确立 Phantom Token、introspection 复用 `/auth/me`；详见 verification-log `M3.5-B2 Phantom Token ADR` |
 | M3.5-C | 登录失败审计 + 锁定策略落地 | Pending | M3.5-B2 后启动 |
 | M3.5-D | 首次登录改密 + 管理员重置密码端点 | Pending | M3.5-C 后启动 |
 | M3.5-E | Platform 数据范围 resolver | Pending | M3.5-D 后启动 |

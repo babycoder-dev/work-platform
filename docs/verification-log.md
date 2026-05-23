@@ -1,5 +1,35 @@
 # Verification Log
 
+## 2026-05-23
+
+### M3.5-B2 Phantom Token ADR
+
+Change set:
+
+- Added `docs/adr/0004-cross-process-auth-phantom-token.md` to record the accepted Phantom Token cross-process authentication decision.
+- Added `docs/security-baseline.md` §4.4 for cross-process authentication: external opaque token, `/auth/me` introspection, M4-M6 in-process identity injection, and M7 internal short-lived JWT.
+- Added `docs/platform-core.md` §3.1 to document `GET /api/platform/auth/me` as the introspection entry for gateway and business services.
+- Updated `docs/foundation-progress.md` so M3.5-B2 is Done and the next slice is M3.5-C 登录失败审计 + 锁定策略落地.
+
+Verification:
+
+- `git status --short` confirmed this slice changes only the 5 intended `.md` files; the untracked task package `docs/tasks/m3-5-b2-adr-phantom-token.md` is intentionally excluded from the commit.
+- §6.2 A1: ADR status is `Accepted`.
+- §6.2 A2: ADR background records that gateway has no `platform` database connection and needs a cross-process token verification mode.
+- §6.2 A3: ADR decision 1 keeps the external token opaque instead of JWT and cites immediate revocation under security-baseline §4.1.
+- §6.2 A4: ADR decision 2 reuses `GET /api/platform/auth/me` for introspection and does not add a new endpoint.
+- §6.2 A5: ADR decision 3 phases M4-M6 as introspection plus in-process identity injection, and M7 as short-lived internal JWT.
+- §6.2 A6: ADR decision 4 allows introspection caching with TTL no more than 60 seconds.
+- §6.2 A7: ADR decision 5 forbids business modules from directly connecting to the `platform` database to verify tokens.
+- §6.2 A8: ADR relationship section references ADR-0003, security-baseline §4, and platform-core §3.
+- §6.2 A9: ADR implementation timing states the M4-M6 guard lands with M4-2, the internal JWT lands with M7, and this ADR requires no immediate code changes.
+- §6.2 B10: `docs/security-baseline.md` §4.4 matches the ADR decision and keeps §4.1/§4.2/§4.3 and §5 numbering intact.
+- §6.2 B11: `docs/platform-core.md` §3.1 documents `/auth/me` introspection and references ADR-0004.
+
+Follow-up:
+
+- M3.5-C 登录失败审计 + 锁定策略落地。
+
 ## 2026-05-22
 
 ### M3.5-B Gateway Boundary ADR

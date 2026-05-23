@@ -176,6 +176,16 @@ C/S 客户端：
 - 不保存密码。
 - 本地配置文件不得明文保存 token。
 
+### 4.4 跨进程认证（Phantom Token）
+
+跨进程、跨服务的令牌验证统一采用 Phantom Token 模式。决策详见 `docs/adr/0004-cross-process-auth-phantom-token.md`。
+
+- 对外令牌是 opaque 引用令牌，不是 JWT。理由：opaque 令牌配合 `platform.sessions` 支持即时撤销，满足 §4.1。
+- 非 platform-api 的服务（gateway，以及 M7 后的独立业务服务）不直接查 `platform` 数据库验证令牌，统一通过 introspection：HTTP 调用 `GET /api/platform/auth/me`。
+- M4–M6 内嵌阶段：introspection 后身份在 gateway 进程内传递，不签发内部 JWT。
+- M7 拆进程后：introspection 后签发短命内部 JWT，注入下游请求头，业务服务本地验签。内部 JWT 只在内网服务间流转，不下发给客户端。
+- introspection 结果可由调用方按短 TTL 缓存，缓存 TTL 不超过 60 秒，避免撤销窗口过长。
+
 ## 5. 授权基线
 
 ### 5.1 权限模型

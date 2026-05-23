@@ -89,6 +89,12 @@ platform:role:manage
 platform:permission:view
 ```
 
+## 3.1 introspection 与跨进程认证
+
+`GET /api/platform/auth/me` 除了供 Web Shell 凭已有 access token 恢复当前用户，还正式承担 gateway 与业务服务的 token introspection 职责：传入对外 opaque 令牌（`Authorization: Bearer <token>`），返回 `CurrentUserDto` 或 401。
+
+M4 起 gateway-api 内嵌业务模块时，由 gateway 侧的鉴权 guard 调用 `GET /api/platform/auth/me` 完成 introspection，把 `currentUser` 注入进程内 request；业务模块不直接连 `platform` 数据库验证令牌。跨进程认证的整体模式（对外 opaque、introspection 复用 `/auth/me`、M7 引入内部 JWT）见 `docs/adr/0004-cross-process-auth-phantom-token.md`。
+
 ## 4. 种子账号
 
 PostgreSQL seed 默认创建管理员账号：
