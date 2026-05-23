@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Inject, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { dtoValidationPipe } from '@work/nest-common';
-import { LoginDto } from './auth.dto';
+import { ChangePasswordDto, LoginDto } from './auth.dto';
 import type { PlatformRequest } from './request-user';
 import { resolveClientIp, resolveHeader } from './request-user';
 import { AuthService } from './auth.service';
@@ -32,5 +32,24 @@ export class AuthController {
     }
 
     return request.currentUser;
+  }
+
+  @Post('change-password')
+  @UseGuards(PlatformAuthGuard)
+  async changePassword(
+    @Body(dtoValidationPipe(ChangePasswordDto)) input: ChangePasswordDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ success: true }> {
+    if (!request.currentUser) {
+      throw new UnauthorizedException('未登录');
+    }
+
+    await this.authService.changePassword(request.currentUser.id, input, {
+      traceId: request.traceId,
+      ip: resolveClientIp(request),
+      userAgent: resolveHeader(request, 'user-agent'),
+    });
+
+    return { success: true };
   }
 }

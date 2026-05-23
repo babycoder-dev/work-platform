@@ -31,3 +31,7 @@ export interface CreateEmployeeInput {
 export interface UpdateEmployeeStatusInput {
   status: EmployeeStatus;
 }
+
+export interface ResetEmployeePasswordInput {
+  newPassword: string;
+}

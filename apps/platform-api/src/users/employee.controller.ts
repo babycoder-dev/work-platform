@@ -5,7 +5,7 @@ import type { PlatformRequest } from '../auth/request-user';
 import { buildPlatformAuditContext } from '../auth/request-user';
 import { PermissionGuard } from '../rbac/permission.guard';
 import { RequirePermissions } from '../rbac/require-permissions.decorator';
-import { AssignEmployeeRolesDto, CreateEmployeeDto, UpdateEmployeeStatusDto } from './employee.dto';
+import { AssignEmployeeRolesDto, CreateEmployeeDto, ResetEmployeePasswordDto, UpdateEmployeeStatusDto } from './employee.dto';
 import { EmployeeService } from './employee.service';
 
 @Controller('employees')
@@ -52,5 +52,15 @@ export class EmployeeController {
       },
       buildPlatformAuditContext(request),
     );
+  }
+
+  @Put(':id/password')
+  @RequirePermissions('platform:employee:manage')
+  resetPassword(
+    @Param('id') id: string,
+    @Body(dtoValidationPipe(ResetEmployeePasswordDto)) input: ResetEmployeePasswordDto,
+    @Req() request: PlatformRequest,
+  ) {
+    return this.employeeService.resetPassword(id, input, buildPlatformAuditContext(request));
   }
 }

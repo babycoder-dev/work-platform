@@ -23,6 +23,7 @@ import type {
   LocalIdentitySecurityState,
   PlatformRepository,
   UpdateLocalIdentitySecurityStateInput,
+  UpdatePasswordInput,
 } from './platform.repository';
 import { mapPostgresError } from './postgres-error.mapper';
 
@@ -292,6 +293,43 @@ export class PostgresPlatformRepository implements PlatformRepository {
       );
     } catch (error) {
       mapPostgresError(error);
+    }
+  }
+
+  async updatePassword(userId: string, input: UpdatePasswordInput): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `
+          UPDATE platform.local_identities
+          SET
+            password_hash = $2,
+            must_change_password = $3,
+            password_updated_at = now(),
+            failed_attempts = 0,
+            locked_until = NULL,
+            updated_at = now()
+          WHERE user_id = $1
+        `,
+        [userId, input.passwordHash, input.mustChangePassword],
+      );
+      await client.query(
+        `
+          UPDATE platform.employees
+          SET
+            must_change_password = $2,
+            updated_at = now()
+          WHERE id = $1 AND deleted_at IS NULL
+        `,
+        [userId, input.mustChangePassword],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      mapPostgresError(error);
+    } finally {
+      client.release();
     }
   }
 

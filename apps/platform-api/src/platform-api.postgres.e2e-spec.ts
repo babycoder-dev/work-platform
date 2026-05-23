@@ -8,6 +8,7 @@ import { readPlatformDatabaseConfig } from './db/db.config';
 import { runMigrations } from './db/migrate';
 import { PlatformModule } from './platform.module';
 import { seedPlatform } from './seeds/seed-platform';
+import { hashPassword } from './security/secret-hash';
 
 const runPostgresE2E = process.env.RUN_POSTGRES_E2E === 'true';
 const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123';
@@ -32,7 +33,19 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     await pool.query(
       `
         UPDATE platform.local_identities
-        SET failed_attempts = 0, locked_until = NULL, updated_at = now()
+        SET password_hash = $1,
+            failed_attempts = 0,
+            locked_until = NULL,
+            must_change_password = true,
+            updated_at = now()
+        WHERE account = 'admin'
+      `,
+      [hashPassword(adminPassword)],
+    );
+    await pool.query(
+      `
+        UPDATE platform.employees
+        SET must_change_password = true, updated_at = now()
         WHERE account = 'admin'
       `,
     );
@@ -343,6 +356,113 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       }),
     ]);
   });
+
+  it('changes and resets postgres-backed passwords', async () => {
+    const uniqueSuffix = Date.now().toString();
+    const account = `password-test-${uniqueSuffix}`;
+    const adminLogin = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'admin',
+        password: adminPassword,
+      })
+      .expect(201);
+    expect(adminLogin.body.user.mustChangePassword).toBe(true);
+
+    await request(app.getHttpServer())
+      .post('/api/platform/auth/change-password')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .send({
+        oldPassword: adminPassword,
+        newPassword: 'PgNewpass1',
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body).toEqual({ success: true });
+      });
+
+    const meResponse = await request(app.getHttpServer())
+      .get('/api/platform/auth/me')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .expect(200);
+    expect(meResponse.body.mustChangePassword).toBe(false);
+
+    await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'admin',
+        password: adminPassword,
+      })
+      .expect(401);
+
+    const changedAdminLogin = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'admin',
+        password: 'PgNewpass1',
+      })
+      .expect(201);
+    expect(changedAdminLogin.body.user.mustChangePassword).toBe(false);
+
+    await request(app.getHttpServer())
+      .post('/api/platform/auth/change-password')
+      .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
+      .send({
+        oldPassword: 'wrong',
+        newPassword: 'Other1234',
+      })
+      .expect(401)
+      .expect((response) => {
+        expect(response.body.message).toBe('原密码错误');
+      });
+    await expect(fetchLocalIdentityFailedAttempts(pool, 'admin')).resolves.toBe(0);
+
+    const employeeResponse = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        employeeNo: `PW${uniqueSuffix}`,
+        account,
+        name: 'Password Test User',
+        initialPassword: 'Passw0rd1',
+      })
+      .expect(201);
+
+    const employeeLogin = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account,
+        password: 'Passw0rd1',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .put('/api/platform/employees/00000000-0000-0000-0000-000000000002/password')
+      .set('Authorization', `Bearer ${employeeLogin.body.accessToken}`)
+      .send({
+        newPassword: 'Manager123',
+      })
+      .expect(403);
+
+    const resetResponse = await request(app.getHttpServer())
+      .put(`/api/platform/employees/${employeeResponse.body.id}/password`)
+      .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
+      .send({
+        newPassword: 'Manager123',
+      })
+      .expect(200);
+    expect(resetResponse.body.mustChangePassword).toBe(true);
+
+    const resetEmployeeLogin = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account,
+        password: 'Manager123',
+      })
+      .expect(201);
+    expect(resetEmployeeLogin.body.user.mustChangePassword).toBe(true);
+  });
 });
 
 async function countSuccessfulAdminLogins(pool: Pool): Promise<number> {
@@ -412,4 +532,17 @@ async function fetchLoginAuditsByAccount(pool: Pool, account: string) {
   );
 
   return auditResult.rows;
+}
+
+async function fetchLocalIdentityFailedAttempts(pool: Pool, account: string): Promise<number> {
+  const identityResult = await pool.query<{ failed_attempts: number }>(
+    `
+      SELECT failed_attempts
+      FROM platform.local_identities
+      WHERE account = $1
+    `,
+    [account],
+  );
+
+  return identityResult.rows[0].failed_attempts;
 }

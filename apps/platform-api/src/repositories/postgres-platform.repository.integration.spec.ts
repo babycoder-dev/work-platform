@@ -8,7 +8,7 @@ import {
   DEFAULT_ENTERPRISE_ID,
 } from '../seeds/seed-data';
 import { seedPlatform } from '../seeds/seed-platform';
-import { verifyPassword } from '../security/secret-hash';
+import { hashPassword, verifyPassword } from '../security/secret-hash';
 import { PostgresPlatformRepository } from './postgres-platform.repository';
 
 const runPostgresIntegration = process.env.RUN_POSTGRES_INTEGRATION === 'true';
@@ -201,6 +201,56 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       }),
     );
     expect((await repository.findLocalIdentityByAccount('admin'))?.lockedUntil).toBeUndefined();
+  });
+
+  it('updates passwords and synchronizes must-change-password across identity and employee rows', async () => {
+    const passwordHash = hashPassword('Resetpass1');
+
+    await repository.updatePassword(DEFAULT_ADMIN_USER_ID, {
+      passwordHash,
+      mustChangePassword: true,
+    });
+
+    const identity = await repository.findLocalIdentityByAccount('admin');
+    expect(identity).toEqual(
+      expect.objectContaining({
+        failedAttempts: 0,
+        mustChangePassword: true,
+      }),
+    );
+    expect(identity?.lockedUntil).toBeUndefined();
+    expect(verifyPassword('Resetpass1', identity?.passwordHash ?? '')).toBe(true);
+
+    await expect(repository.findEmployeeById(DEFAULT_ADMIN_USER_ID)).resolves.toEqual(
+      expect.objectContaining({
+        mustChangePassword: true,
+      }),
+    );
+  });
+
+  it('clears lockout state when updating passwords', async () => {
+    await repository.updateLocalIdentitySecurityState(DEFAULT_ADMIN_USER_ID, {
+      failedAttempts: 5,
+      lockedUntil: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    });
+
+    await repository.updatePassword(DEFAULT_ADMIN_USER_ID, {
+      passwordHash: hashPassword('Unlocked1'),
+      mustChangePassword: false,
+    });
+
+    await expect(repository.findLocalIdentityByAccount('admin')).resolves.toEqual(
+      expect.objectContaining({
+        failedAttempts: 0,
+        mustChangePassword: false,
+      }),
+    );
+    expect((await repository.findLocalIdentityByAccount('admin'))?.lockedUntil).toBeUndefined();
+    await expect(repository.findEmployeeById(DEFAULT_ADMIN_USER_ID)).resolves.toEqual(
+      expect.objectContaining({
+        mustChangePassword: false,
+      }),
+    );
   });
 
   it('maps unique constraint violations to platform duplicate errors', async () => {

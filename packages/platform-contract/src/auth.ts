@@ -22,6 +22,7 @@ export interface CurrentUserDto {
   roles: string[];
   permissions: PermissionDto[];
   dataScopes: DataScope[];
+  mustChangePassword: boolean;
 }
 
 export interface PasswordPolicyDto {
@@ -32,4 +33,9 @@ export interface PasswordPolicyDto {
   maxFailedAttempts: number;
   lockDurationMinutes: number;
   expireDays?: number;
+}
+
+export interface ChangePasswordInput {
+  oldPassword: string;
+  newPassword: string;
 }

@@ -90,4 +90,31 @@ describe('PlatformMemoryStore', () => {
     );
     expect((await store.findLocalIdentityByAccount('admin'))?.lockedUntil).toBeUndefined();
   });
+
+  it('updates passwords and synchronizes must-change-password across identity and employee records', async () => {
+    const store = new PlatformMemoryStore();
+    await store.updateLocalIdentitySecurityState('user-admin', {
+      failedAttempts: 5,
+      lockedUntil: '2099-01-01T00:15:00.000Z',
+    });
+
+    await store.updatePassword('user-admin', {
+      passwordHash: 'hashed-password-value',
+      mustChangePassword: false,
+    });
+
+    await expect(store.findLocalIdentityByAccount('admin')).resolves.toEqual(
+      expect.objectContaining({
+        passwordHash: 'hashed-password-value',
+        failedAttempts: 0,
+        mustChangePassword: false,
+      }),
+    );
+    expect((await store.findLocalIdentityByAccount('admin'))?.lockedUntil).toBeUndefined();
+    await expect(store.findEmployeeById('user-admin')).resolves.toEqual(
+      expect.objectContaining({
+        mustChangePassword: false,
+      }),
+    );
+  });
 });

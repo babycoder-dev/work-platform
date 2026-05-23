@@ -106,6 +106,19 @@ M4 起 gateway-api 内嵌业务模块时，由 gateway 侧的鉴权 guard 调用
 - 所有登录尝试（成功 / 密码错 / 锁定期内尝试 / 禁用员工尝试）都写入 `platform.audit_logs`，`action: 'auth.login'`，`result: 'success' | 'failure'`，`metadata` 含 `reason` 与 `failedAttempts` 等上下文。**账号不存在不写审计**（防止审计表被用于账号枚举）。
 - 锁定参数（5 次 / 15 分钟）由 `getPasswordPolicy()` 暴露给前端，前端可在登录界面提示用户。
 
+## 3.3 改密与重置
+
+平台提供两个改密入口：
+
+- `POST /api/platform/auth/change-password`：已登录用户改自己密码，须验证旧密码。成功后 `must_change_password` 设为 false、清理 `failed_attempts` 与 `locked_until`、`password_updated_at = now()`。
+- `PUT /api/platform/employees/:id/password`：需 `platform:employee:manage` 权限。管理员在请求体提供 newPassword。成功后 `must_change_password` **保持为 true**（提示员工下次登录改密），同样清理 `failed_attempts` 与 `locked_until`、`password_updated_at = now()`。
+
+`platform.employees.must_change_password` 与 `platform.local_identities.must_change_password` 是历史冗余字段；上述两个端点在同一事务内同步更新两张表，保持一致。
+
+`LoginResult.user.mustChangePassword` 与 `GET /api/platform/auth/me` 返回的 `CurrentUserDto.mustChangePassword` 反映 employees 表的当前值。M3.5-D 阶段后端不强制拦截 `mustChangePassword=true` 用户访问其它 API；Shell 根据该字段引导用户跳转改密页（M3.5-F 路由改造后真做）。
+
+新增审计 action：`auth.password.change`（用户自己改密）、`platform.employee.password.reset`（管理员重置）。失败场景（旧密错、新密同旧密）也写 audit `result: 'failure'`。
+
 ## 4. 种子账号
 
 PostgreSQL seed 默认创建管理员账号：

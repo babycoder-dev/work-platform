@@ -3,7 +3,7 @@ import type { EmployeeDto, PermissionDto, RoleDto } from '@work/platform-contrac
 import { describe, expect, it, vi } from 'vitest';
 import { AuthService } from './auth.service';
 import type { PlatformRepository } from '../repositories/platform.repository';
-import { hashPassword } from '../security/secret-hash';
+import { hashPassword, verifyPassword } from '../security/secret-hash';
 import { PlatformMemoryStore } from '../store/platform-memory.store';
 
 describe('AuthService', () => {
@@ -301,6 +301,136 @@ describe('AuthService', () => {
       }),
     );
   });
+
+  it('changes the current user password and clears must-change-password', async () => {
+    const repository = createRepositoryMock();
+    repository.findEmployeeById.mockResolvedValue({
+      ...employee,
+      mustChangePassword: true,
+    });
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 2,
+      mustChangePassword: true,
+    });
+    const service = new AuthService(repository);
+
+    await service.changePassword(employee.id, {
+      oldPassword: 'admin123',
+      newPassword: 'Newpass1',
+    });
+
+    expect(repository.updatePassword).toHaveBeenCalledWith(employee.id, {
+      passwordHash: expect.any(String),
+      mustChangePassword: false,
+    });
+    const updateInput = repository.updatePassword.mock.calls[0][1];
+    expect(verifyPassword('Newpass1', updateInput.passwordHash)).toBe(true);
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth.password.change',
+        result: 'success',
+        metadata: {
+          account: 'admin',
+          mustChangePassword: false,
+        },
+      }),
+    );
+  });
+
+  it('rejects changePassword when the old password is wrong without updating password state', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 3,
+      mustChangePassword: true,
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.changePassword(employee.id, {
+      oldPassword: 'wrong',
+      newPassword: 'Newpass1',
+    })).rejects.toThrow('原密码错误');
+
+    expect(repository.updatePassword).not.toHaveBeenCalled();
+    expect(repository.updateLocalIdentitySecurityState).not.toHaveBeenCalled();
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth.password.change',
+        result: 'failure',
+        metadata: {
+          account: 'admin',
+          reason: 'wrong_old_password',
+        },
+      }),
+    );
+  });
+
+  it('rejects changePassword when the new password matches the old password', async () => {
+    const repository = createRepositoryMock();
+    repository.findLocalIdentityByAccount.mockResolvedValue({
+      userId: employee.id,
+      account: employee.account,
+      passwordHash: hashPassword('admin123'),
+      failedAttempts: 0,
+      mustChangePassword: true,
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.changePassword(employee.id, {
+      oldPassword: 'admin123',
+      newPassword: 'admin123',
+    })).rejects.toThrow('新密码不能与原密码相同');
+
+    expect(repository.updatePassword).not.toHaveBeenCalled();
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth.password.change',
+        result: 'failure',
+        metadata: {
+          account: 'admin',
+          reason: 'same_as_old',
+        },
+      }),
+    );
+  });
+
+  it('rejects changePassword for inactive employees without writing audit logs', async () => {
+    const repository = createRepositoryMock();
+    repository.findEmployeeById.mockResolvedValue({
+      ...employee,
+      status: 'disabled',
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.changePassword(employee.id, {
+      oldPassword: 'admin123',
+      newPassword: 'Newpass1',
+    })).rejects.toThrow('登录状态无效');
+
+    expect(repository.findLocalIdentityByAccount).not.toHaveBeenCalled();
+    expect(repository.updatePassword).not.toHaveBeenCalled();
+    expect(repository.recordAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('returns mustChangePassword in current user payloads', async () => {
+    const repository = createRepositoryMock();
+    repository.findEmployeeById.mockResolvedValue({
+      ...employee,
+      mustChangePassword: true,
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.toCurrentUser(employee.id)).resolves.toEqual(
+      expect.objectContaining({
+        mustChangePassword: true,
+      }),
+    );
+  });
 });
 
 const employee: EmployeeDto = {
@@ -349,6 +479,7 @@ function createRepositoryMock() {
     findEmployeeById: vi.fn().mockResolvedValue(employee),
     findLocalIdentityByAccount: vi.fn(),
     updateLocalIdentitySecurityState: vi.fn().mockResolvedValue(undefined),
+    updatePassword: vi.fn().mockResolvedValue(undefined),
     updateEmployee: vi.fn(),
     createAccessSession: vi.fn().mockImplementation(async (input) => input),
     findAccessSession: vi.fn().mockResolvedValue(undefined),
@@ -364,6 +495,7 @@ function createRepositoryMock() {
   } as PlatformRepository & {
     findLocalIdentityByAccount: ReturnType<typeof vi.fn>;
     updateLocalIdentitySecurityState: ReturnType<typeof vi.fn>;
+    updatePassword: ReturnType<typeof vi.fn>;
     findEmployeeById: ReturnType<typeof vi.fn>;
     findDepartmentById: ReturnType<typeof vi.fn>;
     findPermissionByCode: ReturnType<typeof vi.fn>;

@@ -1,6 +1,7 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
+  ChangePasswordInput,
   CurrentUserDto,
   LoginInput,
   LoginResult,
@@ -9,7 +10,7 @@ import type {
   RoleDto,
 } from '@work/platform-contract';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
-import { verifyPassword } from '../security/secret-hash';
+import { hashPassword, verifyPassword } from '../security/secret-hash';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -152,6 +153,80 @@ export class AuthService {
     return this.toCurrentUser(session.userId);
   }
 
+  async changePassword(
+    userId: string,
+    input: ChangePasswordInput,
+    auditContext: LoginAuditContext = {},
+  ): Promise<void> {
+    const employee = await this.repository.findEmployeeById(userId);
+    if (!employee || employee.status !== 'active') {
+      throw new UnauthorizedException('登录状态无效');
+    }
+
+    const identity = await this.repository.findLocalIdentityByAccount(employee.account);
+    if (!identity) {
+      throw new UnauthorizedException('登录状态无效');
+    }
+
+    if (!verifyPassword(input.oldPassword, identity.passwordHash)) {
+      await this.repository.recordAuditLog({
+        actorUserId: employee.id,
+        actorAccount: employee.account,
+        action: 'auth.password.change',
+        resourceType: 'platform.local_identity',
+        resourceId: employee.id,
+        traceId: auditContext.traceId,
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+        result: 'failure',
+        metadata: {
+          account: employee.account,
+          reason: 'wrong_old_password',
+        },
+      });
+      throw new UnauthorizedException('原密码错误');
+    }
+
+    if (input.newPassword === input.oldPassword) {
+      await this.repository.recordAuditLog({
+        actorUserId: employee.id,
+        actorAccount: employee.account,
+        action: 'auth.password.change',
+        resourceType: 'platform.local_identity',
+        resourceId: employee.id,
+        traceId: auditContext.traceId,
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+        result: 'failure',
+        metadata: {
+          account: employee.account,
+          reason: 'same_as_old',
+        },
+      });
+      throw new BadRequestException('新密码不能与原密码相同');
+    }
+
+    await this.repository.updatePassword(userId, {
+      passwordHash: hashPassword(input.newPassword),
+      mustChangePassword: false,
+    });
+    await this.repository.recordAuditLog({
+      actorUserId: employee.id,
+      actorAccount: employee.account,
+      action: 'auth.password.change',
+      resourceType: 'platform.local_identity',
+      resourceId: employee.id,
+      traceId: auditContext.traceId,
+      ip: auditContext.ip,
+      userAgent: auditContext.userAgent,
+      result: 'success',
+      metadata: {
+        account: employee.account,
+        mustChangePassword: false,
+      },
+    });
+  }
+
   getPasswordPolicy(): PasswordPolicyDto {
     return {
       minLength: 8,
@@ -192,6 +267,7 @@ export class AuthService {
       roles: roles.map((role) => role.code),
       permissions,
       dataScopes: roles.map((role) => role.dataScope),
+      mustChangePassword: employee.mustChangePassword,
     };
   }
 }

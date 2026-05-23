@@ -2,6 +2,7 @@ import type {
   AssignUserRolesInput,
   CreateEmployeeInput,
   EmployeeStatus,
+  ResetEmployeePasswordInput,
   UpdateEmployeeStatusInput,
 } from '@work/platform-contract';
 import { IsArray, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
@@ -61,4 +62,11 @@ export class AssignEmployeeRolesDto implements Omit<AssignUserRolesInput, 'userI
   @IsArray()
   @IsString({ each: true })
   roleIds!: string[];
+}
+
+export class ResetEmployeePasswordDto implements ResetEmployeePasswordInput {
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(8)
+  newPassword!: string;
 }

@@ -174,25 +174,24 @@
 当前建议执行：
 
 ```text
-M3.5-D: 首次登录改密 + 管理员重置密码端点
+M3.5-E: Platform 数据范围 resolver（PlatformScopeService）
 ```
 
-上一切片任务包：`docs/tasks/m3-5-c-login-failure-audit-lockout.md`。
+上一切片任务包：`docs/tasks/m3-5-d-password-change-and-reset.md`。
 
-M3.5-C 完成结果：
+M3.5-D 完成结果：
 
-- `apps/platform-api/src/auth/auth.service.ts` 实装登录失败计数、连续 5 次错误密码锁定 15 分钟、锁定期内拒绝、登录成功重置计数。
-- `apps/platform-api/src/repositories/platform.repository.ts` 删除 `validatePassword`，新增 `findLocalIdentityByAccount` 与 `updateLocalIdentitySecurityState`；PostgreSQL 与内存两套实现同步更新。
-- 所有登录尝试（成功、密码错、锁定期内尝试、禁用员工尝试）写入 `platform.audit_logs`；账号不存在不写审计。
-- `docs/security-baseline.md` §3.2 加锁定例外条款、§3.4 加 `lockDurationMinutes: 15`、§15 风险表加完成行。
-- `docs/platform-core.md` 第 3 节新增 §3.2 登录失败审计与锁定说明。
-- `packages/platform-contract/src/auth.ts` `PasswordPolicyDto` 加 `lockDurationMinutes`。
-- verification-log 锚点：`M3.5-C Login Failure Audit and Lockout`。
+- 新增 `POST /api/platform/auth/change-password`（用户改自己密码，须验旧密）。
+- 新增 `PUT /api/platform/employees/:id/password`（管理员重置员工密码，须 `platform:employee:manage` 权限）。
+- `PlatformRepository.updatePassword` 在事务内同步更新 `local_identities` 与 `employees` 两张表的 `must_change_password`，并清理 `failed_attempts` / `locked_until` / 更新 `password_updated_at`。
+- `CurrentUserDto.mustChangePassword` 字段加入 contract，login 响应与 `/auth/me` 都返回。Shell 强制改密 UI 在 M3.5-F 后真做。
+- 新增审计 action：`auth.password.change`、`platform.employee.password.reset`。
+- `docs/platform-core.md` §3 新增 §3.3 改密与重置说明。
+- verification-log 锚点：`M3.5-D Password Change and Reset`。
 
 M3.5 收口切片剩余顺序：
 
 ```text
-M3.5-D  首次登录改密 + 管理员重置密码端点
 M3.5-E  Platform 数据范围 resolver（PlatformScopeService）
 M3.5-F  Shell 引入 react-router-dom@6，路由拆组件
 M3.5-G  跨 schema 数据访问规则文档化（module-contract.md 增加章节）
@@ -208,7 +207,7 @@ M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
 | M3.5-B | ADR-0003 Gateway 边界 | Done | 2026-05-22 完成；ADR-0003 固定 gateway M4–M6 内嵌、M7 拆分；详见 verification-log `M3.5-B Gateway Boundary ADR` |
 | M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token） | Done | 2026-05-23 完成；ADR-0004 确立 Phantom Token、introspection 复用 `/auth/me`；详见 verification-log `M3.5-B2 Phantom Token ADR` |
 | M3.5-C | 登录失败审计 + 锁定策略落地 | Done | 2026-05-23 完成；5 次失败锁定 15 分钟、登录失败审计闭合；详见 verification-log `M3.5-C Login Failure Audit and Lockout` |
-| M3.5-D | 首次登录改密 + 管理员重置密码端点 | Pending | M3.5-C 后启动 |
+| M3.5-D | 首次登录改密 + 管理员重置密码端点 | Done | 2026-05-23 完成；两个改密端点 + must_change_password 双表同步；详见 verification-log `M3.5-D Password Change and Reset` |
 | M3.5-E | Platform 数据范围 resolver | Pending | M3.5-D 后启动 |
 | M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Pending | M3.5-E 后启动 |
 | M3.5-G | 跨 schema 数据访问规则文档化 | Pending | M3.5-F 后启动 |

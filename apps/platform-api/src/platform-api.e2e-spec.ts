@@ -458,6 +458,118 @@ describe('platform-api', () => {
     });
   });
 
+  describe('auth password change & reset', () => {
+    it('changes the admin password and lets administrators reset employee passwords', async () => {
+      const suffix = Date.now().toString();
+      const adminLogin = await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account: 'admin',
+          password: 'admin123',
+        })
+        .expect(201);
+      expect(adminLogin.body.user.mustChangePassword).toBe(true);
+
+      await request(app.getHttpServer())
+        .post('/api/platform/auth/change-password')
+        .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+        .send({
+          oldPassword: 'admin123',
+          newPassword: 'Newpass1',
+        })
+        .expect(201)
+        .expect((response) => {
+          expect(response.body).toEqual({ success: true });
+        });
+
+      const currentUserResponse = await request(app.getHttpServer())
+        .get('/api/platform/auth/me')
+        .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+        .expect(200);
+      expect(currentUserResponse.body.mustChangePassword).toBe(false);
+
+      await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account: 'admin',
+          password: 'admin123',
+        })
+        .expect(401);
+
+      const changedAdminLogin = await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account: 'admin',
+          password: 'Newpass1',
+        })
+        .expect(201);
+      expect(changedAdminLogin.body.user.mustChangePassword).toBe(false);
+
+      await request(app.getHttpServer())
+        .post('/api/platform/auth/change-password')
+        .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
+        .send({
+          oldPassword: 'wrong',
+          newPassword: 'Other1234',
+        })
+        .expect(401)
+        .expect((response) => {
+          expect(response.body.message).toBe('原密码错误');
+        });
+      await expect(memoryStore.findLocalIdentityByAccount('admin')).resolves.toEqual(
+        expect.objectContaining({
+          failedAttempts: 0,
+        }),
+      );
+
+      const employeeResponse = await request(app.getHttpServer())
+        .post('/api/platform/employees')
+        .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
+        .send({
+          enterpriseId: 'ent-default',
+          employeeNo: `PW${suffix}`,
+          account: `password-user-${suffix}`,
+          name: '改密测试员工',
+          initialPassword: 'Passw0rd1',
+        })
+        .expect(201);
+
+      const employeeLogin = await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account: `password-user-${suffix}`,
+          password: 'Passw0rd1',
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .put('/api/platform/employees/user-admin/password')
+        .set('Authorization', `Bearer ${employeeLogin.body.accessToken}`)
+        .send({
+          newPassword: 'Manager123',
+        })
+        .expect(403);
+
+      const resetResponse = await request(app.getHttpServer())
+        .put(`/api/platform/employees/${employeeResponse.body.id}/password`)
+        .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
+        .send({
+          newPassword: 'Manager123',
+        })
+        .expect(200);
+      expect(resetResponse.body.mustChangePassword).toBe(true);
+
+      const resetEmployeeLogin = await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account: `password-user-${suffix}`,
+          password: 'Manager123',
+        })
+        .expect(201);
+      expect(resetEmployeeLogin.body.user.mustChangePassword).toBe(true);
+    });
+  });
+
   async function loginAsAdmin(): Promise<string> {
     const response = await request(app.getHttpServer())
       .post('/api/platform/auth/login')

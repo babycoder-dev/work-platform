@@ -2,6 +2,39 @@
 
 ## 2026-05-23
 
+### M3.5-D Password Change and Reset
+
+Change set:
+
+- Added `POST /api/platform/auth/change-password` for authenticated users to change their own password after verifying the old password.
+- Added `PUT /api/platform/employees/:id/password`, protected by `platform:employee:manage`, for administrators to reset employee passwords.
+- Added `PlatformRepository.updatePassword`; PostgreSQL updates `platform.local_identities` and `platform.employees` in one transaction, while the memory store updates both records in sequence.
+- Added `CurrentUserDto.mustChangePassword` and `ChangePasswordInput` / `ResetEmployeePasswordInput` contract types.
+- Added password-change and reset audit coverage for `auth.password.change` and `platform.employee.password.reset`.
+- Expanded `auth.service.spec.ts`, platform write-audit tests, memory store tests, PostgreSQL repository integration tests, memory E2E, and PostgreSQL E2E.
+- Updated `docs/platform-core.md` §3.3 and `docs/foundation-progress.md` §6/§6.1.
+
+Verification:
+
+- `pnpm install`: pass. Workspace already up to date.
+- `pnpm lint`: pass. Existing Nx ProjectGraph warnings remain; existing unused-parameter warnings remain in `modules/presence/api/src/status/presence-status.service.ts` and `apps/workbench-shell/src/module-registry/load-remote-module.ts`.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. 12 files / 60 tests passed; PostgreSQL integration tests skipped in the normal unit run.
+- `pnpm test:e2e`: pass. Memory E2E 15 tests passed; PostgreSQL E2E skipped in the normal E2E run.
+- `pnpm build`: pass.
+- PostgreSQL path: `$env:DATABASE_URL='postgresql://work:work@localhost:5432/work_platform'; pnpm db:setup` failed locally with PostgreSQL password authentication failure for user `work`; therefore `pnpm test:db` and `pnpm test:e2e:postgres` were not run locally and remain CI-covered.
+- `auth.service.spec.ts` 用例数：14 -> 19。
+- §6.2 assertion 1: `auth.service.spec.ts` increased from 14 to 19 tests and all passed.
+- §6.2 assertion 2: memory E2E test `changes the admin password and lets administrators reset employee passwords` verifies that after admin self-change, old-password login returns 401, new-password login succeeds, and `mustChangePassword=false`.
+- §6.2 assertion 3: the same memory E2E test verifies that after administrator reset, the employee logs in with the new password and `mustChangePassword=true`.
+- §6.2 assertion 4: PostgreSQL repository integration test `clears lockout state when updating passwords` covers `failed_attempts=0` and `locked_until=NULL` after `updatePassword`.
+- §6.2 assertion 5: memory E2E test verifies a normal employee calling `PUT /employees/:id/password` receives 403.
+- §6.2 assertion 6: `auth.service.spec.ts` test `rejects changePassword when the old password is wrong without updating password state` verifies 401 "原密码错误", no `updatePassword`, and no login failed-attempt update; memory E2E also observes `failedAttempts=0` after a wrong old-password change attempt.
+
+Follow-up:
+
+- M3.5-E Platform 数据范围 resolver（PlatformScopeService）。
+
 ### M3.5-C Login Failure Audit and Lockout
 
 Change set:

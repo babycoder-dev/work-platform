@@ -19,6 +19,7 @@ import type {
   LocalIdentitySecurityState,
   PlatformRepository,
   UpdateLocalIdentitySecurityStateInput,
+  UpdatePasswordInput,
 } from '../repositories/platform.repository';
 import { hashPassword } from '../security/secret-hash';
 import { platformModuleManifests } from '../seeds/seed-data';
@@ -148,6 +149,24 @@ export class PlatformMemoryStore implements PlatformRepository {
     if (input.lastLoginAt !== undefined) {
       identity.lastLoginAt = input.lastLoginAt;
     }
+  }
+
+  async updatePassword(userId: string, input: UpdatePasswordInput): Promise<void> {
+    const identity = Array.from(this.identities.values()).find((item) => item.userId === userId);
+    const employee = this.employees.get(userId);
+    if (!identity || !employee) {
+      return;
+    }
+
+    identity.passwordHash = input.passwordHash;
+    identity.mustChangePassword = input.mustChangePassword;
+    identity.failedAttempts = 0;
+    identity.lockedUntil = undefined;
+
+    this.employees.set(userId, {
+      ...employee,
+      mustChangePassword: input.mustChangePassword,
+    });
   }
 
   async listPermissions(): Promise<PermissionDto[]> {

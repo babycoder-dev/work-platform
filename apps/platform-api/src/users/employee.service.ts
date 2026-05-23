@@ -3,10 +3,12 @@ import type {
   AssignUserRolesInput,
   CreateEmployeeInput,
   EmployeeDto,
+  ResetEmployeePasswordInput,
   UpdateEmployeeStatusInput,
 } from '@work/platform-contract';
 import type { PlatformAuditContext } from '../auth/request-user';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
+import { hashPassword } from '../security/secret-hash';
 
 @Injectable()
 export class EmployeeService {
@@ -98,5 +100,43 @@ export class EmployeeService {
     });
 
     return employee;
+  }
+
+  async resetPassword(
+    employeeId: string,
+    input: ResetEmployeePasswordInput,
+    auditContext: PlatformAuditContext = {},
+  ): Promise<EmployeeDto> {
+    const employee = await this.repository.findEmployeeById(employeeId);
+    if (!employee) {
+      throw new NotFoundException('员工不存在');
+    }
+
+    await this.repository.updatePassword(employeeId, {
+      passwordHash: hashPassword(input.newPassword),
+      mustChangePassword: true,
+    });
+    await this.repository.recordAuditLog({
+      actorUserId: auditContext.actorUserId,
+      actorAccount: auditContext.actorAccount,
+      action: 'platform.employee.password.reset',
+      resourceType: 'platform.employee',
+      resourceId: employeeId,
+      traceId: auditContext.traceId,
+      ip: auditContext.ip,
+      userAgent: auditContext.userAgent,
+      result: 'success',
+      metadata: {
+        account: employee.account,
+        employeeStatus: employee.status,
+        mustChangePassword: true,
+        lockoutCleared: true,
+      },
+    });
+
+    return {
+      ...employee,
+      mustChangePassword: true,
+    };
   }
 }
