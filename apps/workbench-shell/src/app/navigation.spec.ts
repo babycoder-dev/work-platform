@@ -1,7 +1,7 @@
 import type { MenuDto } from '@work/platform-contract';
 import type { WorkWebModule } from '@work/platform-sdk';
 import { describe, expect, it } from 'vitest';
-import { buildNavigationItems, findRouteMatch, resolveShellRoute } from './navigation';
+import { buildModuleRouteTable, buildNavigationItems } from './navigation';
 
 describe('workbench navigation', () => {
   it('builds navigation from active platform menus in platform order', () => {
@@ -50,71 +50,77 @@ describe('workbench navigation', () => {
     ]);
   });
 
-  it('only matches module routes allowed by the current user permissions', () => {
-    const modules = createModules();
-
-    expect(findRouteMatch(modules, '/presence/board', [])).toBeUndefined();
-    expect(findRouteMatch(modules, '/presence/board', ['presence:board:view'])?.module.manifest.name).toBe(
-      'presence',
-    );
-  });
-
-  it('resolves shell route states for home, protected routes, pending pages, and unknown paths', () => {
-    const modules = createModules();
-    const navigationItems = [
-      {
-        title: '员工管理',
-        path: '/platform/employees',
-        moduleName: 'platform',
-        permissionCode: 'platform:employee:view',
-      },
-    ];
-
-    expect(resolveShellRoute(modules, navigationItems, '/', [])).toEqual({ kind: 'home' });
-    expect(resolveShellRoute(modules, navigationItems, '/presence/board', [])).toEqual({
-      kind: 'forbidden',
-      path: '/presence/board',
-    });
-    expect(resolveShellRoute(modules, navigationItems, '/platform/employees', ['platform:employee:view'])).toEqual({
-      kind: 'coming-soon',
-      item: navigationItems[0],
-    });
-    expect(resolveShellRoute(modules, navigationItems, '/missing', [])).toEqual({
-      kind: 'not-found',
-      path: '/missing',
-    });
-  });
-
-  it('resolves platform management routes once the platform module is mounted', () => {
-    const modules = [
-      ...createModules(),
-      {
-        manifest: {
-          name: 'platform',
-          title: '平台管理',
-          basePath: '/platform',
-          apiPrefix: '/api/platform',
-          menus: [],
-          permissions: [],
-          routes: [],
-        },
-        routes: [
-          {
-            path: '/platform/employees',
-            permission: 'platform:employee:view',
-            load: async () => ({
-              default: function Page() {
-                return undefined;
-              },
-            }),
+  describe('buildModuleRouteTable', () => {
+    it('flattens module routes in module and route order with normalized paths', () => {
+      const modules = [
+        ...createModules(),
+        {
+          manifest: {
+            name: 'platform',
+            title: '平台管理',
+            basePath: '/platform',
+            apiPrefix: '/api/platform',
+            menus: [],
+            permissions: [],
+            routes: [],
           },
-        ],
-      },
-    ];
+          routes: [
+            {
+              path: '/platform/employees',
+              permission: 'platform:employee:view',
+              load: async () => ({
+                default: function Page() {
+                  return undefined;
+                },
+              }),
+            },
+          ],
+        },
+      ];
 
-    const resolution = resolveShellRoute(modules, [], '/platform/employees', ['platform:employee:view']);
+      expect(
+        buildModuleRouteTable(modules).map((route) => ({
+          path: route.path,
+          permission: route.permission,
+        })),
+      ).toEqual([
+        {
+          path: '/presence/board',
+          permission: 'presence:board:view',
+        },
+        {
+          path: '/presence/register',
+          permission: 'presence:status:create',
+        },
+        {
+          path: '/platform/employees',
+          permission: 'platform:employee:view',
+        },
+      ]);
+    });
 
-    expect(resolution.kind).toBe('loadable');
+    it('throws when different module paths normalize to the same route path', () => {
+      const modules = [
+        createModule('first', '/x'),
+        createModule('second', 'x'),
+      ];
+
+      expect(() => buildModuleRouteTable(modules)).toThrow(/Duplicate module route path/);
+    });
+
+    it('throws when one module registers duplicate route paths', () => {
+      const modules = [
+        {
+          ...createModule('presence', '/presence/board'),
+          routes: [
+            createRoute('/presence/board'),
+            createRoute('/presence/board'),
+          ],
+        },
+      ];
+
+      expect(() => buildModuleRouteTable(modules)).toThrow(/Duplicate module route path/);
+    });
   });
 });
 
@@ -132,8 +138,17 @@ function createModules(): WorkWebModule[] {
       },
       routes: [
         {
-          path: '/presence/board',
+          path: 'presence/board',
           permission: 'presence:board:view',
+          load: async () => ({
+            default: function Page() {
+              return undefined;
+            },
+          }),
+        },
+        {
+          path: '/presence/register',
+          permission: 'presence:status:create',
           load: async () => ({
             default: function Page() {
               return undefined;
@@ -143,4 +158,30 @@ function createModules(): WorkWebModule[] {
       ],
     },
   ];
+}
+
+function createModule(name: string, path: string): WorkWebModule {
+  return {
+    manifest: {
+      name,
+      title: name,
+      basePath: `/${name}`,
+      apiPrefix: `/api/${name}`,
+      menus: [],
+      permissions: [],
+      routes: [],
+    },
+    routes: [createRoute(path)],
+  };
+}
+
+function createRoute(path: string) {
+  return {
+    path,
+    load: async () => ({
+      default: function Page() {
+        return undefined;
+      },
+    }),
+  };
 }

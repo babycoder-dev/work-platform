@@ -174,23 +174,22 @@
 当前建议执行：
 
 ```text
-M3.5-F: Shell 引入 react-router-dom@6，路由拆组件
+M3.5-G: 跨 schema 数据访问规则文档化（module-contract.md 增加章节）
 ```
 
-上一切片任务包：`docs/tasks/m3-5-e-platform-scope-service.md`。
+上一切片任务包：`docs/tasks/m3-5-f-shell-router.md`。
 
-M3.5-E 完成结果：
+M3.5-F 完成结果：
 
-- 新增 `PlatformScopeService.resolveScope(currentUser)`，统一解析当前用户 effective 数据范围（`company > department_tree > department > self`，custom 降级为 self）。
-- 新增 `PlatformRepository.listDescendantDepartmentIds(parentId, enterpriseId)`：PostgreSQL 用 `WITH RECURSIVE`、内存 store 用 BFS 实现。
-- `GET /api/platform/employees` 接入 scope 过滤，跨 `enterpriseId` 绝不放行；其它 platform 列表端点保持原样。
-- `docs/platform-core.md` §5 重写为带解析规则、降级规则与消费方过滤模板。
-- verification-log 锚点：`M3.5-E Platform Scope Service`。
+- `apps/workbench-shell` 引入 `react-router-dom@6`，App.tsx 用 `BrowserRouter + <Routes>` 替换原 `pushState/popstate`。
+- 模块路由由 `buildModuleRouteTable` 动态展平注册，启动期对重复 path 抛错。
+- 5 种路由状态（home / 模块页 / forbidden / coming-soon / not-found）拆为 `WorkbenchHome` / `RequirePermission` / `UnknownPathView` 三个子组件。
+- LoginView 维持外层条件渲染，不进路由系统。
+- verification-log 锚点：`M3.5-F Shell Router`。
 
 M3.5 收口切片剩余顺序：
 
 ```text
-M3.5-F  Shell 引入 react-router-dom@6，路由拆组件
 M3.5-G  跨 schema 数据访问规则文档化（module-contract.md 增加章节）
 ```
 
@@ -206,7 +205,7 @@ M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
 | M3.5-C | 登录失败审计 + 锁定策略落地 | Done | 2026-05-23 完成；5 次失败锁定 15 分钟、登录失败审计闭合；详见 verification-log `M3.5-C Login Failure Audit and Lockout` |
 | M3.5-D | 首次登录改密 + 管理员重置密码端点 | Done | 2026-05-23 完成；两个改密端点 + must_change_password 双表同步；详见 verification-log `M3.5-D Password Change and Reset` |
 | M3.5-E | Platform 数据范围 resolver | Done | 2026-05-24 完成；PlatformScopeService + employees 列表接入 scope；详见 verification-log `M3.5-E Platform Scope Service` |
-| M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Pending | M3.5-E 后启动 |
+| M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Done | 2026-05-24 完成；BrowserRouter + 动态模块路由 + 拆 RequirePermission/UnknownPathView；详见 verification-log `M3.5-F Shell Router` |
 | M3.5-G | 跨 schema 数据访问规则文档化 | Pending | M3.5-F 后启动 |
 
 ## 7. 当前阻塞项

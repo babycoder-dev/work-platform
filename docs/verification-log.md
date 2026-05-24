@@ -2,6 +2,36 @@
 
 ## 2026-05-24
 
+### M3.5-F Shell Router
+
+Change set:
+
+- Added `react-router-dom@^6.28.0` to `apps/workbench-shell` and regenerated `pnpm-lock.yaml` through `pnpm install`.
+- Replaced the Shell's hand-rolled `pushState` / `popstate` route state with `BrowserRouter`, `Routes`, `Route`, `NavLink`, `React.lazy`, and one Suspense fallback.
+- Added `buildModuleRouteTable(modules)` to flatten module routes in registry order and throw on duplicate normalized paths at startup.
+- Removed `resolveShellRoute`, `findRouteMatch`, `findAnyRoute`, `RouteMatch`, and `ShellRouteResolution` from `navigation.ts`.
+- Split route rendering into `AppShell`, `RequirePermission`, `UnknownPathView`, and the allowed `RouteErrorBoundary`; `LoginView` remains outside the router.
+- Updated `navigation.spec.ts` to keep `buildNavigationItems` coverage and add three `buildModuleRouteTable` cases, including duplicate path throws.
+
+Verification:
+
+- `pnpm install`: pass. Added only `react-router-dom@6.30.3` and its `react-router` / `@remix-run/router` transitive entries to the lockfile; no `jsdom`, `happy-dom`, or `@testing-library/react` dependency was added.
+- `pnpm lint`: pass. Existing Nx ProjectGraph warnings remain; existing warnings remain for task-required `request.currentUser!`, `_query`, and `_descriptor`.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. 13 files / 71 tests passed; PostgreSQL repository integration tests skipped in the normal unit run. `apps/workbench-shell/src/app/navigation.spec.ts` has 4 tests, including 3 `buildModuleRouteTable` tests.
+- `pnpm test:e2e`: pass. Memory E2E 20 tests passed; PostgreSQL E2E skipped in the normal E2E run.
+- `pnpm build`: pass. Vite emitted independent chunks for `PresenceBoardPage`, `RegisterStatusPage`, `OrganizationPage`, `RolesPage`, `EmployeesPage`, and `PlatformAdminPlaceholder`; the main `index-*.js` keeps only module manifest strings and dynamic import chunk references for those pages.
+- §6.2 assertion 1: `apps/workbench-shell/package.json` contains `"react-router-dom": "^6.28.0"` and `pnpm-lock.yaml` contains the resolved `react-router-dom@6.30.3`.
+- §6.2 assertion 2: `navigation.ts` exports `buildModuleRouteTable` and no longer contains `resolveShellRoute`, `findRouteMatch`, `findAnyRoute`, `RouteMatch`, or `ShellRouteResolution`.
+- §6.2 assertion 3: `navigation.spec.ts` passed with `buildModuleRouteTable` cases for flattening/normalization, cross-module duplicate normalized paths, and same-module duplicate paths.
+- §6.2 assertion 4: `App.tsx` contains no `pushState` or `popstate`; `BrowserRouter` appears once through the router import.
+- §6.2 assertion 5: Chrome headless CDP smoke against `PLATFORM_REPOSITORY_DRIVER=memory` platform-api and Vite Shell passed: 5.a login to `/` shows `WorkbenchHome` and menu order `组织架构 / 员工管理 / 角色权限 / 在位看板 / 状态登记`; 5.b clicking `在位看板` changes URL to `/presence/board`, renders `PresenceBoardPage`, and applies `shell__nav-item--active`; 5.c browser history back/forward switches `/` and `/presence/board`; 5.d direct `/presence/board` load recovers login state and renders the board; 5.e direct `/this/does/not/exist` shows `页面不存在`; 5.f skipped because current memory seed has no authorized menu path without a registered route; 5.g logout returns to LoginView and re-login from `/` returns to `WorkbenchHome`.
+- §6.2 assertion 6: automated regression is covered by `pnpm test` for `buildModuleRouteTable` / `buildNavigationItems`; browser behavior is covered by the Chrome headless smoke above.
+
+Follow-up:
+
+- M3.5-G 跨 schema 数据访问规则文档化（module-contract.md 增加章节）。
+
 ### M3.5-E Platform Scope Service
 
 Change set:
