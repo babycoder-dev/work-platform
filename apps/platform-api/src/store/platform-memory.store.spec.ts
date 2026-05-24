@@ -117,4 +117,64 @@ describe('PlatformMemoryStore', () => {
       }),
     );
   });
+
+  describe('listDescendantDepartmentIds', () => {
+    it('expands active descendants within the same enterprise only', async () => {
+      const store = new PlatformMemoryStore();
+      const root = await store.createDepartment({
+        enterpriseId: 'ent-default',
+        code: 'TREE',
+        name: 'Tree Root',
+      });
+      const child = await store.createDepartment({
+        enterpriseId: 'ent-default',
+        parentId: root.id,
+        code: 'TREE-C',
+        name: 'Tree Child',
+      });
+      const grandchild = await store.createDepartment({
+        enterpriseId: 'ent-default',
+        parentId: child.id,
+        code: 'TREE-G',
+        name: 'Tree Grandchild',
+      });
+      const sibling = await store.createDepartment({
+        enterpriseId: 'ent-default',
+        parentId: root.id,
+        code: 'TREE-S',
+        name: 'Tree Sibling',
+      });
+      const disabled = await store.createDepartment({
+        enterpriseId: 'ent-default',
+        parentId: root.id,
+        code: 'TREE-D',
+        name: 'Tree Disabled',
+      });
+      store.departments.set(disabled.id, {
+        ...disabled,
+        status: 'disabled',
+      });
+      const disabledChild = await store.createDepartment({
+        enterpriseId: 'ent-default',
+        parentId: disabled.id,
+        code: 'TREE-DC',
+        name: 'Tree Disabled Child',
+      });
+      const otherEnterpriseChild = await store.createDepartment({
+        enterpriseId: 'ent-other',
+        parentId: root.id,
+        code: 'TREE-O',
+        name: 'Tree Other',
+      });
+
+      const descendantIds = await store.listDescendantDepartmentIds(root.id, 'ent-default');
+
+      expect(descendantIds).toEqual(expect.arrayContaining([child.id, grandchild.id, sibling.id]));
+      expect(descendantIds).toHaveLength(3);
+      expect(descendantIds).not.toContain(root.id);
+      expect(descendantIds).not.toContain(disabled.id);
+      expect(descendantIds).not.toContain(disabledChild.id);
+      expect(descendantIds).not.toContain(otherEnterpriseChild.id);
+    });
+  });
 });

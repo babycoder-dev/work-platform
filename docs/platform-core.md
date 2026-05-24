@@ -132,7 +132,7 @@ password: 由 PLATFORM_BOOTSTRAP_ADMIN_PASSWORD 注入
 
 ## 5. 数据范围
 
-内置：
+内置数据范围（`DataScope`，定义在 `packages/platform-contract/src/rbac.ts`）：
 
 ```text
 self
@@ -141,6 +141,39 @@ department_tree
 company
 custom
 ```
+
+业务模块**不允许自行解析** `currentUser.dataScopes`。所有数据范围解析必须经 `PlatformScopeService.resolveScope(currentUser)` 完成，返回结构化的 `PlatformScope`：
+
+```text
+kind:               'self' | 'department' | 'department_tree' | 'company'
+userId:             string
+enterpriseId:       string
+departmentId?:      string
+departmentIds:      string[]   // department_tree 范围已展开
+degradedFromCustom: boolean    // 原本是 custom 被降级为 self 的标志
+```
+
+解析规则：
+
+- 多个 active 角色按 **`company > department_tree > department > self`** 取最大；任一含 `company` 即 `company`。
+- `disabled` 角色不参与；`currentUser.dataScopes` 由 `auth.service.toCurrentUser` 已过滤。
+- `custom` 视作最弱，等价 `self`，`degradedFromCustom=true`。运行时不写 audit。
+- `department` / `department_tree` 范围若 `currentUser.departmentId` 为 `undefined`，降级为 `self`，`degradedFromCustom` 不变。
+
+消费方过滤模板：
+
+```text
+employee.enterpriseId === scope.enterpriseId  // 第一步：跨企业绝不放行
+kind === 'company'             → 直接通过
+kind === 'self'                → employee.id === scope.userId
+kind === 'department' | 'department_tree' → employee.departmentId ∈ scope.departmentIds
+```
+
+当前已接入数据范围的端点：
+
+- `GET /api/platform/employees`（M3.5-E 起）
+
+业务模块的接入计划见各业务 RFC（M4 起 presence board 接入）。
 
 ## 6. Repository 实现
 

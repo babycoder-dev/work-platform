@@ -15,8 +15,8 @@ export class EmployeeController {
 
   @Get()
   @RequirePermissions('platform:employee:view')
-  listEmployees() {
-    return this.employeeService.listEmployees();
+  listEmployees(@Req() request: PlatformRequest) {
+    return this.employeeService.listEmployees(request.currentUser!);
   }
 
   @Post()

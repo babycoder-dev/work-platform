@@ -253,6 +253,74 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     );
   });
 
+  describe('listDescendantDepartmentIds', () => {
+    it('returns active descendants from the same enterprise and stops at disabled nodes', async () => {
+      const suffix = Date.now().toString();
+      const root = await repository.createDepartment({
+        enterpriseId: DEFAULT_ENTERPRISE_ID,
+        code: `TREE${suffix}`,
+        name: 'Tree Root',
+      });
+      const child1 = await repository.createDepartment({
+        enterpriseId: DEFAULT_ENTERPRISE_ID,
+        parentId: root.id,
+        code: `TREE${suffix}C1`,
+        name: 'Tree Child 1',
+      });
+      const grandchild1 = await repository.createDepartment({
+        enterpriseId: DEFAULT_ENTERPRISE_ID,
+        parentId: child1.id,
+        code: `TREE${suffix}G1`,
+        name: 'Tree Grandchild 1',
+      });
+      const child2 = await repository.createDepartment({
+        enterpriseId: DEFAULT_ENTERPRISE_ID,
+        parentId: root.id,
+        code: `TREE${suffix}C2`,
+        name: 'Tree Child 2',
+      });
+      const disabled = await repository.createDepartment({
+        enterpriseId: DEFAULT_ENTERPRISE_ID,
+        parentId: root.id,
+        code: `TREE${suffix}D`,
+        name: 'Tree Disabled',
+      });
+      await pool.query('UPDATE platform.departments SET status = $2 WHERE id = $1', [disabled.id, 'disabled']);
+      const disabledChild = await repository.createDepartment({
+        enterpriseId: DEFAULT_ENTERPRISE_ID,
+        parentId: disabled.id,
+        code: `TREE${suffix}DC`,
+        name: 'Tree Disabled Child',
+      });
+      const enterprise2 = await pool.query<{ id: string }>(
+        `
+          INSERT INTO platform.enterprises (code, name, status)
+          VALUES ($1, $2, 'active')
+          RETURNING id
+        `,
+        [`TREE${suffix}E2`, 'Tree Enterprise 2'],
+      );
+      const otherDepartment = await pool.query<{ id: string }>(
+        `
+          INSERT INTO platform.departments (enterprise_id, parent_id, code, name, status)
+          VALUES ($1, $2, $3, $4, 'active')
+          RETURNING id
+        `,
+        [enterprise2.rows[0].id, root.id, `TREE${suffix}O`, 'Tree Other'],
+      );
+
+      const descendantIds = await repository.listDescendantDepartmentIds(root.id, DEFAULT_ENTERPRISE_ID);
+
+      expect(descendantIds).toEqual(expect.arrayContaining([child1.id, child2.id, grandchild1.id]));
+      expect(descendantIds).toHaveLength(3);
+      expect(descendantIds).not.toContain(root.id);
+      expect(descendantIds).not.toContain(disabled.id);
+      expect(descendantIds).not.toContain(disabledChild.id);
+      expect(descendantIds).not.toContain(otherDepartment.rows[0].id);
+      await expect(repository.listDescendantDepartmentIds('00000000-0000-0000-0000-00000000ffff', DEFAULT_ENTERPRISE_ID)).resolves.toEqual([]);
+    });
+  });
+
   it('maps unique constraint violations to platform duplicate errors', async () => {
     await expect(
       repository.createDepartment({

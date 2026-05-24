@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { configurePlatformHttp } from '@work/nest-common';
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -357,6 +358,162 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     ]);
   });
 
+  describe('employee list scope filtering', () => {
+    it('filters employees by company, department, self, custom, department_tree, and enterprise', async () => {
+      const suffix = Date.now().toString();
+      const adminLogin = await request(app.getHttpServer())
+        .post('/api/platform/auth/login')
+        .send({
+          account: 'admin',
+          password: adminPassword,
+        })
+        .expect(201);
+      const adminToken = adminLogin.body.accessToken as string;
+
+      try {
+        const adminVisible = await createEmployee(adminToken, suffix, {
+          employeeNo: `PSCA${suffix}`,
+          account: `pg-scope-admin-${suffix}`,
+          name: 'PG Scope Admin Visible',
+        });
+        const adminList = await request(app.getHttpServer())
+          .get('/api/platform/employees')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200);
+        expect(idsOf(adminList.body.items)).toEqual(expect.arrayContaining([adminVisible.body.id]));
+
+        const departmentRole = await createRole(adminToken, suffix, `pg-scope-dept-${suffix}`, 'department');
+        const department = await createDepartment(adminToken, suffix, `PSCD${suffix}`, 'PG Scope Department');
+        const departmentA = await createEmployee(adminToken, suffix, {
+          departmentId: department.body.id,
+          employeeNo: `PSCDA${suffix}`,
+          account: `pg-scope-dept-a-${suffix}`,
+          name: 'PG Scope Department A',
+          roleIds: [departmentRole.body.id],
+        });
+        const departmentB = await createEmployee(adminToken, suffix, {
+          departmentId: department.body.id,
+          employeeNo: `PSCDB${suffix}`,
+          account: `pg-scope-dept-b-${suffix}`,
+          name: 'PG Scope Department B',
+        });
+        const departmentOther = await createEmployee(adminToken, suffix, {
+          employeeNo: `PSCDC${suffix}`,
+          account: `pg-scope-dept-c-${suffix}`,
+          name: 'PG Scope Department C',
+        });
+        const departmentLogin = await login(`pg-scope-dept-a-${suffix}`);
+        const departmentList = await request(app.getHttpServer())
+          .get('/api/platform/employees')
+          .set('Authorization', `Bearer ${departmentLogin.body.accessToken}`)
+          .expect(200);
+        expect(idsOf(departmentList.body.items)).toEqual(expect.arrayContaining([departmentA.body.id, departmentB.body.id]));
+        expect(idsOf(departmentList.body.items)).not.toContain(departmentOther.body.id);
+        expect(idsOf(departmentList.body.items)).not.toContain('00000000-0000-0000-0000-000000000001');
+
+        const selfRole = await createRole(adminToken, suffix, `pg-scope-self-${suffix}`, 'self');
+        const selfEmployee = await createEmployee(adminToken, suffix, {
+          employeeNo: `PSCS${suffix}`,
+          account: `pg-scope-self-${suffix}`,
+          name: 'PG Scope Self',
+          roleIds: [selfRole.body.id],
+        });
+        const selfLogin = await login(`pg-scope-self-${suffix}`);
+        const selfList = await request(app.getHttpServer())
+          .get('/api/platform/employees')
+          .set('Authorization', `Bearer ${selfLogin.body.accessToken}`)
+          .expect(200);
+        expect(idsOf(selfList.body.items)).toEqual([selfEmployee.body.id]);
+
+        const customRole = await createRole(adminToken, suffix, `pg-scope-custom-${suffix}`, 'custom');
+        const customEmployee = await createEmployee(adminToken, suffix, {
+          employeeNo: `PSCC${suffix}`,
+          account: `pg-scope-custom-${suffix}`,
+          name: 'PG Scope Custom',
+          roleIds: [customRole.body.id],
+        });
+        const customLogin = await login(`pg-scope-custom-${suffix}`);
+        const customList = await request(app.getHttpServer())
+          .get('/api/platform/employees')
+          .set('Authorization', `Bearer ${customLogin.body.accessToken}`)
+          .expect(200);
+        expect(idsOf(customList.body.items)).toEqual([customEmployee.body.id]);
+
+        const treeParent = await createDepartment(adminToken, suffix, `PSCT${suffix}`, 'PG Scope Tree Parent');
+        const treeChild = await createDepartment(adminToken, suffix, `PSCTC${suffix}`, 'PG Scope Tree Child', treeParent.body.id);
+        const treeRole = await createRole(adminToken, suffix, `pg-scope-tree-${suffix}`, 'department_tree');
+        const treeParentEmployee = await createEmployee(adminToken, suffix, {
+          departmentId: treeParent.body.id,
+          employeeNo: `PSCTP${suffix}`,
+          account: `pg-scope-tree-parent-${suffix}`,
+          name: 'PG Scope Tree Parent',
+          roleIds: [treeRole.body.id],
+        });
+        const treeChildEmployee = await createEmployee(adminToken, suffix, {
+          departmentId: treeChild.body.id,
+          employeeNo: `PSCTC${suffix}`,
+          account: `pg-scope-tree-child-${suffix}`,
+          name: 'PG Scope Tree Child',
+        });
+        const treeOutside = await createEmployee(adminToken, suffix, {
+          employeeNo: `PSCTO${suffix}`,
+          account: `pg-scope-tree-outside-${suffix}`,
+          name: 'PG Scope Tree Outside',
+        });
+        const treeLogin = await login(`pg-scope-tree-parent-${suffix}`);
+        const treeList = await request(app.getHttpServer())
+          .get('/api/platform/employees')
+          .set('Authorization', `Bearer ${treeLogin.body.accessToken}`)
+          .expect(200);
+        expect(idsOf(treeList.body.items)).toEqual(expect.arrayContaining([treeParentEmployee.body.id, treeChildEmployee.body.id]));
+        expect(idsOf(treeList.body.items)).not.toContain(treeOutside.body.id);
+        expect(idsOf(treeList.body.items)).not.toContain('00000000-0000-0000-0000-000000000001');
+
+        const enterprise2Id = randomUUID();
+        const department2Id = randomUUID();
+        const employee2Id = randomUUID();
+        await pool.query(
+          `
+            INSERT INTO platform.enterprises (id, code, name, status)
+            VALUES ($1, $2, $3, 'active')
+          `,
+          [enterprise2Id, `pg-scope-ent-${suffix}`, 'PG Scope Enterprise 2'],
+        );
+        await pool.query(
+          `
+            INSERT INTO platform.departments (id, enterprise_id, code, name, status)
+            VALUES ($1, $2, $3, $4, 'active')
+          `,
+          [department2Id, enterprise2Id, `pg-scope-dept-${suffix}`, 'PG Scope Enterprise 2 Department'],
+        );
+        await pool.query(
+          `
+            INSERT INTO platform.employees (
+              id,
+              enterprise_id,
+              department_id,
+              employee_no,
+              account,
+              name,
+              status,
+              must_change_password
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, 'active', true)
+          `,
+          [employee2Id, enterprise2Id, department2Id, `PSE2${suffix}`, `pg-scope-ent2-${suffix}`, 'PG Scope Enterprise 2 User'],
+        );
+
+        const adminListAfterEnterprise2 = await request(app.getHttpServer())
+          .get('/api/platform/employees')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200);
+        expect(idsOf(adminListAfterEnterprise2.body.items)).not.toContain(employee2Id);
+      } finally {
+        await cleanupScopeRows(pool, suffix);
+      }
+    });
+  });
+
   it('changes and resets postgres-backed passwords', async () => {
     const uniqueSuffix = Date.now().toString();
     const account = `password-test-${uniqueSuffix}`;
@@ -463,6 +620,72 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .expect(201);
     expect(resetEmployeeLogin.body.user.mustChangePassword).toBe(true);
   });
+
+  function createDepartment(token: string, suffix: string, code: string, name: string, parentId?: string) {
+    void suffix;
+    return request(app.getHttpServer())
+      .post('/api/platform/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        parentId,
+        code,
+        name,
+      })
+      .expect(201);
+  }
+
+  function createRole(token: string, suffix: string, code: string, dataScope: 'self' | 'department' | 'department_tree' | 'company' | 'custom') {
+    void suffix;
+    return request(app.getHttpServer())
+      .post('/api/platform/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        code,
+        name: code,
+        permissionCodes: ['platform:employee:view'],
+        dataScope,
+      })
+      .expect(201);
+  }
+
+  function createEmployee(
+    token: string,
+    suffix: string,
+    input: {
+      employeeNo: string;
+      account: string;
+      name: string;
+      departmentId?: string;
+      roleIds?: string[];
+    },
+  ) {
+    void suffix;
+    return request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        departmentId: input.departmentId,
+        employeeNo: input.employeeNo,
+        account: input.account,
+        name: input.name,
+        initialPassword: 'Scope1234',
+        roleIds: input.roleIds,
+      })
+      .expect(201);
+  }
+
+  function login(account: string) {
+    return request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account,
+        password: 'Scope1234',
+      })
+      .expect(201);
+  }
 });
 
 async function countSuccessfulAdminLogins(pool: Pool): Promise<number> {
@@ -545,4 +768,45 @@ async function fetchLocalIdentityFailedAttempts(pool: Pool, account: string): Pr
   );
 
   return identityResult.rows[0].failed_attempts;
+}
+
+function idsOf(items: Array<{ id: string }>): string[] {
+  return items.map((item) => item.id);
+}
+
+async function cleanupScopeRows(pool: Pool, suffix: string): Promise<void> {
+  await pool.query(
+    `
+      DELETE FROM platform.audit_logs
+      WHERE actor_account LIKE $1 OR trace_id LIKE $2
+    `,
+    [`pg-scope-%-${suffix}`, `%${suffix}`],
+  );
+  await pool.query(
+    `
+      DELETE FROM platform.user_roles
+      WHERE user_id IN (
+        SELECT id FROM platform.employees WHERE account LIKE $1
+      )
+      OR role_id IN (
+        SELECT id FROM platform.roles WHERE code LIKE $1
+      )
+    `,
+    [`pg-scope-%-${suffix}`],
+  );
+  await pool.query('DELETE FROM platform.local_identities WHERE account LIKE $1', [`pg-scope-%-${suffix}`]);
+  await pool.query('DELETE FROM platform.employees WHERE account LIKE $1', [`pg-scope-%-${suffix}`]);
+  await pool.query(
+    `
+      DELETE FROM platform.role_permissions
+      WHERE role_id IN (
+        SELECT id FROM platform.roles WHERE code LIKE $1
+      )
+    `,
+    [`pg-scope-%-${suffix}`],
+  );
+  await pool.query('DELETE FROM platform.roles WHERE code LIKE $1', [`pg-scope-%-${suffix}`]);
+  await pool.query('DELETE FROM platform.departments WHERE code LIKE $1', [`PSC%${suffix}`]);
+  await pool.query('DELETE FROM platform.departments WHERE code LIKE $1', [`pg-scope-dept-${suffix}`]);
+  await pool.query('DELETE FROM platform.enterprises WHERE code = $1', [`pg-scope-ent-${suffix}`]);
 }

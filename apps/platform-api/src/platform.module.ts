@@ -15,6 +15,7 @@ import { MenuController } from './rbac/menu.controller';
 import { ModuleManifestController } from './rbac/module-manifest.controller';
 import { RoleController } from './rbac/role.controller';
 import { RbacService } from './rbac/rbac.service';
+import { PlatformScopeService } from './scope/platform-scope.service';
 import { PlatformMemoryStore } from './store/platform-memory.store';
 import { HealthController } from './system/health.controller';
 import { EmployeeController } from './users/employee.controller';
@@ -50,6 +51,7 @@ import { EmployeeService } from './users/employee.service';
     PlatformAuthGuard,
     OrgService,
     EmployeeService,
+    PlatformScopeService,
     PermissionGuard,
     RbacService,
   ],

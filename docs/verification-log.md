@@ -1,5 +1,39 @@
 # Verification Log
 
+## 2026-05-24
+
+### M3.5-E Platform Scope Service
+
+Change set:
+
+- Added `PlatformScopeService.resolveScope` that turns `CurrentUserDto.dataScopes` plus `departmentId` / `enterpriseId` into a `PlatformScope { kind, userId, enterpriseId, departmentId?, departmentIds[], degradedFromCustom }`. Multi-role effective scope is `company > department_tree > department > self`; `custom` and empty scope lists degrade to `self`.
+- Added `PlatformRepository.listDescendantDepartmentIds(parentId, enterpriseId)` with PostgreSQL `WITH RECURSIVE` implementation and memory store BFS implementation; both only return `status='active'` departments within the same enterprise.
+- Reworked `GET /api/platform/employees`: `EmployeeService.listEmployees(currentUser)` now resolves the caller's scope and filters in-memory. Cross-enterprise rows are rejected unconditionally.
+- Registered `PlatformScopeService` in `PlatformModule` providers.
+- Expanded service unit tests, memory store tests, PostgreSQL repository integration tests, memory E2E, and PostgreSQL E2E with scope-aware employee list assertions.
+- Rewrote `docs/platform-core.md` §5 with resolution rules, custom/department degradation rules, and a consumer filter template.
+
+Verification:
+
+- `pnpm install`: pass. Workspace already up to date; pnpm emitted a non-fatal metadata fetch warning through `127.0.0.1:10808`.
+- `pnpm lint`: pass. Existing Nx ProjectGraph warnings remain; warnings remain for task-required `request.currentUser!`, existing `_query` in `modules/presence/api/src/status/presence-status.service.ts`, and existing `_descriptor` in `apps/workbench-shell/src/module-registry/load-remote-module.ts`.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. 13 files / 71 tests passed; PostgreSQL repository integration tests skipped in the normal unit run.
+- `pnpm test:e2e`: pass. Memory E2E 20 tests passed; PostgreSQL E2E skipped in the normal E2E run.
+- `pnpm build`: pass.
+- PostgreSQL path: `$env:DATABASE_URL='postgresql://work:work@localhost:5432/work_platform'; pnpm db:setup` failed locally with PostgreSQL password authentication failure for user `work`; therefore `pnpm test:db` and `pnpm test:e2e:postgres` were not run locally and remain CI-covered.
+- §6.2 assertion 1: `platform-scope.service.spec.ts` has 10 tests and all passed, including `degrades custom to self` and `expands department_tree with descendants`.
+- §6.2 assertion 2: `auth.service.spec.ts` remained at 19 passed tests after adding only the required repository mock method for the new interface.
+- §6.2 assertion 3: memory E2E test `lets admin with company scope see employees from the enterprise` verifies admin/company sees enterprise employees.
+- §6.2 assertion 4: memory E2E test `limits department scoped employees to their own department` verifies same-department visibility and excludes other departments plus admin.
+- §6.2 assertion 5: memory E2E tests `limits self scoped employees to themselves` and `degrades custom scoped employees to self` verify self-only visibility and custom-to-self behavior; service spec covers `degradedFromCustom=true`.
+- §6.2 assertion 6: memory E2E test `includes descendant departments for department_tree scoped employees` verifies parent + child department visibility.
+- §6.2 assertion 7: PostgreSQL E2E test `filters employees by company, department, self, custom, department_tree, and enterprise` covers cross-enterprise rejection, but local PostgreSQL auth failed before execution; CI remains the authority for this path.
+
+Follow-up:
+
+- M3.5-F Shell 引入 react-router-dom@6，路由拆组件。
+
 ## 2026-05-23
 
 ### M3.5-D Password Change and Reset

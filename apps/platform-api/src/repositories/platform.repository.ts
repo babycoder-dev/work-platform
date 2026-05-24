@@ -49,6 +49,12 @@ export interface PlatformRepository {
   listDepartments(): Promise<DepartmentDto[]>;
   createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto>;
   findDepartmentById(id: string): Promise<DepartmentDto | undefined>;
+  /**
+   * 返回 parentDepartmentId 的全部子孙部门 id（不含 parentDepartmentId 本身）。
+   * 仅返回与 enterpriseId 一致且 status='active' 的部门。
+   * 若 parentDepartmentId 不存在或无子孙，返回 []。
+   */
+  listDescendantDepartmentIds(parentDepartmentId: string, enterpriseId: string): Promise<string[]>;
   listEmployees(): Promise<EmployeeDto[]>;
   createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto>;
   findEmployeeById(id: string): Promise<EmployeeDto | undefined>;

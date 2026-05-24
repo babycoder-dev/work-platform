@@ -458,6 +458,147 @@ describe('platform-api', () => {
     });
   });
 
+  describe('employee list scope filtering', () => {
+    it('lets admin with company scope see employees from the enterprise', async () => {
+      const token = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const employeeResponse = await createEmployee(token, {
+        employeeNo: `SCA${suffix}`,
+        account: `scope-admin-${suffix}`,
+        name: 'Scope Admin Visible',
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/api/platform/employees')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(response.body.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'user-admin' }),
+          expect.objectContaining({ id: employeeResponse.body.id }),
+        ]),
+      );
+    });
+
+    it('limits department scoped employees to their own department', async () => {
+      const adminToken = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const role = await createRole(adminToken, `scope-dept-${suffix}`, 'department');
+      const department = await createDepartment(adminToken, `SCD${suffix}`, 'Scope Department');
+      const sameDepartmentA = await createEmployee(adminToken, {
+        departmentId: department.body.id,
+        employeeNo: `SCDA${suffix}`,
+        account: `scope-dept-a-${suffix}`,
+        name: 'Scope Department A',
+        roleIds: [role.body.id],
+      });
+      const sameDepartmentB = await createEmployee(adminToken, {
+        departmentId: department.body.id,
+        employeeNo: `SCDB${suffix}`,
+        account: `scope-dept-b-${suffix}`,
+        name: 'Scope Department B',
+      });
+      const otherDepartment = await createEmployee(adminToken, {
+        employeeNo: `SCDC${suffix}`,
+        account: `scope-dept-c-${suffix}`,
+        name: 'Scope Department C',
+      });
+      const loginResponse = await login(`scope-dept-a-${suffix}`);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/platform/employees')
+        .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+        .expect(200);
+      const ids = response.body.items.map((item: { id: string }) => item.id);
+
+      expect(ids).toEqual(expect.arrayContaining([sameDepartmentA.body.id, sameDepartmentB.body.id]));
+      expect(ids).not.toContain(otherDepartment.body.id);
+      expect(ids).not.toContain('user-admin');
+    });
+
+    it('limits self scoped employees to themselves', async () => {
+      const adminToken = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const role = await createRole(adminToken, `scope-self-${suffix}`, 'self');
+      const employee = await createEmployee(adminToken, {
+        employeeNo: `SCS${suffix}`,
+        account: `scope-self-${suffix}`,
+        name: 'Scope Self',
+        roleIds: [role.body.id],
+      });
+      const loginResponse = await login(`scope-self-${suffix}`);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/platform/employees')
+        .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+        .expect(200);
+
+      expect(response.body.items).toHaveLength(1);
+      expect(response.body.items[0].id).toBe(employee.body.id);
+    });
+
+    it('degrades custom scoped employees to self', async () => {
+      const adminToken = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const role = await createRole(adminToken, `scope-custom-${suffix}`, 'custom');
+      const employee = await createEmployee(adminToken, {
+        employeeNo: `SCC${suffix}`,
+        account: `scope-custom-${suffix}`,
+        name: 'Scope Custom',
+        roleIds: [role.body.id],
+      });
+      const loginResponse = await login(`scope-custom-${suffix}`);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/platform/employees')
+        .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+        .expect(200);
+
+      expect(response.body.items).toHaveLength(1);
+      expect(response.body.items[0].id).toBe(employee.body.id);
+    });
+
+    it('includes descendant departments for department_tree scoped employees', async () => {
+      const adminToken = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const parentDepartment = await createDepartment(adminToken, `SCT${suffix}`, 'Scope Tree Parent');
+      const childDepartment = await createDepartment(adminToken, `SCTC${suffix}`, 'Scope Tree Child', parentDepartment.body.id);
+      const role = await createRole(adminToken, `scope-tree-${suffix}`, 'department_tree');
+      const parentEmployee = await createEmployee(adminToken, {
+        departmentId: parentDepartment.body.id,
+        employeeNo: `SCTP${suffix}`,
+        account: `scope-tree-parent-${suffix}`,
+        name: 'Scope Tree Parent',
+        roleIds: [role.body.id],
+      });
+      const childEmployee = await createEmployee(adminToken, {
+        departmentId: childDepartment.body.id,
+        employeeNo: `SCTC${suffix}`,
+        account: `scope-tree-child-${suffix}`,
+        name: 'Scope Tree Child',
+      });
+      const outsideEmployee = await createEmployee(adminToken, {
+        employeeNo: `SCTO${suffix}`,
+        account: `scope-tree-outside-${suffix}`,
+        name: 'Scope Tree Outside',
+      });
+      const loginResponse = await login(`scope-tree-parent-${suffix}`);
+
+      const response = await request(app.getHttpServer())
+        .get('/api/platform/employees')
+        .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
+        .expect(200);
+      const ids = response.body.items.map((item: { id: string }) => item.id);
+
+      expect(ids).toEqual(expect.arrayContaining([parentEmployee.body.id, childEmployee.body.id]));
+      expect(ids).not.toContain('user-admin');
+      expect(ids).not.toContain(outsideEmployee.body.id);
+    });
+
+    // cross-enterprise isolation: covered by PostgreSQL E2E §4.14
+  });
+
   describe('auth password change & reset', () => {
     it('changes the admin password and lets administrators reset employee passwords', async () => {
       const suffix = Date.now().toString();
@@ -580,5 +721,67 @@ describe('platform-api', () => {
       .expect(201);
 
     return response.body.accessToken as string;
+  }
+
+  function createDepartment(token: string, code: string, name: string, parentId?: string) {
+    return request(app.getHttpServer())
+      .post('/api/platform/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: 'ent-default',
+        parentId,
+        code,
+        name,
+      })
+      .expect(201);
+  }
+
+  function createRole(token: string, code: string, dataScope: 'self' | 'department' | 'department_tree' | 'company' | 'custom') {
+    return request(app.getHttpServer())
+      .post('/api/platform/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: 'ent-default',
+        code,
+        name: code,
+        permissionCodes: ['platform:employee:view'],
+        dataScope,
+      })
+      .expect(201);
+  }
+
+  function createEmployee(
+    token: string,
+    input: {
+      employeeNo: string;
+      account: string;
+      name: string;
+      departmentId?: string;
+      roleIds?: string[];
+    },
+  ) {
+    return request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: 'ent-default',
+        departmentId: input.departmentId,
+        employeeNo: input.employeeNo,
+        account: input.account,
+        name: input.name,
+        initialPassword: 'Scope1234',
+        roleIds: input.roleIds,
+      })
+      .expect(201);
+  }
+
+  function login(account: string) {
+    return request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account,
+        password: 'Scope1234',
+      })
+      .expect(201);
   }
 });

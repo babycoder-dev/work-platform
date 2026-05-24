@@ -175,6 +175,37 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return mapFirst(result, mapDepartment);
   }
 
+  async listDescendantDepartmentIds(
+    parentDepartmentId: string,
+    enterpriseId: string,
+  ): Promise<string[]> {
+    try {
+      const result = await this.pool.query<{ id: string }>(
+        `
+          WITH RECURSIVE descendants AS (
+            SELECT id, parent_id
+            FROM platform.departments
+            WHERE parent_id = $1
+              AND enterprise_id = $2
+              AND status = 'active'
+            UNION ALL
+            SELECT d.id, d.parent_id
+            FROM platform.departments d
+            INNER JOIN descendants r ON d.parent_id = r.id
+            WHERE d.enterprise_id = $2
+              AND d.status = 'active'
+          )
+          SELECT id FROM descendants
+        `,
+        [parentDepartmentId, enterpriseId],
+      );
+      return result.rows.map((row) => row.id);
+    } catch (error) {
+      mapPostgresError(error);
+      return [];
+    }
+  }
+
   async listEmployees(): Promise<EmployeeDto[]> {
     const result = await this.pool.query<EmployeeRow>(employeeSelectSql('WHERE e.deleted_at IS NULL ORDER BY e.employee_no'));
 

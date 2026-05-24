@@ -69,6 +69,31 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.departments.get(id);
   }
 
+  async listDescendantDepartmentIds(
+    parentDepartmentId: string,
+    enterpriseId: string,
+  ): Promise<string[]> {
+    const result: string[] = [];
+    const queue: string[] = [parentDepartmentId];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (current === undefined) {
+        continue;
+      }
+      for (const department of this.departments.values()) {
+        if (
+          department.parentId === current &&
+          department.enterpriseId === enterpriseId &&
+          department.status === 'active'
+        ) {
+          result.push(department.id);
+          queue.push(department.id);
+        }
+      }
+    }
+    return result;
+  }
+
   async createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto> {
     const department: DepartmentDto = {
       id: randomUUID(),

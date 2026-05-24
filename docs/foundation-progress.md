@@ -174,25 +174,22 @@
 当前建议执行：
 
 ```text
-M3.5-E: Platform 数据范围 resolver（PlatformScopeService）
+M3.5-F: Shell 引入 react-router-dom@6，路由拆组件
 ```
 
-上一切片任务包：`docs/tasks/m3-5-d-password-change-and-reset.md`。
+上一切片任务包：`docs/tasks/m3-5-e-platform-scope-service.md`。
 
-M3.5-D 完成结果：
+M3.5-E 完成结果：
 
-- 新增 `POST /api/platform/auth/change-password`（用户改自己密码，须验旧密）。
-- 新增 `PUT /api/platform/employees/:id/password`（管理员重置员工密码，须 `platform:employee:manage` 权限）。
-- `PlatformRepository.updatePassword` 在事务内同步更新 `local_identities` 与 `employees` 两张表的 `must_change_password`，并清理 `failed_attempts` / `locked_until` / 更新 `password_updated_at`。
-- `CurrentUserDto.mustChangePassword` 字段加入 contract，login 响应与 `/auth/me` 都返回。Shell 强制改密 UI 在 M3.5-F 后真做。
-- 新增审计 action：`auth.password.change`、`platform.employee.password.reset`。
-- `docs/platform-core.md` §3 新增 §3.3 改密与重置说明。
-- verification-log 锚点：`M3.5-D Password Change and Reset`。
+- 新增 `PlatformScopeService.resolveScope(currentUser)`，统一解析当前用户 effective 数据范围（`company > department_tree > department > self`，custom 降级为 self）。
+- 新增 `PlatformRepository.listDescendantDepartmentIds(parentId, enterpriseId)`：PostgreSQL 用 `WITH RECURSIVE`、内存 store 用 BFS 实现。
+- `GET /api/platform/employees` 接入 scope 过滤，跨 `enterpriseId` 绝不放行；其它 platform 列表端点保持原样。
+- `docs/platform-core.md` §5 重写为带解析规则、降级规则与消费方过滤模板。
+- verification-log 锚点：`M3.5-E Platform Scope Service`。
 
 M3.5 收口切片剩余顺序：
 
 ```text
-M3.5-E  Platform 数据范围 resolver（PlatformScopeService）
 M3.5-F  Shell 引入 react-router-dom@6，路由拆组件
 M3.5-G  跨 schema 数据访问规则文档化（module-contract.md 增加章节）
 ```
@@ -208,7 +205,7 @@ M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
 | M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token） | Done | 2026-05-23 完成；ADR-0004 确立 Phantom Token、introspection 复用 `/auth/me`；详见 verification-log `M3.5-B2 Phantom Token ADR` |
 | M3.5-C | 登录失败审计 + 锁定策略落地 | Done | 2026-05-23 完成；5 次失败锁定 15 分钟、登录失败审计闭合；详见 verification-log `M3.5-C Login Failure Audit and Lockout` |
 | M3.5-D | 首次登录改密 + 管理员重置密码端点 | Done | 2026-05-23 完成；两个改密端点 + must_change_password 双表同步；详见 verification-log `M3.5-D Password Change and Reset` |
-| M3.5-E | Platform 数据范围 resolver | Pending | M3.5-D 后启动 |
+| M3.5-E | Platform 数据范围 resolver | Done | 2026-05-24 完成；PlatformScopeService + employees 列表接入 scope；详见 verification-log `M3.5-E Platform Scope Service` |
 | M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Pending | M3.5-E 后启动 |
 | M3.5-G | 跨 schema 数据访问规则文档化 | Pending | M3.5-F 后启动 |
 

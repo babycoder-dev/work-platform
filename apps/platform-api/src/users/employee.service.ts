@@ -2,22 +2,49 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   AssignUserRolesInput,
   CreateEmployeeInput,
+  CurrentUserDto,
   EmployeeDto,
   ResetEmployeePasswordInput,
   UpdateEmployeeStatusInput,
 } from '@work/platform-contract';
 import type { PlatformAuditContext } from '../auth/request-user';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
+import { type PlatformScope, PlatformScopeService } from '../scope/platform-scope.service';
 import { hashPassword } from '../security/secret-hash';
 
 @Injectable()
 export class EmployeeService {
-  constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
+  constructor(
+    @Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository,
+    @Inject(PlatformScopeService)
+    private readonly scopeService?: PlatformScopeService,
+  ) {}
 
-  async listEmployees() {
+  async listEmployees(currentUser: CurrentUserDto) {
+    if (!this.scopeService) {
+      throw new Error('PlatformScopeService is not registered');
+    }
+    const scope = await this.scopeService.resolveScope(currentUser);
+    const all = await this.repository.listEmployees();
+    const items = all.filter((employee) => this.matchScope(employee, scope));
     return {
-      items: await this.repository.listEmployees(),
+      items,
     };
+  }
+
+  private matchScope(employee: EmployeeDto, scope: PlatformScope): boolean {
+    if (employee.enterpriseId !== scope.enterpriseId) {
+      return false;
+    }
+    switch (scope.kind) {
+      case 'company':
+        return true;
+      case 'self':
+        return employee.id === scope.userId;
+      case 'department':
+      case 'department_tree':
+        return employee.departmentId !== undefined && scope.departmentIds.includes(employee.departmentId);
+    }
   }
 
   async createEmployee(input: CreateEmployeeInput, auditContext: PlatformAuditContext = {}) {
