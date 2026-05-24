@@ -14,16 +14,21 @@ import { hashPassword } from '../security/secret-hash';
 
 @Injectable()
 export class EmployeeService {
+  private readonly repository: PlatformRepository;
+  private readonly scopeService: PlatformScopeService;
+
+  constructor(repository: PlatformRepository);
+  constructor(repository: PlatformRepository, scopeService: PlatformScopeService);
   constructor(
-    @Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository,
+    @Inject(PLATFORM_REPOSITORY) repository: PlatformRepository,
     @Inject(PlatformScopeService)
-    private readonly scopeService?: PlatformScopeService,
-  ) {}
+    scopeService?: PlatformScopeService,
+  ) {
+    this.repository = repository;
+    this.scopeService = scopeService as PlatformScopeService;
+  }
 
   async listEmployees(currentUser: CurrentUserDto) {
-    if (!this.scopeService) {
-      throw new Error('PlatformScopeService is not registered');
-    }
     const scope = await this.scopeService.resolveScope(currentUser);
     const all = await this.repository.listEmployees();
     const items = all.filter((employee) => this.matchScope(employee, scope));
