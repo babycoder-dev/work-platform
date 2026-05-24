@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service';
 import { OrgService } from '../org/org.service';
 import type { PlatformRepository } from '../repositories/platform.repository';
 import { RbacService } from '../rbac/rbac.service';
+import { PlatformScopeService } from '../scope/platform-scope.service';
 import { hashPassword, verifyPassword } from '../security/secret-hash';
 import { EmployeeService } from '../users/employee.service';
 
@@ -68,7 +69,8 @@ describe('platform write audit coverage', () => {
       setUserRoles: vi.fn().mockResolvedValue({ ...employee, roleIds: ['role-audit'] }),
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
-    const service = new EmployeeService(repository);
+    const scopeService = {} as unknown as PlatformScopeService;
+    const service = new EmployeeService(repository, scopeService);
 
     await service.createEmployee({
       enterpriseId: employee.enterpriseId,
@@ -170,7 +172,10 @@ describe('platform write audit coverage', () => {
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
 
-    const result = await new EmployeeService(repository).resetPassword(employee.id, {
+    const result = await new EmployeeService(
+      repository,
+      {} as unknown as PlatformScopeService,
+    ).resetPassword(employee.id, {
       newPassword: 'Resetpass1',
     }, auditContext);
 

@@ -14,19 +14,11 @@ import { hashPassword } from '../security/secret-hash';
 
 @Injectable()
 export class EmployeeService {
-  private readonly repository: PlatformRepository;
-  private readonly scopeService: PlatformScopeService;
-
-  constructor(repository: PlatformRepository);
-  constructor(repository: PlatformRepository, scopeService: PlatformScopeService);
   constructor(
-    @Inject(PLATFORM_REPOSITORY) repository: PlatformRepository,
+    @Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository,
     @Inject(PlatformScopeService)
-    scopeService?: PlatformScopeService,
-  ) {
-    this.repository = repository;
-    this.scopeService = scopeService as PlatformScopeService;
-  }
+    private readonly scopeService: PlatformScopeService,
+  ) {}
 
   async listEmployees(currentUser: CurrentUserDto) {
     const scope = await this.scopeService.resolveScope(currentUser);
