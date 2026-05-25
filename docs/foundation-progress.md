@@ -17,7 +17,7 @@
 | M1 平台核心持久化 | Platform Core 从内存实现升级为 PostgreSQL | Done | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成 |
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Done | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证 |
-| M3.5 收口切片 | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | In Progress | M3.5-A 已完成；下一步执行 M3.5-B Gateway 边界 ADR |
+| M3.5 收口切片 | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1 |
 | M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-0 RFC 与领域术语表已补齐；M4-1 在 M3.5 退出后启动 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
@@ -174,26 +174,18 @@
 当前建议执行：
 
 ```text
-M3.5-G: 跨 schema 数据访问规则文档化（module-contract.md 增加章节）
+M4-1: presence contract、schema、repository
 ```
 
-上一切片任务包：`docs/tasks/m3-5-f-shell-router.md`。
+上一切片任务包：`docs/tasks/m3-5-g-cross-schema-rules.md`。
 
-M3.5-F 完成结果：
+M3.5-G 完成结果：
 
-- `apps/workbench-shell` 引入 `react-router-dom@6`，App.tsx 用 `BrowserRouter + <Routes>` 替换原 `pushState/popstate`。
-- 模块路由由 `buildModuleRouteTable` 动态展平注册，启动期对重复 path 抛错。
-- 5 种路由状态（home / 模块页 / forbidden / coming-soon / not-found）拆为 `WorkbenchHome` / `RequirePermission` / `UnknownPathView` 三个子组件。
-- LoginView 维持外层条件渲染，不进路由系统。
-- verification-log 锚点：`M3.5-F Shell Router`。
+- `docs/module-contract.md` 新增 §7.1 跨 schema 数据访问规则，覆盖术语与适用范围、允许的数据流通道（注入 platform service / HTTP / 订阅事件）、绝对禁止（cross-schema JOIN、跨模块 schema import、平台内部 class import、非自有 schema 写入、`PLATFORM_REPOSITORY` token 注入）、业务模块工程层边界（repository / service 各自规则）、典型场景模板、当前已可用 platform 出口与扩出流程、M7 兼容性承诺、执行与审查。
+- `docs/foundation-blueprint.md` §5 数据边界末尾追加一段指向 `module-contract.md §7.1`，让模块作者从高层数据边界章节进入工程落地规则。
+- verification-log 锚点：`M3.5-G Cross-schema Data Access Rules`。
 
-M3.5 收口切片剩余顺序：
-
-```text
-M3.5-G  跨 schema 数据访问规则文档化（module-contract.md 增加章节）
-```
-
-M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
+M3.5 收口切片已全部完成，下一步启动 `M4-1: presence contract、schema、repository`。
 
 ### 6.1 M3.5 收口切片
 
@@ -206,7 +198,7 @@ M3.5 全部退出后再启动 `M4-1: presence contract、schema、repository`。
 | M3.5-D | 首次登录改密 + 管理员重置密码端点 | Done | 2026-05-23 完成；两个改密端点 + must_change_password 双表同步；详见 verification-log `M3.5-D Password Change and Reset` |
 | M3.5-E | Platform 数据范围 resolver | Done | 2026-05-24 完成；PlatformScopeService + employees 列表接入 scope；详见 verification-log `M3.5-E Platform Scope Service` |
 | M3.5-F | Shell 引入 react-router-dom@6，路由拆组件 | Done | 2026-05-24 完成；BrowserRouter + 动态模块路由 + 拆 RequirePermission/UnknownPathView；详见 verification-log `M3.5-F Shell Router` |
-| M3.5-G | 跨 schema 数据访问规则文档化 | Pending | M3.5-F 后启动 |
+| M3.5-G | 跨 schema 数据访问规则文档化 | Done | 2026-05-25 完成；module-contract.md §7.1 + foundation-blueprint §5 末尾指向；详见 verification-log `M3.5-G Cross-schema Data Access Rules` |
 
 ## 7. 当前阻塞项
 

@@ -1,5 +1,33 @@
 # Verification Log
 
+## 2026-05-25
+
+### M3.5-G Cross-schema Data Access Rules
+
+Change set:
+
+- Added `docs/module-contract.md §7.1` covering terminology, allowed channels (inject platform service, HTTP, event subscription), absolute prohibitions (cross-schema JOIN, schema/internal-service imports), repository/service engineering boundaries, scenario templates, the current platform exports inventory, the future export workflow, M7 compatibility promise, and review notes.
+- Appended a pointer in `docs/foundation-blueprint.md §5` to `docs/module-contract.md §7.1` so module authors find the engineering rules from the high-level data boundary section.
+- Updated `docs/foundation-progress.md` §1, §6, and §6.1 to reflect M3.5 closure and M4-1 as the next slice.
+
+Verification:
+
+- `pnpm lint`: pass.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass.
+- Assertion 1: `docs/module-contract.md` contains a §7.1 heading with subsections 7.1.1 through 7.1.8.
+- Assertion 2: §7.1.3 explicitly lists "任何 SQL 同时引用两个 schema 的表" as absolutely prohibited and includes JOIN, UNION, 子查询, and CTE.
+- Assertion 3: §7.1.5 typical scenario table includes "按当前用户数据范围过滤自己模块的列表", "需要平台员工 / 部门基础信息", "业务写操作记录审计", and "响应平台状态变化（员工禁用、角色变更）".
+- Assertion 4: §7.1.6 marks `PlatformScopeService` as currently available, and lists platform employee / department lookup service plus platform audit service as pending exports that are not in M3.5-G scope.
+- Assertion 5: `docs/foundation-blueprint.md` §5 ends with a sentence linking to `docs/module-contract.md §7.1` and containing "具体落地规则".
+- Assertion 6: `docs/foundation-progress.md` §6.1 lists M3.5-G as Done with the 2026-05-25 timestamp and references verification-log anchor `M3.5-G Cross-schema Data Access Rules`.
+- No source code, configuration, or lockfile was modified by this slice.
+
+Follow-up:
+
+- M4-1: presence contract、schema、repository.
+- Optional automation (not in this slice): CI grep against `from ['"]platform\.` / `JOIN platform\.` in module sources; Nx project boundary lint for module imports.
+
 ## 2026-05-24
 
 ### M3.5-F Shell Router

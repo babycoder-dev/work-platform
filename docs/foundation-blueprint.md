@@ -171,6 +171,8 @@ platform.domain_events
 
 `platform.domain_events` 的归属明确为：M1 建表和 schema 契约，M2 才激活写入、outbox 投递和消费语义。M1 不要求业务事件完整落库。
 
+跨 schema 数据访问的具体落地规则（业务模块允许的数据流通道、SQL 与 import 红线、典型场景模板、platform 出口扩出流程）见 `docs/module-contract.md §7.1`。本节只定义抽象规则；模块作者写代码时以 `module-contract.md §7.1` 为准。
+
 ## 6. 接口与错误边界
 
 所有新增 HTTP API 必须同时满足：
