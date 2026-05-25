@@ -2,6 +2,40 @@
 
 ## 2026-05-25
 
+### M4-1 Presence Contract Schema Repository
+
+Change set:
+
+- Extended `@work/presence-contract` PresenceStatusRecordDto with `enterpriseId / employeeNo / createdBy / createdAt / cancelledAt`; CreatePresenceStatusRecordInput unchanged.
+- Added `modules/presence/api/src/db/migrations/0000_init_presence.sql` creating `presence` schema, `presence.status_records` table, status enum check, time range check, and three indexes per RFC §8.
+- Added `modules/presence/api/src/db/migrate.ts` with `runPresenceMigrations()` maintaining `presence.schema_migrations`; CLI entry point preserved.
+- Added `modules/presence/api/src/db/db.config.ts`, `postgres-error.mapper.ts`, `presence.repository.ts`, `postgres-presence.repository.ts`, `in-memory-presence.repository.ts`; PresenceRepository methods strictly per RFC §8 (listActiveRecords / listUserRecords / createRecord / cancelRecord / findOverlappingRecord).
+- Added `in-memory-presence.repository.spec.ts` covering enterprise/time/scope filters, cancelled exclusion, history sort, overlap detection, open-ended overlap, and double-cancel return value.
+- Added `postgres-presence.repository.integration.spec.ts` skipped unless `RUN_POSTGRES_INTEGRATION=true`; covers create/list/cancel round trip, double-cancel, scope filters, user history, overlap rules, and check-constraint rejection.
+- Added `pg` dependency and `@types/pg` devDependency to `modules/presence/api/package.json`; added `@work/errors` workspace dependency for ApiError reuse.
+- Added `pnpm db:migrate:presence` script; chained into `pnpm db:setup`; extended `pnpm test:db` to include the presence integration spec.
+
+Verification:
+
+- `pnpm install`: pass. `pnpm-lock.yaml` updated with `pg@^8.13.1` and `@types/pg@^8.11.10` entries for `@work/presence-api`.
+- `pnpm lint`: pass.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. New file `modules/presence/api/src/db/in-memory-presence.repository.spec.ts` contributes 7 tests; Postgres integration spec skipped in the normal unit run.
+- PostgreSQL path: `$env:RUN_POSTGRES_INTEGRATION='true'; pnpm db:setup` first hit sandbox `spawn EPERM` in tsx/esbuild; rerun outside sandbox reached PostgreSQL and failed with `28P01` password authentication failure for user `work`. Therefore `pnpm test:db` was not run locally and remains CI-covered; presence integration spec has 6 gated cases.
+- Assertion 1: `modules/presence/contract/src/status.dto.ts` exports `PresenceStatusRecordDto` with all 14 fields including `enterpriseId / employeeNo / createdBy / createdAt / cancelledAt`.
+- Assertion 2: `modules/presence/api/src/db/migrations/0000_init_presence.sql` creates schema `presence`, table `presence.status_records` with 15 columns including `updated_at timestamptz NOT NULL DEFAULT now()`, the status enum CHECK, the time range CHECK, and three indexes (`status_records_user_start_idx`, `status_records_department_start_idx`, `status_records_status_start_idx`). No FK references `platform.*`.
+- Assertion 3: `modules/presence/api/src/db/migrate.ts` calls `CREATE SCHEMA IF NOT EXISTS presence` and writes to `presence.schema_migrations`, not `platform.schema_migrations`.
+- Assertion 4: `PresenceRepository` interface in `presence.repository.ts` has exactly 5 methods (`listActiveRecords`, `listUserRecords`, `createRecord`, `cancelRecord`, `findOverlappingRecord`).
+- Assertion 5: `grep -R "apps/platform-api" modules/presence` returns no source matches; `grep -R "import .* from .*apps/" modules/presence` returns no matches.
+- Assertion 6: `grep -R "platform\." modules/presence/api/src/db` returns no matches in repository or migration files (only the `presence.` prefix appears in SQL).
+- Assertion 7: Root `package.json` `db:migrate:presence` script exists and `db:setup` chains it between `db:migrate` and `db:seed`; `test:db` includes both platform and presence integration spec paths.
+- Assertion 8: `presence.module.ts`, `presence-status.service.ts`, `presence-board.controller.ts`, `presence-status.controller.ts`, `apps/gateway-api/src/gateway.module.ts`, `apps/platform-api/src/platform.module.ts` are not modified by this slice.
+
+Follow-up:
+
+- M4-2: presence API, permission guard wiring, audit; presence-api process entry, gateway-api → PlatformModule import, PlatformScopeService injection token export in `@work/platform-contract`.
+- Module-contract §7.1.6 platform export inventory should be revisited when M4-2 starts to confirm whether PlatformScopeService injection token needs to be re-exported through `@work/platform-contract` before consumption.
+
 ### M3.5-G Cross-schema Data Access Rules
 
 Change set:

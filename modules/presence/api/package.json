@@ -11,7 +11,12 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
-    "@work/presence-contract": "workspace:*"
+    "@work/errors": "workspace:*",
+    "@work/presence-contract": "workspace:*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10"
   },
   "nx": {
     "tags": ["scope:presence", "type:feature"]

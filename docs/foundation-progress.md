@@ -18,7 +18,7 @@
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Done | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证 |
 | M3.5 收口切片 | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1 |
-| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-0 RFC 与领域术语表已补齐；M4-1 在 M3.5 退出后启动 |
+| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-1 contract/schema/repository 已完成；下一步 M4-2 API、权限、审计 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
 | M7 通知、实时、IM 基建 | notification、realtime、OpenIM adapter 可用 | Pending | 当前只保留边界 |
@@ -174,18 +174,21 @@
 当前建议执行：
 
 ```text
-M4-1: presence contract、schema、repository
+M4-2: presence API、权限、审计
 ```
 
-上一切片任务包：`docs/tasks/m3-5-g-cross-schema-rules.md`。
+上一切片任务包：`docs/tasks/m4-1-presence-contract-schema-repository.md`。
 
-M3.5-G 完成结果：
+M4-1 完成结果：
 
-- `docs/module-contract.md` 新增 §7.1 跨 schema 数据访问规则，覆盖术语与适用范围、允许的数据流通道（注入 platform service / HTTP / 订阅事件）、绝对禁止（cross-schema JOIN、跨模块 schema import、平台内部 class import、非自有 schema 写入、`PLATFORM_REPOSITORY` token 注入）、业务模块工程层边界（repository / service 各自规则）、典型场景模板、当前已可用 platform 出口与扩出流程、M7 兼容性承诺、执行与审查。
-- `docs/foundation-blueprint.md` §5 数据边界末尾追加一段指向 `module-contract.md §7.1`，让模块作者从高层数据边界章节进入工程落地规则。
-- verification-log 锚点：`M3.5-G Cross-schema Data Access Rules`。
+- `@work/presence-contract` 的 `PresenceStatusRecordDto` 已补齐 `enterpriseId / employeeNo / createdBy / createdAt / cancelledAt` 字段。
+- `presence` schema 与 `presence.status_records` 表已通过 `modules/presence/api/src/db/migrations/0000_init_presence.sql` 建立；独立 runner `modules/presence/api/src/db/migrate.ts` 维护 `presence.schema_migrations` 表，通过根脚本 `pnpm db:migrate:presence` 触发，并接入 `pnpm db:setup`。
+- `PresenceRepository` 接口、`PostgresPresenceRepository`、`InMemoryPresenceRepository` 已实现；五个方法严格按 RFC §8。内存实现仅作 vitest 测试 fixture，不挂 NestJS DI。
+- 整套模块代码不 `import` `apps/platform-api/...` 或 `apps/gateway-api/...`，符合 `docs/module-contract.md §7.1.4`。
+- 根脚本 `pnpm test:db` 已扩为同时跑 platform 与 presence 的 integration spec。
+- verification-log 锚点：`M4-1 Presence Contract Schema Repository`。
 
-M3.5 收口切片已全部完成，下一步启动 `M4-1: presence contract、schema、repository`。
+下一步启动 `M4-2: presence API、权限、审计`，将真实 controller/service 接入 Platform Core 鉴权、`PlatformScopeService` 数据范围和审计链路。
 
 ### 6.1 M3.5 收口切片
 
@@ -221,18 +224,18 @@ M3.5 收口切片已全部完成，下一步启动 `M4-1: presence contract、sc
 | 切片 | 能力 | 状态 | 说明 |
 | --- | --- | --- | --- |
 | M4-0 | RFC 与术语设计 | Done | `docs/rfc/m4-presence-mvp.md` 已定义状态模型、API、权限、数据范围、审计、事件、schema 和切片计划；`docs/domain-glossary.md` 已补齐核心术语 |
+| M4-1 | contract、schema、repository | Done | 2026-05-25 完成；`PresenceStatusRecordDto` 补齐字段、`presence` schema + migration runner、`PresenceRepository` + Postgres/Memory 双实现；详见 verification-log `M4-1 Presence Contract Schema Repository` |
 
 ### 8.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| 无 | Done | 等待启动 M4-1 |
+| 无 | Done | 等待启动 M4-2 |
 
 ### 8.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| M4-1 | contract、schema、repository | Pending | M4-0 完成 |
 | M4-2 | API、权限、审计 | Pending | M4-1 完成 |
 | M4-3 | Web 看板与登记表单 | Pending | M4-2 API 可用 |
 | M4-4 | 交付验证 | Pending | M4-3 完成 |
