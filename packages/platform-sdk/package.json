@@ -9,6 +9,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
+  "dependencies": {
+    "@work/http-client": "workspace:*",
+    "@work/platform-contract": "workspace:*"
+  },
   "nx": {
     "tags": ["scope:platform-sdk", "scope:shared", "type:lib"]
   }

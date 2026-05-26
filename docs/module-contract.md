@@ -249,6 +249,32 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 
 这些自动化手段**不在本切片范围**，作为 follow-up 列入 verification-log。
 
+### §7.2 Web 模块 runtime 注入
+
+业务模块的 Web 包不得自己解析 access token 存储协议，必须通过 shell 注入的 runtime。
+
+#### §7.2.1 runtime 来源
+
+Shell（`apps/workbench-shell`）在 bootstrap 拿到 currentUser 之后调用 `module.setRuntime?.(runtime)`，runtime 包含：
+
+- `currentUser: CurrentUserDto`
+- `createHttpClient(options: { baseUrl: string }): HttpClient`
+
+业务 Web 模块只能通过这两个能力触达后端和当前用户身份。
+
+#### §7.2.2 禁止
+
+- 业务 Web 模块禁止读 `window.localStorage` / `document.cookie` 任意 token storage key
+- 业务 Web 模块禁止从 `@work/workbench-shell` 任何路径 import（边界等同业务 API 模块禁止 import `apps/platform-api/...`）
+- 业务 Web 模块禁止把 runtime 暴露成 ES module 顶层导出（必须在模块内部 closure 持有；测试可暴露 `__resetRuntimeForTest`，但生产代码不调）
+- 业务 Web 模块禁止依赖 `setup(platform: PlatformSDK)` hook（M4-3 阶段 PlatformSDK 接口未实装，shell 不会调）
+
+#### §7.2.3 推荐 pattern
+
+- runtime singleton 维护在模块自己的 `runtime.ts`，提供 `setRuntime` + `getApi` 两个出口
+- HTTP client 的 baseUrl 用模块 `manifest.apiPrefix`（presence 是 `/api/presence/`），调用方写相对路径
+- 测试通过 `setRuntime` 注入 mock client，afterEach 调 `__resetRuntimeForTest`
+
 ## 8. C/S 客户端接入
 
 C/S 客户端不直接接入业务模块源码。

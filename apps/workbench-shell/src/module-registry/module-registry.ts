@@ -1,4 +1,4 @@
-import type { WorkWebModule } from '@work/platform-sdk';
+import type { WorkWebModule, WorkWebModuleRuntime } from '@work/platform-sdk';
 import { platformWebModule } from '@work/platform-web';
 import { presenceWebModule } from '@work/presence-web';
 
@@ -11,6 +11,12 @@ class ModuleRegistry {
 
   getModules(): WorkWebModule[] {
     return Array.from(this.modules.values());
+  }
+
+  applyRuntime(runtime: WorkWebModuleRuntime) {
+    for (const module of this.modules.values()) {
+      module.setRuntime?.(runtime);
+    }
   }
 }
 

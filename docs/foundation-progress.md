@@ -18,7 +18,7 @@
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Done | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证 |
 | M3.5 收口切片 | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1 |
-| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-2 API/权限/审计/事件已完成；下一步 M4-3 Web |
+| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-3 presence Web 已完成；下一步 M4-4 交付验证 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
 | M7 通知、实时、IM 基建 | notification、realtime、OpenIM adapter 可用 | Pending | 当前只保留边界 |
@@ -174,24 +174,22 @@
 当前建议执行：
 
 ```text
-M4-3: presence Web 页面
+M4-4: presence MVP 交付验证
 ```
 
-上一切片任务包：`docs/tasks/m4-2-presence-api-permission-audit.md`。
+上一切片任务包：`docs/tasks/m4-3-presence-web.md`。
 
-M4-2 完成结果：
+M4-3 完成结果：
 
-- `PresenceStatusService` 已重写为真实 service，注入 `PRESENCE_REPOSITORY` + `PLATFORM_SCOPE_SERVICE` + `PLATFORM_AUDIT_SERVICE` + `EVENT_BUS`。
-- `gateway-api` 进程通过 `APP_GUARD` 全局挂载 `PlatformAuthGuard` + `PermissionGuard`；presence controllers 用 `@RequirePermissions(...)` 声明权限码。
-- `PLATFORM_AUDIT_SERVICE` 与 `PLATFORM_SCOPE_SERVICE` 通过 `packages/platform-contract` 暴露 token + interface；`apps/platform-api/src/audit/platform-audit.service.ts` 新建。
-- `PermissionGuard`、`@RequirePermissions`、`@Public` 已物理迁到 `packages/nest-common/src/auth/`，platform-api 内部 controller 全部更新 import 路径。
-- `presence.status.changed` 事件通过 `@work/event-bus.MemoryEventBus` 发布（M7 升级 Redis Stream 时只换 provider）。
-- M4-1 偏离遗留全部清理：DTO 4 字段改回必填、in-memory dead code 清除、mock service 完全替换。
-- E2E 覆盖 401 / 403 / 成功 / 冲突。
-- `docs/module-contract.md §7.1.6` 已校正 `PlatformScopeService` 注入方式与 `PlatformAuditService` 落地。
-- verification-log 锚点：`M4-2 Presence API Permission Audit`。
+- `packages/platform-sdk` 已新增 `WorkWebModuleRuntime` 与 `setRuntime` hook；Shell bootstrap 成功后给业务 Web 模块注入 currentUser 与 baseUrl-scoped http client factory。
+- `modules/presence/web` 已新增 runtime singleton 与 `PresenceApiClient`，看板和登记页面接入 `/api/presence/*` 真实 API。
+- 登记页面支持本人创建状态、展示我的最近记录、取消未取消记录；看板页面支持 loading / empty / error / refresh 状态。
+- `vitest.web.config.mts` 已新增 jsdom + React Testing Library web 测试配置，node vitest 配置排除 `.spec.tsx`。
+- `apps/workbench-shell` dev proxy 已从 `/api/platform -> 3001` 改为 `/api -> 3000`，开发期统一走 gateway。
+- `PermissionGuard` 已回填 `@Inject(Reflector)`，关闭 M4-2 follow-up。
+- verification-log 锚点：`M4-3 Presence Web`。
 
-下一步启动 `M4-3: presence Web 页面`，把看板与登记表单接入真实 API。
+下一步启动 `M4-4: presence MVP 交付验证`，执行 `pnpm verify`、`pnpm test:db`、PostgreSQL E2E、Docker build、浏览器 smoke 和 CI 检查。
 
 ### 6.1 M3.5 收口切片
 
@@ -229,18 +227,18 @@ M4-2 完成结果：
 | M4-0 | RFC 与术语设计 | Done | `docs/rfc/m4-presence-mvp.md` 已定义状态模型、API、权限、数据范围、审计、事件、schema 和切片计划；`docs/domain-glossary.md` 已补齐核心术语 |
 | M4-1 | contract、schema、repository | Done | 2026-05-25 完成；`PresenceStatusRecordDto` 补齐字段、`presence` schema + migration runner、`PresenceRepository` + Postgres/Memory 双实现；详见 verification-log `M4-1 Presence Contract Schema Repository` |
 | 2026-05-25 | M4-2 | presence API 接入 Platform Auth + Permission Guard + PlatformScopeService + PlatformAuditService + EventBus；M4-1 偏离全部清理；§7.1.6 校正 |
+| M4-3 | presence Web 页面 | Done | 看板与登记接入真实 API |
 
 ### 8.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| 无 | Done | 等待启动 M4-3 |
+| M4-4 | 交付验证 | Pending | 等待执行 M4-4 |
 
 ### 8.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| M4-3 | Web 看板与登记表单 | Pending | M4-2 API 可用 |
 | M4-4 | 交付验证 | Pending | M4-3 完成 |
 
 ## 9. M8 前置交付风险

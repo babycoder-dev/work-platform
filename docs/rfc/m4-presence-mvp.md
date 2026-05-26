@@ -35,8 +35,8 @@ M4 不实现：
 已有代码基础：
 
 - `modules/presence/contract` 已定义 `presenceManifest`、权限点、状态 DTO 和 `presence.status.changed` 事件名。
-- `modules/presence/api` 已有占位 controller/service，但当前只使用进程内数组和 mock 用户信息。
-- `modules/presence/web` 已挂载 `/presence/board` 和 `/presence/register` 占位页面。
+- `modules/presence/api` 已在 M4-1/M4-2 实装 PostgreSQL repository、scope-aware service、审计和事件。
+- `modules/presence/web` 已在 M4-3 实装看板和登记表单，接入真实 API。
 - Web Shell 已从 Platform Core 获取权限菜单，并能加载 presence Web 模块。
 
 M4 的首要任务是替换 mock 业务逻辑，同时保持这些模块边界不变。

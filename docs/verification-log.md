@@ -100,6 +100,38 @@ Follow-up:
 - `PresenceRepository.cancelRecord` 当前接口签名只接 `recordId / actorUserId / cancelledAt`，未强制 `enterpriseId` 隔离；后续若引入跨企业角色须扩签名加 `enterpriseId`。当前 RBAC 不下发跨企业 token，无法触发。
 - M7 时把 `EVENT_BUS` provider 从 `MemoryEventBus` 切换为 Redis Stream client；`PLATFORM_SCOPE_SERVICE` / `PLATFORM_AUDIT_SERVICE` 实现切换为 HTTP introspection client。
 
+### M4-3 Presence Web
+
+Change set:
+
+- Closed the M4-2 follow-up by changing `PermissionGuard` to explicit `constructor(@Inject(Reflector) ...)`, removing reliance on emitted constructor metadata in esbuild-driven test environments.
+- Enabled `experimentalDecorators` only in `packages/nest-common/tsconfig.json` so the source-only package can typecheck parameter decorator syntax; `emitDecoratorMetadata` remains unset.
+- Added `WorkWebModuleRuntime` to `@work/platform-sdk` with `currentUser` plus a baseUrl-scoped `createHttpClient` factory; `WorkWebModule` now supports optional `setRuntime`.
+- Updated `apps/workbench-shell` to call `moduleRegistry.applyRuntime` after successful bootstrap and to create module HTTP clients using `readAccessToken()` plus the shell unauthorized handler.
+- Switched `apps/workbench-shell` Vite dev proxy from `/api/platform -> 3001` to `/api -> 3000`, so dev requests go through gateway and cover `/api/presence/*`.
+- Implemented `modules/presence/web` runtime singleton, `PresenceApiClient`, `StatusBadge`, real board page, and real register page against M4-2 endpoints.
+- Added node-env API client unit coverage and jsdom React component coverage for board/register pages via `vitest.web.config.mts` and React Testing Library; root devDependencies include the packages required by the root web test config transform/setup context.
+- Added `docs/module-contract.md §7.2` with Web module runtime injection rules; updated `docs/foundation-progress.md` and `docs/rfc/m4-presence-mvp.md §3` to reflect M4-3 completion.
+
+Verification:
+
+- Assertion A1: `git grep -E "from '@work/platform-api'" modules/presence/web/` produced no matches; `git grep "apps/platform-api" modules/presence/web/` produced no matches.
+- Assertion A2: `git grep -E "window\.(localStorage|sessionStorage)|document\.cookie" modules/presence/web/` produced no matches.
+- Assertion A3: `git grep "@work/workbench-shell\|apps/workbench-shell" modules/presence/web/` produced no matches.
+- Assertion A4: `Select-String -Path packages/nest-common/src/auth/permission.guard.ts -Pattern '@Inject\(Reflector\)'` matched once.
+- Assertion A5: `pnpm typecheck` pass.
+- Assertion A6: `pnpm lint` pass. Existing warnings remain unchanged for Nx ProjectGraph cache, `apps/im-adapter-api/src/providers/openim-provider.service.ts` unused stub parameters, `apps/platform-api/src/users/employee.controller.ts` non-null assertion, and `apps/workbench-shell/src/module-registry/load-remote-module.ts` unused `_descriptor`.
+- Assertion A7: `pnpm test:unit` pass; includes `modules/presence/web/src/api/presence-api-client.spec.ts`.
+- Assertion A8: `pnpm test:web` pass; includes `PresenceBoardPage.spec.tsx` and `RegisterStatusPage.spec.tsx`.
+- Assertion A9: `pnpm --filter @work/workbench-shell build` pass; `dist/assets` contains built chunks for `PresenceBoardPage` and `RegisterStatusPage`.
+- Assertion A10: manual verification pending. Required manual smoke: terminal A `pnpm --filter @work/gateway-api start:dev` (3000), terminal B `pnpm --filter @work/workbench-shell dev` (5173 proxy `/api` to 3000), then browser login, open `/presence/board`, open `/presence/register`, submit a record, confirm it appears in "我的最近记录", cancel it, confirm it becomes "（已取消）", and refresh board.
+- Assertion A11: pass. `getPresenceApi()` is only called inside `useCallback` loaders/handlers in `PresenceBoardPage` and `RegisterStatusPage`; module top-level imports do not evaluate the cached runtime.
+
+Follow-up:
+
+- M4-4 should run the broader delivery verification set: `pnpm verify`, database integration, PostgreSQL E2E, Docker build, browser smoke, and CI.
+- The runtime hook intentionally does not implement the wider `PlatformSDK.setup` surface; that remains a later platform-web capability.
+
 ### M3.5-G Cross-schema Data Access Rules
 
 Change set:

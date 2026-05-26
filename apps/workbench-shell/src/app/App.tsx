@@ -1,4 +1,5 @@
 import type { CurrentUserDto, LoginInput, MenuDto } from '@work/platform-contract';
+import { createHttpClient } from '@work/http-client';
 import type { ComponentType, FormEvent, LazyExoticComponent, ReactNode } from 'react';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router, NavLink, Route, Routes, useLocation } from 'react-router-dom';
@@ -58,6 +59,19 @@ export function App() {
         menus: data.menus,
       }));
       setErrorMessage(undefined);
+
+      moduleRegistry.applyRuntime({
+        currentUser: data.currentUser,
+        createHttpClient: ({ baseUrl }) =>
+          createHttpClient({
+            baseUrl: new URL(baseUrl, window.location.origin).toString(),
+            getAccessToken: () => readAccessToken() ?? '',
+            onUnauthorized: () => {
+              clearAccessToken();
+              setSession({ menus: [] });
+            },
+          }),
+      });
     } catch (error) {
       clearAccessToken();
       setSession({ menus: [] });

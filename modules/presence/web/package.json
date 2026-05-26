@@ -11,12 +11,21 @@
   },
   "dependencies": {
     "@work/http-client": "workspace:*",
+    "@work/platform-contract": "workspace:*",
     "@work/platform-sdk": "workspace:*",
     "@work/presence-contract": "workspace:*",
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.2"
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "jsdom": "^25.0.1",
+    "react-dom": "^19.0.0",
+    "vitest": "^2.1.8"
   },
   "nx": {
     "tags": ["scope:presence", "type:feature"]
