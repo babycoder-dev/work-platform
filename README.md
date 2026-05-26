@@ -1,6 +1,8 @@
 # Work Platform
 
-公司内部轻量级协作工作平台。
+Apache-2.0 licensed internal collaboration platform for enterprise intranet deployments.
+
+Work Platform 是一个公司内部轻量级协作工作平台，采用模块化工作台、平台基建优先、业务模块自治边界的渐进架构。
 
 短期聚焦三个高频模块：
 
@@ -108,3 +110,32 @@ pnpm db:setup
 `pnpm db:setup` 依赖 `DATABASE_URL`，会执行 PostgreSQL 迁移并写入平台基础 seed 数据。开发环境默认管理员为 `admin/admin123`；生产环境必须通过 `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD` 显式注入初始密码。
 
 `platform-api` 默认使用 PostgreSQL repository。需要无数据库的本地 API smoke 或单测 fixture 时，显式设置 `PLATFORM_REPOSITORY_DRIVER=memory`。
+
+## 参与贡献
+
+欢迎社区开发者参与。开始前请先阅读：
+
+- `CONTRIBUTING.md`
+- `CODE_OF_CONDUCT.md`
+- `SECURITY.md`
+- `docs/doc-index.md`
+- `docs/constitution.md`
+- `docs/module-contract.md`
+
+提交 PR 前请尽量运行：
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e
+pnpm build
+```
+
+架构、权限、数据范围、数据库迁移或部署相关变更必须同步更新文档。
+
+## License
+
+Copyright 2026 babycoder-dev
+
+Licensed under the Apache License, Version 2.0. See `LICENSE` for details.
