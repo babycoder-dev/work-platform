@@ -118,6 +118,8 @@ pnpm db:setup
 - `CONTRIBUTING.md`
 - `CODE_OF_CONDUCT.md`
 - `SECURITY.md`
+- `docs/community-roadmap.md`
+- `docs/good-first-issues.md`
 - `docs/doc-index.md`
 - `docs/constitution.md`
 - `docs/module-contract.md`
