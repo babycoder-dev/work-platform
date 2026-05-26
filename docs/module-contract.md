@@ -160,8 +160,8 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 
    ```ts
    constructor(
-     @Inject(PlatformScopeService)
-     private readonly scopeService: PlatformScopeService,
+     @Inject(PLATFORM_SCOPE_SERVICE)
+     private readonly scopeService: PlatformScopePort,
    ) {}
    ```
 
@@ -206,9 +206,9 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 
 | 场景 | 通道 | 模板 |
 | --- | --- | --- |
-| 按当前用户数据范围过滤自己模块的列表 | 通道 1（注入 `PlatformScopeService`） | `service.resolveScope(currentUser)` → 在 service 层按 `kind` / `userId` / `enterpriseId` / `departmentIds` in-memory 过滤业务 repository 返回的本 schema 行。`PlatformScopeService` 自 M3.5-E 已可用 |
+| 按当前用户数据范围过滤自己模块的列表 | 通道 1（注入 `PLATFORM_SCOPE_SERVICE`） | `scopeService.resolveScope(currentUser)` → 在 service 层按 `kind` / `userId` / `enterpriseId` / `departmentIds` in-memory 过滤业务 repository 返回的本 schema 行。`PLATFORM_SCOPE_SERVICE` 自 M4-2 起已通过 `packages/platform-contract` 暴露 |
 | 需要平台员工 / 部门基础信息（姓名、状态、所属部门） | 通道 1（注入对应平台 lookup service） | service 层调用 platform lookup service 拿到 ID 集合或快照对象 → 在自己 schema 内按 ID 检索 → 在 service 层拼装结果。当前 platform 尚未导出此类 service，需要按 §7.1.6 扩出流程先在 platform 模块新增对应 service 与注入 token |
-| 业务写操作记录审计 | 通道 1（注入平台 audit service） | service 层调用 platform audit service 的 `record({...})` 写入 `platform.audit_logs`；业务模块不得 `import` `platform.audit_logs` 的 schema 定义，也不得在自己的 repository 里写死该表名。当前 platform 尚未导出 audit service，需要按 §7.1.6 扩出流程先在 platform 模块新增 |
+| 业务写操作记录审计 | 通道 1（注入 `PLATFORM_AUDIT_SERVICE`） | service 层调用 `PlatformAuditPort.record({...})` 写入 `platform.audit_logs`；业务模块不得 `import` `platform.audit_logs` 的 schema 定义，也不得在自己的 repository 里写死该表名。`PLATFORM_AUDIT_SERVICE` 自 M4-2 起已通过 `packages/platform-contract` 暴露 |
 | 响应平台状态变化（员工禁用、角色变更） | 通道 3（订阅 `platform.*` 事件） | 在业务模块自己的 event handler 中处理 `platform.employee.status.updated` 等事件 → 写入自己 schema 的投影 / 清理本模块缓存；不允许轮询 `platform.*` 表 |
 | 跨进程调用平台 API | 通道 2（HTTP） | M7 拆分阶段通过 `@work/platform-sdk` 客户端调用 `/api/platform/...`；内嵌阶段不使用本通道 |
 
@@ -216,12 +216,12 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 
 当前已可用的 platform service 注入 token（业务模块在 M4-1 起可以直接使用）：
 
-- `PlatformScopeService`：解析当前用户数据范围。详见 `docs/platform-core.md §5`。来源：`apps/platform-api/src/scope/platform-scope.service.ts`（M3.5-E 起在 `PlatformModule` 中注册）。M7 拆分前业务模块直接注入该 class；M7 后切换为 HTTP introspection client 实现。
+- `PLATFORM_SCOPE_SERVICE`（接口 `PlatformScopePort`）：解析当前用户数据范围。详见 `docs/platform-core.md §5`。来源：`packages/platform-contract/src/scope.ts` 暴露 token 与接口；`apps/platform-api/src/scope/platform-scope.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M4-2 起）。业务模块 `imports: [PlatformModule]` + `@Inject(PLATFORM_SCOPE_SERVICE) port: PlatformScopePort`。M7 拆分后 PlatformModule 提供的实现切换为基于 HTTP introspection 的 client，业务模块代码无需改写。
+- `PLATFORM_AUDIT_SERVICE`（接口 `PlatformAuditPort`）：业务模块写审计的统一入口，封装 `PlatformRepository.recordAuditLog`。来源：`packages/platform-contract/src/audit.ts` 暴露 token 与接口；`apps/platform-api/src/audit/platform-audit.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M4-2 起）。业务模块 `imports: [PlatformModule]` + `@Inject(PLATFORM_AUDIT_SERVICE) port: PlatformAuditPort`。
 
-按 M4 之后业务需求待补的 platform 出口（**不在 M3.5-G 范围**，由 M4-1/M4-2 等业务切片按真实需求驱动新增）：
+按 M4 之后业务需求待补的 platform 出口（**不在 M3.5-G 范围**，由后续业务切片按真实需求驱动新增）：
 
 - 平台员工 / 部门 lookup service（按 ID 列表查基础信息、按部门展开树）。
-- 平台 audit service（封装现有 `PlatformRepository.recordAuditLog`，作为业务模块写审计的统一入口）。
 
 扩出流程（business 切片新增 platform 出口时必须遵循）：
 

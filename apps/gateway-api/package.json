@@ -15,9 +15,16 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@work/nest-common": "workspace:*",
+    "@work/platform-api": "workspace:*",
+    "@work/platform-contract": "workspace:*",
     "@work/presence-api": "workspace:*",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.0.0",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0"
   },
   "nx": {
     "tags": ["scope:composition", "type:app"]

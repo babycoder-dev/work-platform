@@ -2,9 +2,9 @@ import type { PresenceStatus } from './events';
 
 export interface PresenceStatusRecordDto {
   id: string;
-  enterpriseId?: string;
+  enterpriseId: string;
   userId: string;
-  employeeNo?: string;
+  employeeNo: string;
   userName: string;
   departmentId: string;
   departmentName: string;
@@ -12,8 +12,8 @@ export interface PresenceStatusRecordDto {
   startAt: string;
   endAt?: string;
   remark?: string;
-  createdBy?: string;
-  createdAt?: string;
+  createdBy: string;
+  createdAt: string;
   cancelledAt?: string;
 }
 

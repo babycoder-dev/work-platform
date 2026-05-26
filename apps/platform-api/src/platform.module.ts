@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
+import { PermissionGuard } from '@work/nest-common';
+import { PLATFORM_AUDIT_SERVICE, PLATFORM_SCOPE_SERVICE } from '@work/platform-contract';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { PlatformAuthGuard } from './auth/platform-auth.guard';
+import { PlatformAuditService } from './audit/platform-audit.service';
 import { DbModule } from './db/db.module';
 import { DepartmentController } from './org/department.controller';
 import { EnterpriseController } from './org/enterprise.controller';
 import { OrgService } from './org/org.service';
 import { PermissionController } from './rbac/permission.controller';
-import { PermissionGuard } from './rbac/permission.guard';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from './repositories/platform.repository';
 import { PostgresPlatformRepository } from './repositories/postgres-platform.repository';
 import { readPlatformRepositoryDriver } from './repositories/repository-driver.config';
@@ -52,8 +54,24 @@ import { EmployeeService } from './users/employee.service';
     OrgService,
     EmployeeService,
     PlatformScopeService,
+    {
+      provide: PLATFORM_SCOPE_SERVICE,
+      useExisting: PlatformScopeService,
+    },
+    PlatformAuditService,
+    {
+      provide: PLATFORM_AUDIT_SERVICE,
+      useExisting: PlatformAuditService,
+    },
     PermissionGuard,
     RbacService,
+  ],
+  exports: [
+    PlatformAuthGuard,
+    PermissionGuard,
+    AuthService,
+    PLATFORM_SCOPE_SERVICE,
+    PLATFORM_AUDIT_SERVICE,
   ],
 })
 export class PlatformModule {}

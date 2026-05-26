@@ -4,12 +4,13 @@ import type {
   CreateEmployeeInput,
   CurrentUserDto,
   EmployeeDto,
+  PlatformScope,
   ResetEmployeePasswordInput,
   UpdateEmployeeStatusInput,
 } from '@work/platform-contract';
 import type { PlatformAuditContext } from '../auth/request-user';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
-import { type PlatformScope, PlatformScopeService } from '../scope/platform-scope.service';
+import { PlatformScopeService } from '../scope/platform-scope.service';
 import { hashPassword } from '../security/secret-hash';
 
 @Injectable()

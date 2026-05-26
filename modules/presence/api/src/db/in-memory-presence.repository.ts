@@ -89,7 +89,7 @@ export class InMemoryPresenceRepository implements PresenceRepository {
     if (candidates.length === 0) {
       return undefined;
     }
-    return candidates.sort((a, b) => Date.parse(b.createdAt ?? '') - Date.parse(a.createdAt ?? ''))[0];
+    return candidates.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
   }
 }
 
@@ -98,5 +98,5 @@ function byStartDescCreatedDesc(a: PresenceStatusRecordDto, b: PresenceStatusRec
   if (startCompare !== 0) {
     return startCompare;
   }
-  return Date.parse(b.createdAt ?? '') - Date.parse(a.createdAt ?? '');
+  return Date.parse(b.createdAt) - Date.parse(a.createdAt);
 }

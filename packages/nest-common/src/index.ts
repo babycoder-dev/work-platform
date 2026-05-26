@@ -3,3 +3,7 @@ export * from './http/configure-platform-http';
 export * from './http/dto-validation.pipe';
 export * from './http/error-response';
 export * from './http/trace-id';
+export * from './auth/public.decorator';
+export * from './auth/permission.guard';
+export * from './auth/request-with-auth';
+export * from './auth/require-permissions.decorator';

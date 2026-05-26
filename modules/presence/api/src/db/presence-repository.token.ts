@@ -1,0 +1,1 @@
+export const PRESENCE_REPOSITORY = Symbol.for('PRESENCE_REPOSITORY');

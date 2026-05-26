@@ -86,6 +86,12 @@ importers:
       '@work/nest-common':
         specifier: workspace:*
         version: link:../../packages/nest-common
+      '@work/platform-api':
+        specifier: workspace:*
+        version: link:../platform-api
+      '@work/platform-contract':
+        specifier: workspace:*
+        version: link:../../packages/platform-contract
       '@work/presence-api':
         specifier: workspace:*
         version: link:../../modules/presence/api
@@ -95,6 +101,16 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+    devDependencies:
+      '@nestjs/testing':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21)(@nestjs/platform-express@11.1.21)
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
 
   apps/im-adapter-api:
     dependencies:
@@ -299,6 +315,18 @@ importers:
       '@work/errors':
         specifier: workspace:*
         version: link:../../../packages/errors
+      '@work/event-bus':
+        specifier: workspace:*
+        version: link:../../../packages/event-bus
+      '@work/nest-common':
+        specifier: workspace:*
+        version: link:../../../packages/nest-common
+      '@work/platform-api':
+        specifier: workspace:*
+        version: link:../../../apps/platform-api
+      '@work/platform-contract':
+        specifier: workspace:*
+        version: link:../../../packages/platform-contract
       '@work/presence-contract':
         specifier: workspace:*
         version: link:../contract
@@ -306,9 +334,24 @@ importers:
         specifier: ^8.13.1
         version: 8.20.0
     devDependencies:
+      '@nestjs/core':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.21)(@nestjs/websockets@11.1.21)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21)
+      '@nestjs/testing':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21)(@nestjs/platform-express@11.1.21)
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0
+      '@types/supertest':
+        specifier: ^6.0.2
+        version: 6.0.3
+      supertest:
+        specifier: ^7.0.0
+        version: 7.2.2
 
   modules/presence/contract:
     dependencies:
@@ -370,6 +413,9 @@ importers:
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.21)(@nestjs/websockets@11.1.21)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@types/node':
         specifier: ^22.10.2
         version: 22.19.19

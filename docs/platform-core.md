@@ -173,7 +173,7 @@ kind === 'department' | 'department_tree' → employee.departmentId ∈ scope.de
 
 - `GET /api/platform/employees`（M3.5-E 起）
 
-业务模块的接入计划见各业务 RFC（M4 起 presence board 接入）。
+业务模块的接入计划见各业务 RFC（M4 起 presence board 接入）。业务模块通过 `@work/platform-contract` 导出的 `PLATFORM_SCOPE_SERVICE` token + `PlatformScopePort` interface 注入（M4-2 起，详见 `docs/module-contract.md §7.1.6`）。
 
 ## 6. Repository 实现
 

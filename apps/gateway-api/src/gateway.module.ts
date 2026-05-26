@@ -1,9 +1,22 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { PermissionGuard } from '@work/nest-common';
+import { PlatformAuthGuard, PlatformModule } from '@work/platform-api';
 import { PresenceModule } from '@work/presence-api';
 import { HealthController } from './system/health.controller';
 
 @Module({
-  imports: [PresenceModule],
+  imports: [PlatformModule, PresenceModule],
   controllers: [HealthController],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: PlatformAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionGuard,
+    },
+  ],
 })
 export class GatewayModule {}

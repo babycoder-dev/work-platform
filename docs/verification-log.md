@@ -36,6 +36,70 @@ Follow-up:
 - M4-2: presence API, permission guard wiring, audit; presence-api process entry, gateway-api → PlatformModule import, PlatformScopeService injection token export in `@work/platform-contract`.
 - Module-contract §7.1.6 platform export inventory should be revisited when M4-2 starts to confirm whether PlatformScopeService injection token needs to be re-exported through `@work/platform-contract` before consumption.
 
+### M4-2 Presence API Permission Audit
+
+Change set:
+
+- Cleared M4-1 deviation: `PresenceStatusRecordDto.enterpriseId/employeeNo/createdBy/createdAt` are required again; `cancelledAt` stays optional.
+- Removed `?? ''` dead code patches in `modules/presence/api/src/db/in-memory-presence.repository.ts` (lines 92 and 101) introduced by the M4-1 DTO-optional workaround.
+- Added `packages/platform-contract/src/scope.ts` exposing `PLATFORM_SCOPE_SERVICE` token + `PlatformScopePort` interface and `PlatformScope / PlatformScopeKind` types.
+- Added `packages/platform-contract/src/audit.ts` exposing `PLATFORM_AUDIT_SERVICE` token + `PlatformAuditPort` interface.
+- Added `apps/platform-api/src/audit/platform-audit.service.ts` implementing `PlatformAuditPort` by delegating to `PLATFORM_REPOSITORY.recordAuditLog`.
+- Updated `apps/platform-api/src/scope/platform-scope.service.ts` to `implements PlatformScopePort` and to import `PlatformScope / PlatformScopeKind` from `@work/platform-contract`; resolution logic unchanged.
+- Updated `apps/platform-api/src/platform.module.ts`: providers add `PlatformAuditService` and `useExisting` bindings for both `PLATFORM_SCOPE_SERVICE` and `PLATFORM_AUDIT_SERVICE`; `PermissionGuard` provider keeps its slot but is now imported from `@work/nest-common` (class physically migrated); exports expose `PlatformAuthGuard`, `PermissionGuard`, `AuthService`, `PLATFORM_SCOPE_SERVICE`, `PLATFORM_AUDIT_SERVICE`.
+- Added `apps/platform-api/src/index.ts` exporting `PlatformModule` and `PlatformAuthGuard` for cross-package consumption.
+- Migrated `RequirePermissions` decorator and `PermissionGuard` class from `apps/platform-api/src/rbac/` into `packages/nest-common/src/auth/`; added new `Public` decorator and `RequestWithAuth / CurrentUserAuthSnapshot / buildAuthAuditContext` interfaces in the same directory.
+- Deviation: `packages/nest-common/src/auth/permission.guard.ts` uses `constructor(private readonly reflector: Reflector)` instead of the task draft's `@Inject(Reflector)` parameter decorator because `packages/nest-common` does not enable parameter decorators; Nest still resolves `Reflector` by type metadata in consuming apps.
+- Updated `apps/platform-api/src/auth/platform-auth.guard.ts` to also short-circuit when `IS_PUBLIC_ROUTE_METADATA` is set (inject `Reflector`); other behaviour unchanged.
+- Updated import paths in platform-api controllers to source `RequirePermissions / PermissionGuard` from `@work/nest-common`.
+- Added `packages/nest-common/package.json` peer/dev dependency on `@nestjs/core` because the migrated `PermissionGuard` imports `Reflector` from `@nestjs/core`.
+- Added `packages/event-bus/src/event-bus.token.ts` exposing `EVENT_BUS` Symbol token.
+- Added `modules/presence/api/src/db/presence-db.module.ts` providing `PRESENCE_DB_POOL` + `PresenceDbPoolLifecycle` (mirrors platform DbModule pattern, separate Pool from platform — same database, separate pool).
+- Added `modules/presence/api/src/db/presence-repository.token.ts` exposing `PRESENCE_REPOSITORY` Symbol token.
+- Rewrote `modules/presence/api/src/status/presence-status.service.ts` as the real service injecting `PRESENCE_REPOSITORY`, `PLATFORM_SCOPE_SERVICE`, `PLATFORM_AUDIT_SERVICE`, `EVENT_BUS`; implements `getBoard / listOwnRecords / createRecord / cancelRecord` with scope-aware filtering, overlap conflict detection, audit emission, and `presence.status.changed` event publishing.
+- Rewrote `modules/presence/api/src/status/presence-status.controller.ts` and `modules/presence/api/src/status/presence-board.controller.ts` to use `@RequirePermissions(...)` from `@work/nest-common`, extract `currentUser` from request, and build audit context via `buildAuthAuditContext`.
+- Rewrote `modules/presence/api/src/presence.module.ts`: `imports: [PlatformModule, PresenceDbModule]`; providers include `PostgresPresenceRepository` (Pool injected), `PRESENCE_REPOSITORY` (useExisting Postgres), `EVENT_BUS` (useFactory new MemoryEventBus), `PresenceStatusService`.
+- Updated `modules/presence/api/package.json` to add workspace dependencies `@work/platform-api`, `@work/platform-contract`, `@work/nest-common`, `@work/event-bus`, and devDependencies `@nestjs/core`, `@nestjs/platform-express`, `@nestjs/testing`, `supertest`, `@types/supertest`.
+- Rewrote `apps/gateway-api/src/gateway.module.ts`: `imports: [PlatformModule, PresenceModule]`; providers register two `APP_GUARD` entries (`PlatformAuthGuard`, `PermissionGuard`).
+- Updated `apps/gateway-api/src/system/health.controller.ts` to mark all routes `@Public()`.
+- Updated `apps/gateway-api/package.json` to add workspace dependencies `@work/platform-api`, `@work/platform-contract`, `@work/nest-common`, and devDependencies `@nestjs/testing`, `supertest`, `@types/supertest`.
+- Added `modules/presence/api/src/status/presence-status.service.spec.ts` covering create success/conflict/no-department, cancel by owner/manager/forbidden/missing, getBoard for scope=self/company/department/department_tree/degraded-self.
+- Added `modules/presence/api/src/presence.e2e-spec.ts` (gated by `RUN_POSTGRES_INTEGRATION=true`) covering 401 (no token), 403 (insufficient permission), 200 create, 409 overlap, 200 cancel, board scope filtering.
+- Deviation: the presence e2e spec runs the real `GatewayModule` with `configurePlatformHttp(app, { globalPrefix: 'api' })`, so platform helper routes are mounted at `/api/auth`, `/api/roles`, and `/api/employees` in the gateway process rather than `/api/platform/...`; this matches the current gateway module mounting shape and avoids changing platform controllers.
+- Updated `vitest.e2e.config.mts` and root `test:e2e:postgres` so the presence e2e file under `modules/**` is discoverable.
+- Updated `docs/module-contract.md §7.1`: corrected `PlatformScopeService` injection examples/templates to token + interface; added `PLATFORM_AUDIT_SERVICE` to the available outlets and removed it from the pending outlets list.
+- Updated `docs/foundation-progress.md §1 / §6 / §8.1 / §8.2 / §8.3` to move M4-2 to Done and set M4-3 as next slice.
+- Updated `docs/platform-core.md §5` to mention that business modules inject `PlatformScopePort` via `PLATFORM_SCOPE_SERVICE` from `@work/platform-contract`.
+
+Verification:
+
+- `pnpm install`: pass. `pnpm-lock.yaml` updated naturally for the new workspace dependencies and `@types/supertest` / `supertest` entries.
+- `pnpm lint`: pass. Existing Nx ProjectGraph warnings remain; existing warnings remain for `apps/platform-api/src/users/employee.controller.ts` non-null assertion and `apps/workbench-shell/src/module-registry/load-remote-module.ts` `_descriptor`.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. 15 files / 90 tests passed; 2 Postgres integration files skipped in normal unit run. New `presence-status.service.spec.ts` contributes 12 tests.
+- `RUN_POSTGRES_INTEGRATION=true pnpm test:db`: failed locally after sandbox rerun outside sandbox with PostgreSQL `28P01` password authentication failure for user `work`; both gated suites loaded, then failed in beforeAll DB connection. This is the same local DB auth blocker recorded in M4-1, not a skipped command.
+- `RUN_POSTGRES_INTEGRATION=true pnpm test:e2e:postgres`: failed locally after sandbox rerun outside sandbox with PostgreSQL `28P01` password authentication failure for user `work` while the presence e2e spec invoked `pnpm db:setup`. The suite loaded and remains CI-coverable once DB credentials are valid.
+- `pnpm build`: pass.
+- `git diff --check`: pass.
+- Assertion 1: pass. `modules/presence/contract/src/status.dto.ts` declares `enterpriseId / employeeNo / createdBy / createdAt` as required (no `?`) and `cancelledAt` as optional.
+- Assertion 2: pass. `modules/presence/api/src/db/in-memory-presence.repository.ts` no longer contains `?? ''` after `b.createdAt` on lines 92 or 101.
+- Assertion 3: pass. `packages/platform-contract/src/scope.ts` and `packages/platform-contract/src/audit.ts` exist; `packages/platform-contract/src/index.ts` re-exports both modules; tokens are declared with `Symbol.for(...)`.
+- Assertion 4: pass. `apps/platform-api/src/platform.module.ts` exports `PlatformAuthGuard`, `PermissionGuard`, `AuthService`, `PLATFORM_SCOPE_SERVICE`, `PLATFORM_AUDIT_SERVICE`; providers register `PermissionGuard` from `@work/nest-common` and both `useExisting` bindings.
+- Assertion 5: pass. `packages/nest-common/src/auth/` contains four files (`public.decorator.ts`, `permission.guard.ts`, `request-with-auth.ts`, `require-permissions.decorator.ts`); `packages/nest-common/src/index.ts` re-exports them; `apps/platform-api/src/rbac/require-permissions.decorator.ts` and `apps/platform-api/src/rbac/permission.guard.ts` no longer exist.
+- Assertion 6: pass. `apps/gateway-api/src/gateway.module.ts` imports `[PlatformModule, PresenceModule]` and registers two `APP_GUARD` providers using `PlatformAuthGuard` and `PermissionGuard`.
+- Assertion 7: pass. `modules/presence/api/src/presence.module.ts` imports `[PlatformModule, PresenceDbModule]`, declares `PRESENCE_REPOSITORY` provider using `useExisting: PostgresPresenceRepository`, and declares `EVENT_BUS` provider using `useFactory: () => new MemoryEventBus()`.
+- Assertion 8: pass. `pnpm typecheck` passes for every workspace package.
+- Assertion 9: pass. `pnpm test` passes; `presence-status.service.spec.ts` has 12 green tests and asserts audit action / metadata and `presence.status.changed` event payload.
+- Assertion 10: failed locally due environment. With `RUN_POSTGRES_INTEGRATION=true`, `pnpm test:e2e:postgres` loaded the Postgres-gated presence e2e suite, but local `pnpm db:setup` failed on PostgreSQL `28P01` password authentication for user `work`, so the 6 scenarios could not execute locally.
+- Assertion 11: pass. `docs/module-contract.md §7.1.6` lists `PLATFORM_SCOPE_SERVICE` and `PLATFORM_AUDIT_SERVICE` under available outlets; the previous "platform audit service" entry under pending outlets is removed.
+
+Follow-up:
+
+- M4-3 presence Web 页面（看板、登记表单）按 M4-2 已可用 API 接入。
+- 平台员工 / 部门 lookup service 仍在 §7.1.6 待补列表，由后续业务切片按需扩出。
+- `PresenceRepository.cancelRecord` 当前接口签名只接 `recordId / actorUserId / cancelledAt`，未强制 `enterpriseId` 隔离；后续若引入跨企业角色须扩签名加 `enterpriseId`。当前 RBAC 不下发跨企业 token，无法触发。
+- M7 时把 `EVENT_BUS` provider 从 `MemoryEventBus` 切换为 Redis Stream client；`PLATFORM_SCOPE_SERVICE` / `PLATFORM_AUDIT_SERVICE` 实现切换为 HTTP introspection client。
+
 ### M3.5-G Cross-schema Data Access Rules
 
 Change set:

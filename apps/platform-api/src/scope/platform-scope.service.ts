@@ -1,17 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { CurrentUserDto } from '@work/platform-contract';
+import type {
+  CurrentUserDto,
+  PlatformScope,
+  PlatformScopeKind,
+  PlatformScopePort,
+} from '@work/platform-contract';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
-
-export type PlatformScopeKind = 'self' | 'department' | 'department_tree' | 'company';
-
-export interface PlatformScope {
-  kind: PlatformScopeKind;
-  userId: string;
-  enterpriseId: string;
-  departmentId?: string;
-  departmentIds: string[];
-  degradedFromCustom: boolean;
-}
 
 export const EFFECTIVE_SCOPE_ORDER: PlatformScopeKind[] = [
   'company',
@@ -21,7 +15,7 @@ export const EFFECTIVE_SCOPE_ORDER: PlatformScopeKind[] = [
 ];
 
 @Injectable()
-export class PlatformScopeService {
+export class PlatformScopeService implements PlatformScopePort {
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
   async resolveScope(user: CurrentUserDto): Promise<PlatformScope> {

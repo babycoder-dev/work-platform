@@ -1,7 +1,6 @@
 import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
+import { PermissionGuard, RequirePermissions } from '@work/nest-common';
 import { PlatformAuthGuard } from '../auth/platform-auth.guard';
-import { PermissionGuard } from '../rbac/permission.guard';
-import { RequirePermissions } from '../rbac/require-permissions.decorator';
 import { OrgService } from './org.service';
 
 @Controller('enterprises')

@@ -18,7 +18,7 @@
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Done | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证 |
 | M3.5 收口切片 | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1 |
-| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-1 contract/schema/repository 已完成；下一步 M4-2 API、权限、审计 |
+| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-2 API/权限/审计/事件已完成；下一步 M4-3 Web |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
 | M7 通知、实时、IM 基建 | notification、realtime、OpenIM adapter 可用 | Pending | 当前只保留边界 |
@@ -174,21 +174,24 @@
 当前建议执行：
 
 ```text
-M4-2: presence API、权限、审计
+M4-3: presence Web 页面
 ```
 
-上一切片任务包：`docs/tasks/m4-1-presence-contract-schema-repository.md`。
+上一切片任务包：`docs/tasks/m4-2-presence-api-permission-audit.md`。
 
-M4-1 完成结果：
+M4-2 完成结果：
 
-- `@work/presence-contract` 的 `PresenceStatusRecordDto` 已补齐 `enterpriseId / employeeNo / createdBy / createdAt / cancelledAt` 字段。
-- `presence` schema 与 `presence.status_records` 表已通过 `modules/presence/api/src/db/migrations/0000_init_presence.sql` 建立；独立 runner `modules/presence/api/src/db/migrate.ts` 维护 `presence.schema_migrations` 表，通过根脚本 `pnpm db:migrate:presence` 触发，并接入 `pnpm db:setup`。
-- `PresenceRepository` 接口、`PostgresPresenceRepository`、`InMemoryPresenceRepository` 已实现；五个方法严格按 RFC §8。内存实现仅作 vitest 测试 fixture，不挂 NestJS DI。
-- 整套模块代码不 `import` `apps/platform-api/...` 或 `apps/gateway-api/...`，符合 `docs/module-contract.md §7.1.4`。
-- 根脚本 `pnpm test:db` 已扩为同时跑 platform 与 presence 的 integration spec。
-- verification-log 锚点：`M4-1 Presence Contract Schema Repository`。
+- `PresenceStatusService` 已重写为真实 service，注入 `PRESENCE_REPOSITORY` + `PLATFORM_SCOPE_SERVICE` + `PLATFORM_AUDIT_SERVICE` + `EVENT_BUS`。
+- `gateway-api` 进程通过 `APP_GUARD` 全局挂载 `PlatformAuthGuard` + `PermissionGuard`；presence controllers 用 `@RequirePermissions(...)` 声明权限码。
+- `PLATFORM_AUDIT_SERVICE` 与 `PLATFORM_SCOPE_SERVICE` 通过 `packages/platform-contract` 暴露 token + interface；`apps/platform-api/src/audit/platform-audit.service.ts` 新建。
+- `PermissionGuard`、`@RequirePermissions`、`@Public` 已物理迁到 `packages/nest-common/src/auth/`，platform-api 内部 controller 全部更新 import 路径。
+- `presence.status.changed` 事件通过 `@work/event-bus.MemoryEventBus` 发布（M7 升级 Redis Stream 时只换 provider）。
+- M4-1 偏离遗留全部清理：DTO 4 字段改回必填、in-memory dead code 清除、mock service 完全替换。
+- E2E 覆盖 401 / 403 / 成功 / 冲突。
+- `docs/module-contract.md §7.1.6` 已校正 `PlatformScopeService` 注入方式与 `PlatformAuditService` 落地。
+- verification-log 锚点：`M4-2 Presence API Permission Audit`。
 
-下一步启动 `M4-2: presence API、权限、审计`，将真实 controller/service 接入 Platform Core 鉴权、`PlatformScopeService` 数据范围和审计链路。
+下一步启动 `M4-3: presence Web 页面`，把看板与登记表单接入真实 API。
 
 ### 6.1 M3.5 收口切片
 
@@ -225,18 +228,18 @@ M4-1 完成结果：
 | --- | --- | --- | --- |
 | M4-0 | RFC 与术语设计 | Done | `docs/rfc/m4-presence-mvp.md` 已定义状态模型、API、权限、数据范围、审计、事件、schema 和切片计划；`docs/domain-glossary.md` 已补齐核心术语 |
 | M4-1 | contract、schema、repository | Done | 2026-05-25 完成；`PresenceStatusRecordDto` 补齐字段、`presence` schema + migration runner、`PresenceRepository` + Postgres/Memory 双实现；详见 verification-log `M4-1 Presence Contract Schema Repository` |
+| 2026-05-25 | M4-2 | presence API 接入 Platform Auth + Permission Guard + PlatformScopeService + PlatformAuditService + EventBus；M4-1 偏离全部清理；§7.1.6 校正 |
 
 ### 8.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| 无 | Done | 等待启动 M4-2 |
+| 无 | Done | 等待启动 M4-3 |
 
 ### 8.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| M4-2 | API、权限、审计 | Pending | M4-1 完成 |
 | M4-3 | Web 看板与登记表单 | Pending | M4-2 API 可用 |
 | M4-4 | 交付验证 | Pending | M4-3 完成 |
 

@@ -12,11 +12,20 @@
   "dependencies": {
     "@nestjs/common": "^11.0.0",
     "@work/errors": "workspace:*",
+    "@work/event-bus": "workspace:*",
+    "@work/nest-common": "workspace:*",
+    "@work/platform-api": "workspace:*",
+    "@work/platform-contract": "workspace:*",
     "@work/presence-contract": "workspace:*",
     "pg": "^8.13.1"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.10"
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@types/pg": "^8.11.10",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0"
   },
   "nx": {
     "tags": ["scope:presence", "type:feature"]

@@ -1,18 +1,37 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
+import { buildAuthAuditContext, RequirePermissions, type RequestWithAuth } from '@work/nest-common';
+import type { CurrentUserDto } from '@work/platform-contract';
 import type { CreatePresenceStatusRecordInput } from '@work/presence-contract';
+import { presencePermissions } from '@work/presence-contract';
 import { PresenceStatusService } from './presence-status.service';
 
 @Controller('presence/status-records')
 export class PresenceStatusController {
   constructor(private readonly presenceStatusService: PresenceStatusService) {}
 
-  @Get()
-  listRecords() {
-    return this.presenceStatusService.listRecords();
+  @Get('mine')
+  @RequirePermissions(presencePermissions.statusCreate)
+  listOwnRecords(@Req() request: RequestWithAuth) {
+    return this.presenceStatusService.listOwnRecords(request.currentUser as CurrentUserDto);
   }
 
   @Post()
-  createRecord(@Body() input: CreatePresenceStatusRecordInput) {
-    return this.presenceStatusService.createRecord(input);
+  @RequirePermissions(presencePermissions.statusCreate)
+  createRecord(@Req() request: RequestWithAuth, @Body() input: CreatePresenceStatusRecordInput) {
+    return this.presenceStatusService.createRecord(
+      request.currentUser as CurrentUserDto,
+      input,
+      buildAuthAuditContext(request),
+    );
+  }
+
+  @Delete(':id')
+  @RequirePermissions(presencePermissions.statusCreate)
+  cancelRecord(@Req() request: RequestWithAuth, @Param('id') id: string) {
+    return this.presenceStatusService.cancelRecord(
+      request.currentUser as CurrentUserDto,
+      id,
+      buildAuthAuditContext(request),
+    );
   }
 }
