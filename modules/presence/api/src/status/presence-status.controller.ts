@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Post, Req } from '@nestjs/common';
 import { buildAuthAuditContext, RequirePermissions, type RequestWithAuth } from '@work/nest-common';
 import type { CurrentUserDto } from '@work/platform-contract';
 import type { CreatePresenceStatusRecordInput } from '@work/presence-contract';
@@ -7,7 +7,7 @@ import { PresenceStatusService } from './presence-status.service';
 
 @Controller('presence/status-records')
 export class PresenceStatusController {
-  constructor(private readonly presenceStatusService: PresenceStatusService) {}
+  constructor(@Inject(PresenceStatusService) private readonly presenceStatusService: PresenceStatusService) {}
 
   @Get('mine')
   @RequirePermissions(presencePermissions.statusCreate)

@@ -15,8 +15,9 @@ Change set:
 - Added `docs/runbooks/` directory; first runbook is `docs/runbooks/presence-mvp-smoke.md` covering docker postgres bring-up, `pnpm db:setup`, `pnpm verify:full`, `pnpm docker:build`, 28P01 troubleshooting tree, and 6-step browser smoke.
 - Updated `docs/doc-index.md` §1 / §3 / §7 to include `docs/runbooks/*.md` in the document priority list, the responsibility table, and the "completed gaps" list.
 - Updated `docs/foundation-progress.md`: M4-4 → Done, M4 整段 → Done, §6 "当前下一步" → `M5-0: 审批 MVP RFC`.
+- Follow-up fix commit (driven by the findings below): added `@Public()` to `apps/platform-api/src/auth/auth.controller.ts` `login` and `password-policy`; added explicit `@Inject(PresenceStatusService)` to `presence-status.controller.ts` and `presence-board.controller.ts`; fixed two invalid `startAt > endAt` payloads plus open-ended support in `modules/presence/api/src/presence.e2e-spec.ts`.
 
-Verification:
+Verification (run against local docker postgres `work/work@5432`, 2026-05-30):
 
 - `pnpm install`: pass. (lockfile unchanged)
 - `pnpm lint`: pass. Pre-existing Nx ProjectGraph and unused-parameter warnings unchanged.
@@ -25,21 +26,27 @@ Verification:
 - `pnpm test:e2e`: pass (memory path).
 - `pnpm build`: pass.
 - `pnpm verify`: pass.
-- `docker compose -f infra/docker-compose.yml up -d postgres`: <PASS / FAIL — 用户填>.
-- `pnpm db:setup`: <PASS / FAIL — 用户填；permissionCount 期望 11>.
-- `RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true pnpm verify:full`: <PASS / FAIL — 用户填>.
-- `pnpm test:db` alone: <PASS / FAIL — 用户填，确认 platform integration + presence integration 各 6 case 通过>.
-- `pnpm test:e2e:postgres` alone: <PASS / FAIL — 用户填，确认 platform postgres e2e 5 case + presence e2e 6 case 通过；这是修 env gate 后第一次 presence e2e 真跑>.
+- `docker compose -f infra/docker-compose.yml up -d postgres`: pass (had to stop a native `postgresql-x64-17` holding host 5432, then `--force-recreate` so the container published 5432 — see `docs/runbooks/presence-mvp-smoke.md §6.2`).
+- `pnpm db:setup`: pass; `permissionCount=11`.
+- `RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true pnpm verify:full`: pass (after the fixes below).
+- `pnpm test:db` alone: pass (platform integration 10 case + presence integration 6 case = 16).
+- `pnpm test:e2e:postgres` alone: pass (platform postgres e2e 5 case + presence e2e 6 case = 11). This was the first time the presence e2e actually executed (previously skipped via the env-gate bug); it surfaced the three findings below.
 - `pnpm docker:build`: <PASS / FAIL — 用户填>.
 - Browser smoke: <PASS / FAIL — 用户按 `docs/runbooks/presence-mvp-smoke.md §7` 6 步跑完后填结果>。
 - CI: <下一次 push 后看 GitHub Actions verify + docker-build job，按结果填>。
+
+Findings (uncovered the first time the presence e2e ran, all fixed in the follow-up commit):
+
+- F1 (product, gateway login broken): `auth/login` and `auth/password-policy` were never marked `@Public()`. In standalone `platform-api` the `PlatformAuthGuard` is applied selectively per-route, so login was reachable; but the gateway (M4-2) registers `PlatformAuthGuard` as a global `APP_GUARD`, so unmarked routes are blocked. Result: login through gateway:3000 (the M4-3 dev entry and the deployment entry) returned 401 "未登录". Never caught because the only gateway-level login e2e (presence) was being skipped. Fix: `@Public()` on both routes (same pattern as the gateway health controller).
+- F2 (product, presence DI under esbuild): `PresenceStatusController` and `PresenceBoardController` injected `PresenceStatusService` via constructor type reflection, which needs `emitDecoratorMetadata`. The vitest/tsx (esbuild) transpile does not emit it, so Nest injected `undefined` → every presence read/write threw `TypeError: Cannot read properties of undefined (reading 'createRecord')` → 500. The rest of the codebase uses explicit `@Inject(...)` tokens precisely to avoid metadata reliance; these two controllers were the only exception. Fix: explicit `@Inject(PresenceStatusService)`.
+- F3 (test data): two presence e2e cases built `startAt > endAt` (default-parameter trap: `createPayload(start, undefined)` still applies the default endAt) so the API correctly rejected them with 400. Fix: `createPayload` now supports `null` for open-ended records; the cancel case uses a valid same-day range and the board case uses an open-ended record.
 
 Assertion A1: pass. `package.json` `scripts.verify:full` exists and equals `pnpm verify && pnpm test:db && pnpm test:e2e:postgres`.
 Assertion A2: pass. `modules/presence/api/src/presence.e2e-spec.ts` line 12 uses `RUN_POSTGRES_E2E`; no `RUN_POSTGRES_INTEGRATION` reference remains in this file.
 Assertion A3: pass. `docs/runbooks/presence-mvp-smoke.md` exists; contains the 28P01 troubleshooting tree (容器没起 / 端口占用 / 卷旧密码 / Docker Desktop 引擎) and the 6-step browser smoke checklist.
 Assertion A4: pass. `docs/doc-index.md` §1 lists `docs/runbooks/*.md` between tasks and verification-log; §3 has a `docs/runbooks/*.md` row; §7 "已补齐" lists `docs/runbooks/presence-mvp-smoke.md`.
 Assertion A5: pass. `docs/foundation-progress.md` §1 总览表 M4 行 → Done；§6 当前下一步 → `M5-0: 审批 MVP RFC`；§8.1 / §8.2 / §8.3 反映 M4-4 完成、M4 整段完成。
-Assertion A6: <用户跑完后填>. `pnpm verify:full` end-to-end pass.
+Assertion A6: pass (2026-05-30). `RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true pnpm verify:full` ran end-to-end green after the F1–F3 fixes; presence e2e went 0/6 → 6/6.
 Assertion A7: <用户跑完后填>. `pnpm docker:build` pass.
 Assertion A8: <用户跑完后填>. Browser smoke 6 步全过。
 

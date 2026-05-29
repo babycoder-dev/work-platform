@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Inject, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { dtoValidationPipe } from '@work/nest-common';
+import { dtoValidationPipe, Public } from '@work/nest-common';
 import { ChangePasswordDto, LoginDto } from './auth.dto';
 import type { PlatformRequest } from './request-user';
 import { resolveClientIp, resolveHeader } from './request-user';
@@ -11,6 +11,7 @@ export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Post('login')
+  @Public()
   login(@Body(dtoValidationPipe(LoginDto)) input: LoginDto, @Req() request: PlatformRequest) {
     return this.authService.login(input, {
       traceId: request.traceId,
@@ -20,6 +21,7 @@ export class AuthController {
   }
 
   @Get('password-policy')
+  @Public()
   getPasswordPolicy() {
     return this.authService.getPasswordPolicy();
   }

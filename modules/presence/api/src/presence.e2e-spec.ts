@@ -124,7 +124,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     const createResponse = await request(app.getHttpServer())
       .post('/api/presence/status-records')
       .set('Authorization', `Bearer ${selfToken}`)
-      .send(createPayload('2026-05-26T01:00:00.000Z'))
+      .send(createPayload('2026-05-26T01:00:00.000Z', '2026-05-26T09:00:00.000Z'))
       .expect(201);
 
     const cancelResponse = await request(app.getHttpServer())
@@ -139,7 +139,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     await request(app.getHttpServer())
       .post('/api/presence/status-records')
       .set('Authorization', `Bearer ${selfToken}`)
-      .send(createPayload(new Date(Date.now() - 60_000).toISOString(), undefined))
+      .send(createPayload(new Date(Date.now() - 60_000).toISOString(), null))
       .expect(201);
 
     const response = await request(app.getHttpServer())
@@ -220,11 +220,11 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     return loginResponse.body.accessToken;
   }
 
-  function createPayload(startAt = '2026-05-25T01:00:00.000Z', endAt = '2026-05-25T09:00:00.000Z') {
+  function createPayload(startAt = '2026-05-25T01:00:00.000Z', endAt: string | null = '2026-05-25T09:00:00.000Z') {
     return {
       status: 'business_trip',
       startAt,
-      endAt,
+      ...(endAt === null ? {} : { endAt }),
       remark: `presence e2e ${suffix}`,
     };
   }
