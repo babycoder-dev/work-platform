@@ -14,7 +14,8 @@
 6. `docs/architecture.md`：当前目标架构说明。
 7. `docs/module-contract.md`、`docs/platform-core.md`、`docs/im-foundation.md` 等专题文档。
 8. `docs/tasks/*.md`：单切片任务包，自包含、可执行、可验收；不定义新规则，权威性低于 RFC 与专题文档。
-9. `docs/verification-log.md`：验证记录，不定义新规则。
+9. `docs/runbooks/*.md`：可重跑的操作手册（部署、smoke、迁移演练等），自包含、可执行；不定义新规则。
+10. `docs/verification-log.md`：验证记录，不定义新规则。
 
 `README.md` 和 `AGENTS.md` 是入口文件，不承载详细设计。它们必须链接到权威文档，而不是复制复杂规则。
 
@@ -105,6 +106,7 @@ modules/presence/contract
 | `docs/security-baseline.md` | 安全基线和强制要求 | 认证、授权、审计、密钥、部署安全变化 |
 | `docs/deployment.md` | 部署说明 | Docker、环境变量、部署流程变化 |
 | `docs/development-workflow.md` | 开发流程 | Git、测试、代码审查流程变化 |
+| `docs/runbooks/*.md` | 可重跑操作手册 | 每个 runbook 主题首次落地时 |
 | `docs/verification-log.md` | 验证记录 | 每个重要交付点后追加 |
 
 ## 4. ADR 与 RFC 的区别
@@ -162,6 +164,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - 安全基线：`docs/security-baseline.md`
 - 领域术语表：`docs/domain-glossary.md`
 - M4 在位管理 MVP RFC：`docs/rfc/m4-presence-mvp.md`
+- Presence MVP 交付 smoke runbook：`docs/runbooks/presence-mvp-smoke.md`（M4-4 首次落地，后续 M5-M8 沿用 `docs/runbooks/` 目录）
 
 后续建议补充：
 

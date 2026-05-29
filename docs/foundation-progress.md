@@ -18,7 +18,7 @@
 | M2 权限、菜单、审计闭环 | 模块权限、菜单、审计统一接入 | Done | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入 |
 | M3 Web Shell 可用基座 | 登录态、权限菜单、模块挂载 | Done | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证 |
 | M3.5 收口切片 | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1 |
-| M4 在位管理 MVP | 第一个业务模块验证平台基建 | In Progress | M4-3 presence Web 已完成；下一步 M4-4 交付验证 |
+| M4 在位管理 MVP | 第一个业务模块验证平台基建 | Done | M4-4 交付验证已完成；presence 模块进入维护态 |
 | M5 审批 MVP | 流程类业务验证 | Pending | 依赖 M4 与事件协作边界 |
 | M6 日/周报 MVP | 组织层级汇总与数据范围验证 | Pending | 依赖 M2 数据范围能力 |
 | M7 通知、实时、IM 基建 | notification、realtime、OpenIM adapter 可用 | Pending | 当前只保留边界 |
@@ -174,22 +174,21 @@
 当前建议执行：
 
 ```text
-M4-4: presence MVP 交付验证
+M5-0: 审批 MVP RFC
 ```
 
-上一切片任务包：`docs/tasks/m4-3-presence-web.md`。
+上一切片任务包：`docs/tasks/m4-4-presence-delivery-verification.md`。
 
-M4-3 完成结果：
+M4-4 完成结果：
 
-- `packages/platform-sdk` 已新增 `WorkWebModuleRuntime` 与 `setRuntime` hook；Shell bootstrap 成功后给业务 Web 模块注入 currentUser 与 baseUrl-scoped http client factory。
-- `modules/presence/web` 已新增 runtime singleton 与 `PresenceApiClient`，看板和登记页面接入 `/api/presence/*` 真实 API。
-- 登记页面支持本人创建状态、展示我的最近记录、取消未取消记录；看板页面支持 loading / empty / error / refresh 状态。
-- `vitest.web.config.mts` 已新增 jsdom + React Testing Library web 测试配置，node vitest 配置排除 `.spec.tsx`。
-- `apps/workbench-shell` dev proxy 已从 `/api/platform -> 3001` 改为 `/api -> 3000`，开发期统一走 gateway。
-- `PermissionGuard` 已回填 `@Inject(Reflector)`，关闭 M4-2 follow-up。
-- verification-log 锚点：`M4-3 Presence Web`。
+- 加 `pnpm verify:full` 双 script（`verify` 保持快路径不变；`verify:full` 串 `test:db` + `test:e2e:postgres`，要求本地 docker postgres 起着）。
+- 修 `modules/presence/api/src/presence.e2e-spec.ts` 的 env gate（`RUN_POSTGRES_INTEGRATION` → `RUN_POSTGRES_E2E`），关闭 CI test:e2e:postgres job 把 presence e2e silently skip 的潜在 bug。
+- 新建 `docs/runbooks/` 目录与首个 runbook `docs/runbooks/presence-mvp-smoke.md`，覆盖 docker postgres 起停、`pnpm db:setup`、`pnpm verify:full`、`pnpm docker:build`、28P01 故障树、6 步浏览器 smoke 全流程。
+- 同步 `docs/doc-index.md` §1 / §3 / §7 收纳 `docs/runbooks/*.md`。
+- M4 整段 Done；presence 模块进入维护态（后续优化进 M5+ 切片的 follow-up 或独立小切片）。
+- verification-log 锚点：`M4-4 Presence MVP Delivery Verification`。
 
-下一步启动 `M4-4: presence MVP 交付验证`，执行 `pnpm verify`、`pnpm test:db`、PostgreSQL E2E、Docker build、浏览器 smoke 和 CI 检查。
+下一步启动 `M5-0: 审批 MVP RFC`，写 `docs/rfc/m5-approval-mvp.md`，定义状态机、审批权限、事件契约、schema 边界。
 
 ### 6.1 M3.5 收口切片
 
@@ -212,7 +211,7 @@ M4-3 完成结果：
 
 ## 8. M4 在位管理 MVP
 
-状态：In Progress
+状态：Done
 
 目标：
 
@@ -228,18 +227,19 @@ M4-3 完成结果：
 | M4-1 | contract、schema、repository | Done | 2026-05-25 完成；`PresenceStatusRecordDto` 补齐字段、`presence` schema + migration runner、`PresenceRepository` + Postgres/Memory 双实现；详见 verification-log `M4-1 Presence Contract Schema Repository` |
 | 2026-05-25 | M4-2 | presence API 接入 Platform Auth + Permission Guard + PlatformScopeService + PlatformAuditService + EventBus；M4-1 偏离全部清理；§7.1.6 校正 |
 | M4-3 | presence Web 页面 | Done | 看板与登记接入真实 API |
+| M4-4 | 交付验证 | Done | 2026-05-27 完成；verify:full / test:db / test:e2e:postgres / docker build / 浏览器 smoke 6 步全过；runbook 沉淀在 `docs/runbooks/presence-mvp-smoke.md`；详见 verification-log `M4-4 Presence MVP Delivery Verification` |
 
 ### 8.2 正在做
 
 | 切片 | 能力 | 状态 | 下一步 |
 | --- | --- | --- | --- |
-| M4-4 | 交付验证 | Pending | 等待执行 M4-4 |
+| 无 | Done | M4 已退出 | — |
 
 ### 8.3 未开始
 
 | 切片 | 能力 | 状态 | 启动条件 |
 | --- | --- | --- | --- |
-| M4-4 | 交付验证 | Pending | M4-3 完成 |
+| 无 | Done | M4 无剩余切片 | — |
 
 ## 9. M8 前置交付风险
 

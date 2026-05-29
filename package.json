@@ -22,6 +22,7 @@
     "test:e2e": "vitest run --config vitest.e2e.config.mts",
     "test:e2e:postgres": "vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.postgres.e2e-spec.ts modules/presence/api/src/presence.e2e-spec.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build",
+    "verify:full": "pnpm verify && pnpm test:db && pnpm test:e2e:postgres",
     "build": "pnpm -r --if-present build",
     "docker:build": "docker compose -f infra/docker-compose.prod.yml build",
     "docker:up": "docker compose -f infra/docker-compose.prod.yml up -d",

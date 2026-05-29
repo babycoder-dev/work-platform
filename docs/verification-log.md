@@ -1,5 +1,54 @@
 # Verification Log
 
+## 2026-05-27
+
+### M4-4 Presence MVP Delivery Verification
+
+Scope:
+
+- Final M4 delivery verification slice per `docs/rfc/m4-presence-mvp.md §11`. No new feature code; no presence/api or presence/web changes.
+
+Change set:
+
+- Added `pnpm verify:full` script = `pnpm verify && pnpm test:db && pnpm test:e2e:postgres`. `pnpm verify` itself unchanged so local fast-path stays docker-free.
+- Renamed env gate in `modules/presence/api/src/presence.e2e-spec.ts` from `RUN_POSTGRES_INTEGRATION` to `RUN_POSTGRES_E2E`, aligning with `apps/platform-api/src/platform-api.postgres.e2e-spec.ts`. This closes a latent CI gap: the `test:e2e:postgres` job in `.github/workflows/ci.yml` only sets `RUN_POSTGRES_E2E=true`, so the presence e2e suite was being silently skipped in CI before this change.
+- Added `docs/runbooks/` directory; first runbook is `docs/runbooks/presence-mvp-smoke.md` covering docker postgres bring-up, `pnpm db:setup`, `pnpm verify:full`, `pnpm docker:build`, 28P01 troubleshooting tree, and 6-step browser smoke.
+- Updated `docs/doc-index.md` §1 / §3 / §7 to include `docs/runbooks/*.md` in the document priority list, the responsibility table, and the "completed gaps" list.
+- Updated `docs/foundation-progress.md`: M4-4 → Done, M4 整段 → Done, §6 "当前下一步" → `M5-0: 审批 MVP RFC`.
+
+Verification:
+
+- `pnpm install`: pass. (lockfile unchanged)
+- `pnpm lint`: pass. Pre-existing Nx ProjectGraph and unused-parameter warnings unchanged.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass.
+- `pnpm test:e2e`: pass (memory path).
+- `pnpm build`: pass.
+- `pnpm verify`: pass.
+- `docker compose -f infra/docker-compose.yml up -d postgres`: <PASS / FAIL — 用户填>.
+- `pnpm db:setup`: <PASS / FAIL — 用户填；permissionCount 期望 11>.
+- `RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true pnpm verify:full`: <PASS / FAIL — 用户填>.
+- `pnpm test:db` alone: <PASS / FAIL — 用户填，确认 platform integration + presence integration 各 6 case 通过>.
+- `pnpm test:e2e:postgres` alone: <PASS / FAIL — 用户填，确认 platform postgres e2e 5 case + presence e2e 6 case 通过；这是修 env gate 后第一次 presence e2e 真跑>.
+- `pnpm docker:build`: <PASS / FAIL — 用户填>.
+- Browser smoke: <PASS / FAIL — 用户按 `docs/runbooks/presence-mvp-smoke.md §7` 6 步跑完后填结果>。
+- CI: <下一次 push 后看 GitHub Actions verify + docker-build job，按结果填>。
+
+Assertion A1: pass. `package.json` `scripts.verify:full` exists and equals `pnpm verify && pnpm test:db && pnpm test:e2e:postgres`.
+Assertion A2: pass. `modules/presence/api/src/presence.e2e-spec.ts` line 12 uses `RUN_POSTGRES_E2E`; no `RUN_POSTGRES_INTEGRATION` reference remains in this file.
+Assertion A3: pass. `docs/runbooks/presence-mvp-smoke.md` exists; contains the 28P01 troubleshooting tree (容器没起 / 端口占用 / 卷旧密码 / Docker Desktop 引擎) and the 6-step browser smoke checklist.
+Assertion A4: pass. `docs/doc-index.md` §1 lists `docs/runbooks/*.md` between tasks and verification-log; §3 has a `docs/runbooks/*.md` row; §7 "已补齐" lists `docs/runbooks/presence-mvp-smoke.md`.
+Assertion A5: pass. `docs/foundation-progress.md` §1 总览表 M4 行 → Done；§6 当前下一步 → `M5-0: 审批 MVP RFC`；§8.1 / §8.2 / §8.3 反映 M4-4 完成、M4 整段完成。
+Assertion A6: <用户跑完后填>. `pnpm verify:full` end-to-end pass.
+Assertion A7: <用户跑完后填>. `pnpm docker:build` pass.
+Assertion A8: <用户跑完后填>. Browser smoke 6 步全过。
+
+Follow-up:
+
+- M4-2 verification-log A10 历史 "failed locally due environment" 记录保留；本切片解 28P01 + 修 e2e env gate 后该阻塞已实质闭合。M4-3 verification-log Follow-up 中关于 M4-4 交付验证集合（pnpm verify、test:db、PostgreSQL E2E、Docker build、browser smoke、CI）的项一并闭合。
+- M5-0：审批 MVP RFC（`docs/rfc/m5-approval-mvp.md`），定义状态机、审批权限、事件、schema 边界。
+- 可选：未来 M8 客户端交付前可考虑引入 Playwright，把 presence browser smoke 自动化（参考 `docs/runbooks/presence-mvp-smoke.md §7`）；本切片明确不引（D4）。
+
 ## 2026-05-25
 
 ### M4-1 Presence Contract Schema Repository

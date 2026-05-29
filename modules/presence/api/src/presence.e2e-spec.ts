@@ -9,7 +9,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GatewayModule } from '../../../../apps/gateway-api/src/gateway.module';
 
-const runE2E = process.env.RUN_POSTGRES_INTEGRATION === 'true';
+const runE2E = process.env.RUN_POSTGRES_E2E === 'true';
 const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123';
 const execFileAsync = promisify(execFile);
 
