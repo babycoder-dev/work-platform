@@ -38,6 +38,32 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/load-progress.mjs || true",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Loading foundation progress snapshot…"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/remind-on-stop.mjs || true",
+            "shell": "bash",
+            "timeout": 10,
+            "statusMessage": "Checking delivery gate reminders…"
+          }
+        ]
+      }
     ]
   }
 }
