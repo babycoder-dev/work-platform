@@ -25,9 +25,12 @@
     "@types/react-dom": "^19.0.2",
     "jsdom": "^25.0.1",
     "react-dom": "^19.0.0",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.4"
   },
   "nx": {
-    "tags": ["scope:presence", "type:feature"]
+    "tags": [
+      "scope:presence",
+      "type:feature"
+    ]
   }
 }
