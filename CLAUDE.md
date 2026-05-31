@@ -91,7 +91,7 @@ A business module is self-contained and may **only** depend on its own `contract
 
 ### Backend boundaries
 
-- `gateway-api` is an **API composition host** embedding business modules through M4–M6, then degrades to a pure edge gateway (reverse proxy / auth pass-through / rate limit) from M7. See `docs/adr/0003-gateway-boundary.md`.
+- `gateway-api` is an **API composition host** that currently embeds business modules; it later degrades to a pure edge gateway (reverse proxy / auth pass-through / rate limit) once services split out — that split is deferred to vNext under the 2026-05 re-plan (`docs/adr/0005-product-replan-roadmap.md`; gateway-split rationale in `docs/adr/0003-gateway-boundary.md`). Do not pin it to a specific M-number.
 - Cross-process auth uses a **phantom-token** pattern — `docs/adr/0004-cross-process-auth-phantom-token.md`. Auth/scope/audit logic lives in `apps/platform-api/src/auth` and the platform scope service; changes here touch the security baseline.
 - HTTP calls go through `@work/http-client`; errors use the unified envelope defined in `AGENTS.md`.
 

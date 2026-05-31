@@ -124,4 +124,4 @@ OpenIM 只能作为独立 IM Provider 接入。
 - 业务模块不得直接调用 OpenIM。
 - OpenIM 不得接管平台账号、组织、角色、权限。
 - 不复制 OpenIM Demo 或客户端 SDK 代码。
-- 客户端 SDK 接入前必须处理 AGPL 合规评估。
+- OpenIM Server 为 Apache-2.0；其客户端 SDK 为 AGPL-3.0，接入前必须处理 AGPL 合规评估。

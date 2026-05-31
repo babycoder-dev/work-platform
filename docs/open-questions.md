@@ -2,6 +2,8 @@
 
 以下事项不阻塞第一阶段基建，但会影响后续实现细节。
 
+> 更新（2026-05）：部分事项已定——ORM=Drizzle、数据库=PostgreSQL（见 `docs/architecture.md`）；即时通讯/聊天本期不做、外部 IM 接入归 vNext（见 `docs/adr/0005-product-replan-roadmap.md`、`docs/product-requirements.md` §6）。其余仍为待确认，保留备查。
+
 ## 1. 登录与身份源
 
 已确认：企业内部账号。
