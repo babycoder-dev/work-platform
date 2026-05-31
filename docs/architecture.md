@@ -19,8 +19,8 @@ realtime-gateway
   平台实时通道 / 站内通知推送 / 状态刷新
 
 gateway-api
-  M4-M6：API 组合宿主，内嵌业务模块 + 边缘职责（前缀 / trace / 错误格式）
-  M7 起：纯边缘网关（反向代理 / 鉴权透传 / 限流 / API 版本）
+  当前：API 组合宿主，内嵌业务模块 + 边缘职责（前缀 / trace / 错误格式）
+  服务拆分后（归 vNext）：纯边缘网关（反向代理 / 鉴权透传 / 限流 / API 版本）
   边界详见 docs/adr/0003-gateway-boundary.md
 
 business modules
@@ -84,7 +84,7 @@ const presenceModule = await loadRemoteModule('presence');
 
 后端初期分为：
 
-- `gateway-api`：M4-M6 作为 API 组合宿主内嵌业务模块；M7 起退化为纯边缘网关。边界见 `docs/adr/0003-gateway-boundary.md`。
+- `gateway-api`：当前作为 API 组合宿主内嵌业务模块；服务拆分后退化为纯边缘网关（拆分归 vNext，见 `docs/adr/0005-product-replan-roadmap.md`）。边界见 `docs/adr/0003-gateway-boundary.md`。
 - `platform-api`：平台能力。
 - `modules/*/api`：业务模块后端。
 

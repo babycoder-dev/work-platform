@@ -5,8 +5,9 @@ Root `CLAUDE.md` + `AGENTS.md` apply; this only adds what's local here.
 This is the **dev and deployment entry** (port 3000). Today it is an **API
 composition host**: it embeds `PlatformModule` + business modules (`PresenceModule`,
 …) directly (`gateway.module.ts`). Per `docs/adr/0003-gateway-boundary.md` it stays a
-composition host through **M4–M6**, then degrades to a pure edge gateway
-(reverse proxy / auth pass-through / rate limit) from **M7**. Don't add edge-only
+composition host today; once services split out it degrades to a pure edge gateway
+(reverse proxy / auth pass-through / rate limit). That split is deferred to vNext under
+the 2026-05 re-plan (`docs/adr/0005-product-replan-roadmap.md`); don't pin it to an M-number. Don't add edge-only
 concerns early, and don't let business logic leak into the gateway.
 
 ## The global-guard gotcha (read before adding routes)
