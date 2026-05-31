@@ -17,6 +17,11 @@ export interface HttpClient {
     body?: TBody,
     options?: HttpRequestOptions,
   ): Promise<TResponse>;
+  patch<TResponse, TBody = unknown>(
+    url: string,
+    body?: TBody,
+    options?: HttpRequestOptions,
+  ): Promise<TResponse>;
   put<TResponse, TBody = unknown>(
     url: string,
     body?: TBody,

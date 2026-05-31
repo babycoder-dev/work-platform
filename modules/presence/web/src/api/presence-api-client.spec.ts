@@ -15,6 +15,7 @@ describe('createPresenceApiClient', () => {
         calls.push({ method: 'POST', url, body });
         return { id: 'record-001' };
       }),
+      patch: vi.fn(),
       put: vi.fn(),
       delete: vi.fn(async (url: string) => {
         calls.push({ method: 'DELETE', url });

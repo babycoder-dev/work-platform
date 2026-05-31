@@ -1,5 +1,44 @@
 # Verification Log
 
+## 2026-06-01
+
+### M5-3 Role Management Web
+
+Scope:
+
+- Implemented `docs/tasks/m5-3-role-management-web.md` only. Backend API, contracts,
+  migrations, scope parsing, organization placeholder, and employees placeholder remain unchanged.
+
+Change set:
+
+- Replaced `/platform/roles` placeholder with role list loading/empty/error/success states,
+  system-role read-only controls, create/edit/delete flows, and backend deletion message display.
+- Added platform-web runtime injection and a roles API client following the presence-web pattern;
+  list endpoints unwrap `{ items }`, role updates use `PATCH`, and employee assignment sends only
+  `{ roleIds }` to the encoded employee path.
+- Added a grouped function-permission matrix and the `PLATFORM_DATA_TYPES` data-scope matrix with
+  three data types, four editable scopes, explicit `self` defaults, and no `custom` editor.
+- Added a minimal role-side user assignment UI: enter an employee ID, select roles, and replace
+  that employee's role set. M8 personnel management may move this into an employee-centric UI.
+- Added `PATCH` support to `@work/http-client`, platform-web Testing Library dependencies, API
+  client tests, page tests, and the required lockfile update produced by `pnpm install`.
+
+Verification:
+
+- `pnpm install`: pass; lockfile updated by pnpm for platform-web workspace dependencies.
+- `pnpm lint`: pass. Pre-existing Nx ProjectGraph and unused/non-null-assertion warnings unchanged.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass.
+- `pnpm test:e2e`: pass.
+- `pnpm build`: pass.
+- `git diff --check`: pass.
+- Browser smoke intentionally deferred to M5-4 per task package.
+
+Follow-up:
+
+- M5-4 delivery verification: run full delivery gates and browser smoke for
+  role creation, per-type scope behavior, assignment, protected role behavior, and presence linkage.
+
 ## 2026-05-31
 
 ### M5-2 Role Management API

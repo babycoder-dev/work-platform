@@ -1,4 +1,5 @@
-import type { WorkWebModule } from '@work/platform-sdk';
+import type { WorkWebModule, WorkWebModuleRuntime } from '@work/platform-sdk';
+import { setPlatformRuntime } from './runtime';
 
 export const platformWebModule: WorkWebModule = {
   manifest: {
@@ -21,6 +22,9 @@ export const platformWebModule: WorkWebModule = {
       { path: '/platform/employees', permission: 'platform:employee:view' },
       { path: '/platform/roles', permission: 'platform:role:view' },
     ],
+  },
+  setRuntime(runtime: WorkWebModuleRuntime) {
+    setPlatformRuntime(runtime);
   },
   routes: [
     {

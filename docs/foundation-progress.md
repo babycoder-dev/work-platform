@@ -19,7 +19,7 @@
 | M3 Web Shell 可用基座       | 登录态、权限菜单、模块挂载                                                                              | Done        | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证     |
 | M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done        | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                        |
 | M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done        | M4-4 交付验证已完成；presence 模块进入维护态                                           |
-| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | In Progress | M5-2 已交付（角色 CRUD + 分配守卫 + 审计）；进行中，下一步 M5-3 Web 角色管理 UI       |
+| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | In Progress | M5-3 已交付（角色列表 + 编辑矩阵 + 用户分配入口）；下一步 M5-4 交付验证              |
 | M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Pending     | 多维表格前向兼容子集；供档案/在位/日报复用                                             |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Pending     | 不引入 IM/重型实时                                                                     |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending     | 依赖 M5/M6/M7                                                                          |
@@ -185,7 +185,7 @@
 当前建议执行：
 
 ```text
-M5-3: Web 角色管理 UI（docs/tasks/m5-3-role-management-web.md）
+M5-4: 交付验证（docs/tasks/m5-4-delivery-verification.md）
 ```
 
 M5-0 RFC 已完成：`docs/rfc/m5-roles-permissions-admin.md`（目标/非目标、按类型数据范围模型 B、
@@ -203,7 +203,7 @@ M4-4 完成结果：
 - M4 整段 Done；presence 模块进入维护态（后续优化进 M5+ 切片的 follow-up 或独立小切片）。
 - verification-log 锚点：`M4-4 Presence MVP Delivery Verification`。
 
-下一步启动 `M5-3: Web 角色管理 UI`（`docs/tasks/m5-3-role-management-web.md`）。注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见 `docs/adr/0005-product-replan-roadmap.md`。
+下一步启动 `M5-4: 交付验证`（`docs/tasks/m5-4-delivery-verification.md`）。注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见 `docs/adr/0005-product-replan-roadmap.md`。
 
 ### 6.1 M3.5 收口切片
 
@@ -225,7 +225,7 @@ M4-4 完成结果：
 | M5-0 | RFC                                    | Done    | 2026-05-31 完成；`docs/rfc/m5-roles-permissions-admin.md`               |
 | M5-1 | 数据模型 + 按类型数据范围 + Scope 改造 | Done    | 2026-05-31 完成；详见 verification-log `M5-1 RBAC Data Model and Scope` |
 | M5-2 | 角色管理 API（CRUD + 分配 + 审计）     | Done    | 2026-05-31 完成；详见 verification-log `M5-2 Role Management API`       |
-| M5-3 | Web 角色管理 UI                        | Pending | `docs/tasks/m5-3-role-management-web.md`；依赖 M5-1/M5-2                |
+| M5-3 | Web 角色管理 UI                        | Done    | 2026-06-01 完成；详见 verification-log `M5-3 Role Management Web`      |
 | M5-4 | 交付验证                               | Pending | `docs/tasks/m5-4-delivery-verification.md`；依赖 M5-1/M5-2/M5-3         |
 
 ## 7. 当前阻塞项

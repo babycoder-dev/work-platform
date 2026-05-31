@@ -59,6 +59,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
   return {
     get: (url, requestOptions) => request('GET', url, undefined, requestOptions),
     post: (url, body, requestOptions) => request('POST', url, body, requestOptions),
+    patch: (url, body, requestOptions) => request('PATCH', url, body, requestOptions),
     put: (url, body, requestOptions) => request('PUT', url, body, requestOptions),
     delete: (url, requestOptions) => request('DELETE', url, undefined, requestOptions),
   };
