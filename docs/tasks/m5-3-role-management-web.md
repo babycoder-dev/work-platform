@@ -2,7 +2,7 @@
 
 ## 状态
 
-Ready for execution（硬依赖 M5-1、M5-2 已合入）
+前置依赖：**须先合入 M5-1、M5-2 再执行本切片**（M5-1 已合入；M5-2 未合入时本包依赖的 `GET /roles/:id`、`PATCH/DELETE /roles/:id`、409 语义尚不存在，勿提前开工）。
 
 ## 0. 任务定位
 
@@ -28,10 +28,11 @@ Ready for execution（硬依赖 M5-1、M5-2 已合入）
 ## 2. 设计要点
 
 1. **数据类型 × 范围矩阵**：行 = `PLATFORM_DATA_TYPES`（profile/presence/report，中文标签：个人信息档案 / 在位状态 / 日报周报）；列 = 四个范围（本人/本部门/本部门及下级/全公司）。单选。`custom` **不出现**（预留）。某类型未选 = 不下发该类型 `dataScopes`（后端按 self 处理），UI 可默认选“本人”以显式化。
-2. **功能权限矩阵**：`GET /api/platform/permissions` 返回按 `moduleName` 分组勾选。
+2. **功能权限矩阵**：`GET /api/platform/permissions` 返回**扁平** `{ items: PermissionDto[] }`（每项自带 `moduleName`，**后端不分组**）；client 解包 `.items`，**分组在前端**按 `moduleName` 做。
 3. **`isSystem` 行**：列表中标“内置”，禁用编辑/删除按钮。
 4. **删除**：占用（409 `PLATFORM_ROLE_IN_USE`）与内置（409 `PLATFORM_ROLE_PROTECTED`）要把后端错误信封 message 展示给用户，不要静默吞。
 5. 标签/枚举从 contract 常量取，不在组件里硬编码字符串数组。
+6. **权限前置（易卡 403）**：列表/编辑需 `platform:role:view`，保存需 `platform:role:manage`，权限点矩阵拉取需 `platform:permission:view`，用户分配需 `platform:role:assign`。这些点都已在 platform manifest 声明且 admin 种子角色持有；用非 admin 角色自测时若 403，先确认其角色含上述点，而非代码问题。
 
 ## 3. 文件清单
 
@@ -62,7 +63,7 @@ export interface PlatformRolesApiClient {
 }
 ```
 
-> 后端 `GET /roles` 返回 `{ items: RoleDto[] }`；client 解包 `.items`（presence 同款风格按实际后端返回结构对齐——以 M5-2 实测响应为准）。`assignUserRoles(userId, roleIds)` → `put('employees/${encodeURIComponent(userId)}/roles', { roleIds })`：`userId` 走**路径参数**，请求体**只含 `roleIds`**（后端 `AssignEmployeeRolesDto` 只收 `roleIds`，userId 来自 `@Param('id')`；不要把 userId 塞进 body）。
+> 后端 `GET /roles` 返回 `{ items: RoleDto[] }`、`GET /permissions` 返回 `{ items: PermissionDto[] }`；`listRoles`/`listPermissions` 都要**解包 `.items`**（presence 同款风格，以 M5-2 实测响应为准）。`assignUserRoles(userId, roleIds)` → `put('employees/${encodeURIComponent(userId)}/roles', { roleIds })`：`userId` 走**路径参数**，请求体**只含 `roleIds`**（后端 `AssignEmployeeRolesDto` 只收 `roleIds`，userId 来自 `@Param('id')`；不要把 userId 塞进 body）。
 
 加 `.spec.ts` 断言每个方法打到正确 path/method（仿 `presence-api-client.spec.ts`）。
 
@@ -96,9 +97,9 @@ export interface PlatformRolesApiClient {
 
 > 决策：用户分配 UI 的归属页（角色侧 vs 员工侧）以实现成本择优；列表/编辑/矩阵为主线，分配为辅。
 
-## 4. 测试要求（`*.spec.tsx` / `*.spec.ts`，web 配置）
+## 4. 测试要求
 
-用 `vitest.web.config.mts`（`*.spec.tsx`，jsdom）。仿 presence 页面 spec 用 mock runtime（`createHttpClient: () => ({get,post,put,delete})`）：
+> 测试配置分两类（别混）：页面组件 `*.spec.tsx` 走 `vitest.web.config.mts`（jsdom，`include` 只匹配 `*.spec.tsx`）；api-client 的 `*.spec.ts` 走 `vitest.config.mts`（node）——与 presence 一致（`presence-api-client.spec.ts` 即 `.spec.ts`）。`pnpm test` 两者都跑。页面 spec 仿 presence 用 mock runtime（`createHttpClient: () => ({get,post,put,delete})`）：
 
 - api-client：各方法 path/method 正确。
 - RolesPage：加载成功渲染表格；空态；加载失败态；内置角色删除按钮禁用。

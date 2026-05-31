@@ -43,24 +43,29 @@ deleteRole(id: string): Promise<boolean>;
 countUsersWithRole(roleId: string): Promise<number>;
 ```
 
-- `updateRole`：事务内按提供字段增量更新 `roles`（name/description/status）；若 `input.permissionCodes` 提供，整组替换 `role_permissions`；若 `input.dataScopes` 提供，整组替换 `role_data_scopes`（先删后插该 role 的行）。返回组装后的 `RoleDto`；角色不存在返回 `undefined`。
-- `deleteRole`：物理删除 `roles` 行（子表 `ON DELETE CASCADE`）；删除成功 `true`，不存在 `false`。
-- `countUsersWithRole`：`SELECT count(*) FROM platform.user_roles WHERE role_id=$1`；memory 实现等价。
+- `updateRole`：事务内按提供字段增量更新 `roles`（name/description/status）；若 `input.permissionCodes` 提供，整组替换 `role_permissions`；若 `input.dataScopes` 提供，整组替换 `role_data_scopes`（先删后插该 role 的行）。返回组装后的 `RoleDto`；角色不存在返回 `undefined`。注意 PG 的 `listRoles`/`findRoleById` 读路径都过滤 `deleted_at IS NULL`，更新只动 active 行。
+- `deleteRole`：**物理删除** `roles` 行（`DELETE FROM platform.roles WHERE id=$1`，子表 `role_permissions`/`user_roles`/`role_data_scopes` 经迁移 SQL 的 `ON DELETE CASCADE` 清掉）；成功 `true`，不存在 `false`。
+  - **明确决策**：`roles` 表虽有 `deleted_at` 软删列（其它实体在用、读路径过滤），但**角色本期采用物理删除**——理由：① 无生产数据；② §6 的占用保护已挡住"删除仍被用户引用的角色"，无悬挂外键风险；③ `roles_enterprise_code_unique(enterprise_id, code)` 非部分索引，软删残留行会**占住 code 阻止同名重建**，物理删才能让管理员删后重建同 code。`deleted_at` 列对 roles **保留不用**（未来若改软删需先把唯一索引改成 `WHERE deleted_at IS NULL` 的部分索引）。
+- `countUsersWithRole`：PG = `SELECT count(*) FROM platform.user_roles WHERE role_id=$1`。**memory 实现不同**：内存 store 没有 `user_roles` 表，用户角色存在 `employee.roleIds` 数组里——遍历 `this.employees` 统计 `roleIds.includes(roleId)` 的员工数。
 
-## 4. 错误码（`packages/errors`）
+## 4. 错误码（内联抛 `ApiError`，不改 `packages/errors`）
 
-新增两个领域错误码并接入统一错误信封：
+> 现状核实：`packages/errors/src` **没有错误码常量表**（只有 `api-error.ts` / `error-response.ts` / `index.ts`）。既有平台码（如 `PLATFORM_DUPLICATE_RESOURCE`）是在 `apps/platform-api/src/repositories/postgres-error.mapper.ts:14` 用 `new ApiError('PLATFORM_DUPLICATE_RESOURCE', '资源已存在', { status: 409 })` **内联**抛出的。**不要**去 `packages/errors` 新建常量。
 
-- `PLATFORM_ROLE_PROTECTED`（HTTP 409）——内置角色不可改/删。
-- `PLATFORM_ROLE_IN_USE`（HTTP 409）——角色仍被用户占用，不可删。
+在 service 抛出处直接内联 `ApiError`（从 `@work/errors` import）：
 
-按 `packages/errors` 现有定义风格添加（参考既有 `PLATFORM_DUPLICATE_RESOURCE` 等）。controller/service 抛出时走统一 exception filter 输出标准信封。
+```ts
+throw new ApiError('PLATFORM_ROLE_PROTECTED', '内置角色不可修改或删除', { status: 409 });
+throw new ApiError('PLATFORM_ROLE_IN_USE', '角色仍被用户占用，无法删除', { status: 409 });
+```
+
+**关键**：这两个 409 **必须**用 `ApiError` 抛出。若改用 NestJS 内置 `ConflictException`，统一异常归一层（`nest-common` 的 `error-response.ts`）只对 `ApiError` 实例保留自定义 `code`，普通 Nest 异常会被归一为 `code: 'HTTP_409'`——§9 对 `code === 'PLATFORM_ROLE_*'` 的断言会失败。
 
 ## 5. DTO（`role.dto.ts`）
 
-- `CreateRoleDto`：去掉旧 `dataScope` 字段，加 `dataScopes: RoleDataScopeDto[]`（嵌套校验 `@ValidateNested({each:true})` + `@Type(() => RoleDataScopeDto)`）；`RoleDataScopeDto` 校验 `dataType @IsIn(PLATFORM_DATA_TYPES)`、`scope @IsIn(DATA_SCOPES)`。`permissionCodes @IsArray @IsString({each:true})`。
-- 新增 `UpdateRoleDto implements UpdateRoleInput`：全部字段 `@IsOptional`；`status @IsIn(['active','disabled'])`。
-- 同一 `dataType` 重复的校验：在 service 层显式检查（DTO 难表达唯一性），重复 → `BadRequestException`（400）。
+- `CreateRoleDto`：**现状已是 `dataScopes` 嵌套**（M5-1 已落地，DTO 里已无旧 `dataScope` 字段）——本期只需**确认**它带 `@ValidateNested({each:true})` + `@Type(() => RoleDataScopeDto)`，`RoleDataScopeDto` 校验 `dataType @IsIn(PLATFORM_DATA_TYPES)`、`scope @IsIn(DATA_SCOPES)`，缺则补齐。
+- **新增** `UpdateRoleDto implements UpdateRoleInput`（现 `role.dto.ts` 无此类）：全部字段 `@IsOptional`；`status @IsIn(['active','disabled'])`；`dataScopes` 同 `CreateRoleDto` 的嵌套校验。
+- 同一 `dataType` 重复的校验：在 service 层显式检查（DTO 难表达唯一性），重复 → `BadRequestException`（400）。400 校验沿用 Nest 内置异常即可（§9 对 400 只断言状态码、不断言 `code`）。
 
 ## 6. Service（`rbac.service.ts`）
 
@@ -79,7 +84,9 @@ countUsersWithRole(roleId: string): Promise<number>;
   - `countUsersWithRole>0` → `PLATFORM_ROLE_IN_USE`(409)。
   - `repository.deleteRole`；审计 `platform.role.delete`，metadata `{roleId, code}`。
 
-`assertUniqueDataTypes`：发现重复 `dataType` 抛 400。
+`assertUniqueDataTypes`：发现重复 `dataType` 抛 400（`BadRequestException`）。
+
+> 上面两处 409（`PLATFORM_ROLE_PROTECTED` / `PLATFORM_ROLE_IN_USE`）**必须按 §4 用 `new ApiError(code, msg, { status: 409 })` 抛**，否则错误码退化为 `HTTP_409`，§9 断言失败。404 用 `NotFoundException` 可（§9 对 404/400/403 只断状态码）。
 
 ## 7. Controller（`role.controller.ts`）
 

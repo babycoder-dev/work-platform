@@ -142,7 +142,7 @@ company
 custom
 ```
 
-业务模块**不允许自行解析** `currentUser.dataScopes`。所有数据范围解析必须经 `PlatformScopeService.resolveScope(currentUser)` 完成，返回结构化的 `PlatformScope`：
+业务模块**不允许自行解析** `currentUser.dataScopes`。所有数据范围解析必须经 `PlatformScopeService.resolveScope(currentUser, dataType)` 完成（M5-1 起按数据类型解析，`dataType ∈ 'profile' | 'presence' | 'report'`），返回结构化的 `PlatformScope`：
 
 ```text
 kind:               'self' | 'department' | 'department_tree' | 'company'

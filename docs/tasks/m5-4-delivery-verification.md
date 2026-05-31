@@ -2,7 +2,7 @@
 
 ## 状态
 
-Ready for execution（硬依赖 M5-1、M5-2、M5-3 已合入）
+前置依赖：**M5-1、M5-2、M5-3 全部合入后方可执行**（当前仅 M5-1 已合入；M5-2/M5-3 未交付前本切片的角色 API 与 UI 入口不存在，smoke 无法跑）。
 
 ## 0. 任务定位
 
@@ -45,15 +45,16 @@ pnpm docker:build
 
 ## 3. 浏览器 smoke（M5 端到端，核心）
 
-目标：证明**按数据类型范围**真正生效、跨业务模块联动。步骤：
+目标：证明**按数据类型范围**真正生效、跨业务模块联动。**关键：profile 与 presence 必须配成不同范围**，否则两条链路都看到"本部门"无法证明是按类型解析、而非全局单一范围。步骤：
 
 1. `pnpm db:setup` 后以 admin 登录（`admin/admin123` dev）。
-2. 进 `/platform/roles`：新建角色「部门负责人」——功能权限给 `presence:board:view` + `platform:employee:view`；数据范围设 `档案=本部门`、`在位状态=本部门`、`日报=本人`。保存成功。
-3. 验证 `role_data_scopes`（有 DB 时）：该角色 3 行，profile/presence=department、report=self。
+2. 进 `/platform/roles`：新建角色「部门负责人」——功能权限给 `presence:board:view` + `platform:employee:view`；数据范围**故意设成不同**：`档案(profile)=本部门`、`在位状态(presence)=全公司`、`日报(report)=本人`。保存成功。
+3. 验证 `role_data_scopes`（有 DB 时）：该角色 3 行，profile=department、presence=company、report=self。
 4. 给一个非管理员测试员工（隶属某部门）分配该角色：优先经 M5-3 的 UI 分配入口；若 M5-3 未交付分配 UI，则用 `PUT /employees/:id/roles`（body 仅 `{ roleIds }`）完成，并在 log 注明走 API 路径。
-5. 以该员工登录：
+5. 以该员工登录，**两条链路结果不同即证明按类型解析成立**：
    - `/platform/employees`：只看到**本部门**员工（profile=department 生效）。
-   - `/presence/board`：看板只显示**本部门**成员状态（presence=department 生效）。
+   - `/presence/board`：看板显示**全公司**成员状态（presence=company 生效）。
+   - 若两者范围一致（都本部门或都全公司）即说明按类型解析未生效，判为 fail。
 6. 验证保护语义：以 admin 试图删除/编辑「系统管理员」角色 → UI 报 409 受保护；试图删除已被占用的「部门负责人」→ 409 占用提示。
 7. 解除占用后删除「部门负责人」成功。
 
@@ -75,8 +76,8 @@ pnpm docker:build
 
 1. `docs/foundation-progress.md`：
    - §1 总览：M5 行状态 `Pending → Done`，结论列写“角色管理 + 按类型数据范围 + UI 已交付，门禁就绪”。
-   - §6 当前下一步：改为 `M6-0 动态表单 mini + 文件存储 RFC`（`docs/rfc/m6-*.md`），并注明 M5 已退出。
-   - §6.2 M5-4 置 `Done` + 日期 + 锚点。
+   - §6.2 M5 切片表：确认 M5-1/M5-2/M5-3 行都已置 `Done`（各自切片应已更新；若有遗漏在此补齐），再把 M5-4 置 `Done` + 日期 + 锚点。避免出现“M5 整段 Done 但子切片仍 Pending”的不一致。
+   - §6 当前下一步：改为指向 **M6（动态表单 mini + 文件存储）**，并注明 M5 已退出。注：M6 的 RFC（`docs/rfc/m6-*.md`）**尚未创建**，是待立项的下一步，不是已存在引用。
    - 可新增 §M5 专节（仿 §8 M4）记录 M5 切片完成表（可选，与 §6.2 不重复即可）。
 2. `docs/verification-log.md`：加 `### M5-4 Roles & Permissions Delivery Verification`，含 §2 命令矩阵实测、§3 smoke 七步结果、§4 退出清单勾选、Follow-up=M6。
 

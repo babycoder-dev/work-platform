@@ -191,7 +191,8 @@ async resolveScope(user: CurrentUserDto, dataType: PlatformDataType): Promise<Pl
 ```
 
 - 空数组 → `self`，`degradedFromCustom=false`。
-- 仅当 `scopesForType` 含 `custom` 且不含任何更宽有效范围时，置 `degradedFromCustom=true`、kind=`self`（保留现语义：能区分“显式 custom 降级” vs “本就是 self”）。实现：`const hasCustom = scopesForType.includes('custom'); const hasEffective = EFFECTIVE_SCOPE_ORDER.some(k => scopesForType.includes(k)); degradedFromCustom = hasCustom && !hasEffective;`
+- 仅当 `scopesForType` 含 `custom` 且不含任何更宽有效范围时，置 `degradedFromCustom=true`、kind=`self`。实现：`const hasCustom = scopesForType.includes('custom'); const hasEffective = EFFECTIVE_SCOPE_ORDER.some(k => scopesForType.includes(k)); degradedFromCustom = hasCustom && !hasEffective;`
+  - 注意这是对旧实现的**行为修正**而非等价：旧 `rawKind ?? 'custom'` 写法会把**空数组**也误判为 `degradedFromCustom=true`；新公式下空数组 → `false`，只有显式 `custom` 且无有效范围才 `true`。§10.2 断言据此区分两种情形。
 - `department`/`department_tree` 的 `departmentIds` 展开不变。
 
 ### 6.2 `toCurrentUser`（`src/auth/auth.service.ts`）
@@ -319,6 +320,7 @@ SELECT module_name, count(*) FROM platform.permissions GROUP BY module_name ORDE
 
 1. `docs/foundation-progress.md`：§6.2 M5 切片表中 M5-1 置 `Done` + 日期 + verification-log 锚点；§6 “当前下一步”改为 `M5-2 角色管理 API`。
 2. `docs/verification-log.md`：顶部加 `## YYYY-MM-DD` + `### M5-1 RBAC Data Model and Scope`，含 Change set、§10 各项实测结果（含 10.3 SQL 数字或“依赖 CI + 等价 spec”）、`security-reviewer` 结论、Follow-up=M5-2。
+3. **同步因 `resolveScope` 签名变更而失真的文档**（强制，否则它们会教错下游）：把 `docs/platform-core.md`、`docs/module-contract.md`（§7.1.5 模块集成模板）、`docs/ai-handoff.md` 中旧的单参 `resolveScope(currentUser)` 改为 `resolveScope(currentUser, dataType)`，注明 `dataType ∈ 'profile' | 'presence' | 'report'`。（本切片实际交付时已先行同步，此项留作 checklist。）
 
 ## 13. 提交规范
 

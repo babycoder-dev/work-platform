@@ -100,9 +100,9 @@ M3.5-D：
 
 M3.5-E：
 
-- `PlatformScopeService.resolveScope(currentUser)`。
+- `PlatformScopeService.resolveScope(currentUser)`（M5-1 起改为按数据类型 `resolveScope(currentUser, dataType)`，`dataType ∈ 'profile' | 'presence' | 'report'`）。
 - effective scope 规则：`company > department_tree > department > self`。
-- `custom` 与空 dataScopes 降级为 `self`，`degradedFromCustom=true`。
+- `custom` 与空 dataScopes 降级为 `self`（空数组 `degradedFromCustom=false`，显式 `custom` 且无有效范围才 `=true`）。
 - `PlatformRepository.listDescendantDepartmentIds(parentId, enterpriseId)`。
 - `GET /api/platform/employees` 已接入 scope 过滤。
 - 跨 `enterpriseId` 绝不放行。
