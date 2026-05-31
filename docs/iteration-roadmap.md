@@ -1,5 +1,11 @@
 # 迭代路径建议
 
+> **已过时（2026-05）。** 本文是项目早期的迭代建议，其 Phase 划分与当前里程碑已不一致
+> （例如把审批/日报/通知排在在位之后、通知中心放在 Phase 5）。权威路线图以
+> `docs/foundation-blueprint.md` §10、`docs/foundation-progress.md` 与
+> `docs/adr/0005-product-replan-roadmap.md` 为准；产品需求以 `docs/product-requirements.md` 为准。
+> 本文仅保留备查，不作为实施依据。
+
 ## Phase 0: 工程基建
 
 目标：让后续所有模块都能按统一方式开发。

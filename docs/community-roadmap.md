@@ -4,12 +4,18 @@ This roadmap explains where community contributions fit. The authoritative engin
 
 ## Current Project Stage
 
-Work Platform is in early M4 development:
+Work Platform finished M0–M4 (platform foundations + presence MVP). In 2026-05 the
+post-M4 roadmap was re-planned; see `docs/adr/0005-product-replan-roadmap.md` and
+`docs/product-requirements.md`.
 
-- M0-M3.5 platform foundations are complete.
-- M4 presence MVP is in progress.
-- Presence contract, schema, repository, API, permissions, audit, event emission, and Web pages are implemented.
-- The next milestone is M4-4 delivery verification: full local verification, database integration, PostgreSQL E2E, Docker build, browser smoke, and CI confirmation.
+- M0–M4 are complete: platform core (auth, persistence, permissions, menus, audit,
+  data-scope, Web Shell) and the presence MVP.
+- The next milestone is **M5 roles & permission management** (functional + per-data-type
+  data permissions with an admin UI), the gate for everything after it.
+- Subsequent milestones: dynamic-form mini + file storage (M6), in-app notification +
+  scheduler (M7), people/org/profile (M8), presence v2 (M9), daily report (M10),
+  approval workflow (M11). Multi-dimensional tables, chat/IM, and intranet delivery
+  are vNext.
 
 The project is not production ready yet.
 
