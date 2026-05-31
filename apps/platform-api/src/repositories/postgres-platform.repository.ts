@@ -13,6 +13,7 @@ import type {
   PermissionDto,
   RoleDataScope,
   RoleDto,
+  UpdateRoleInput,
 } from '@work/platform-contract';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { PLATFORM_DB_POOL } from '../db/db.provider';
@@ -575,6 +576,62 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
+  async updateRole(id: string, input: UpdateRoleInput): Promise<RoleDto | undefined> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const existingRole = await findRoleById(client, id);
+      if (!existingRole) {
+        await client.query('ROLLBACK');
+        return undefined;
+      }
+
+      await client.query(
+        `
+          UPDATE platform.roles
+          SET
+            name = COALESCE($2, name),
+            description = CASE WHEN $3::boolean THEN $4 ELSE description END,
+            status = COALESCE($5, status),
+            updated_at = now()
+          WHERE id = $1 AND deleted_at IS NULL
+        `,
+        [id, input.name ?? null, input.description !== undefined, input.description ?? null, input.status ?? null],
+      );
+      if (input.permissionCodes !== undefined) {
+        await replaceRolePermissions(client, id, input.permissionCodes);
+      }
+      if (input.dataScopes !== undefined) {
+        await replaceRoleDataScopes(client, id, input.dataScopes);
+      }
+      await client.query('COMMIT');
+
+      return findRoleById(this.pool, id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      mapPostgresError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteRole(id: string): Promise<boolean> {
+    try {
+      const result = await this.pool.query('DELETE FROM platform.roles WHERE id = $1', [id]);
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      mapPostgresError(error);
+    }
+  }
+
+  async countUsersWithRole(roleId: string): Promise<number> {
+    const result = await this.pool.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM platform.user_roles WHERE role_id = $1',
+      [roleId],
+    );
+    return Number(result.rows[0].count);
+  }
+
   async setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined> {
     const client = await this.pool.connect();
     try {
@@ -623,8 +680,8 @@ export class PostgresPlatformRepository implements PlatformRepository {
         input.action,
         input.resourceType,
         input.resourceId ?? null,
-        input.traceId ?? null,
-        input.ip ?? null,
+        limitVarchar(input.traceId, 128),
+        limitVarchar(input.ip, 128),
         input.userAgent ?? null,
         input.result,
         input.metadata ? JSON.stringify(input.metadata) : null,
@@ -661,6 +718,12 @@ async function findEmployeeById(executor: QueryExecutor, id: string): Promise<Em
   const result = await executor.query<EmployeeRow>(employeeSelectSql('WHERE e.id = $1 AND e.deleted_at IS NULL'), [id]);
 
   return mapFirst(result, mapEmployee);
+}
+
+async function findRoleById(executor: QueryExecutor, id: string): Promise<RoleDto | undefined> {
+  const result = await executor.query<RoleRow>(roleSelectSql('WHERE r.id = $1 AND r.deleted_at IS NULL'), [id]);
+
+  return mapFirst(result, mapRole);
 }
 
 function roleSelectSql(suffix: string): string {
@@ -702,9 +765,40 @@ async function replaceUserRoles(executor: QueryExecutor, userId: string, roleIds
   }
 }
 
+async function replaceRolePermissions(executor: QueryExecutor, roleId: string, permissionCodes: string[]): Promise<void> {
+  await executor.query('DELETE FROM platform.role_permissions WHERE role_id = $1', [roleId]);
+  for (const permissionCode of permissionCodes) {
+    await executor.query(
+      `
+        INSERT INTO platform.role_permissions (role_id, permission_code)
+        VALUES ($1, $2)
+        ON CONFLICT (role_id, permission_code) DO NOTHING
+      `,
+      [roleId, permissionCode],
+    );
+  }
+}
+
+async function replaceRoleDataScopes(executor: QueryExecutor, roleId: string, dataScopes: RoleDataScope[]): Promise<void> {
+  await executor.query('DELETE FROM platform.role_data_scopes WHERE role_id = $1', [roleId]);
+  for (const dataScope of dataScopes) {
+    await executor.query(
+      `
+        INSERT INTO platform.role_data_scopes (role_id, data_type, scope)
+        VALUES ($1, $2, $3)
+      `,
+      [roleId, dataScope.dataType, dataScope.scope],
+    );
+  }
+}
+
 function mapFirst<Row extends QueryResultRow, Dto>(result: QueryResult<Row>, mapper: (row: Row) => Dto): Dto | undefined {
   const row = result.rows[0];
   return row ? mapper(row) : undefined;
+}
+
+function limitVarchar(value: string | undefined, maxLength: number): string | null {
+  return value?.slice(0, maxLength) ?? null;
 }
 
 function mapEnterprise(row: EnterpriseRow): EnterpriseDto {

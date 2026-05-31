@@ -10,6 +10,7 @@ import type {
   ModuleManifestDto,
   PermissionDto,
   RoleDto,
+  UpdateRoleInput,
 } from '@work/platform-contract';
 
 export interface AccessSession {
@@ -71,6 +72,9 @@ export interface PlatformRepository {
   listRoles(): Promise<RoleDto[]>;
   findRoleById(id: string): Promise<RoleDto | undefined>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;
+  updateRole(id: string, input: UpdateRoleInput): Promise<RoleDto | undefined>;
+  deleteRole(id: string): Promise<boolean>;
+  countUsersWithRole(roleId: string): Promise<number>;
   setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined>;
   recordAuditLog(input: CreateAuditLogInput): Promise<void>;
 }

@@ -2,6 +2,48 @@
 
 ## 2026-05-31
 
+### M5-2 Role Management API
+
+Scope:
+
+- Implemented `docs/tasks/m5-2-role-management-api.md` only. Web role management remains M5-3.
+
+Change set:
+
+- Added repository `updateRole` / `deleteRole` / `countUsersWithRole` across PostgreSQL and memory implementations.
+- Added `GET /roles/:id`, `PATCH /roles/:id`, and `DELETE /roles/:id`; system roles are protected and assigned roles cannot be deleted.
+- Added `UpdateRoleDto`, duplicate `dataType` service validation, and memory duplicate-code behavior matching PostgreSQL.
+- Switched `PUT /employees/:id/roles` from `platform:role:manage` to `platform:role:assign`.
+- Added `platform.role.update` / `platform.role.delete` audit records and updated role API E2E coverage.
+
+Verification:
+
+- `pnpm install`: pass; lockfile unchanged.
+- `pnpm lint`: pass. Pre-existing Nx ProjectGraph and unused/non-null-assertion warnings unchanged.
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. Unit: 99 passed, 17 PostgreSQL-gated skipped. Web: 8 passed.
+- `pnpm test:e2e`: pass. Memory: 23 passed; PostgreSQL-gated: 12 skipped.
+- `pnpm build`: pass.
+- `git diff --check`: pass.
+- PostgreSQL §10 verification: blocked locally. `localhost:5432` is not listening; `pnpm db:setup`
+  fails with `connect EACCES ::1:5432` and `connect ECONNREFUSED 127.0.0.1:5432`.
+  CI or a running local PostgreSQL must execute `pnpm db:setup`, `pnpm test:db`, and
+  `pnpm test:e2e:postgres`.
+
+Security review:
+
+- `security-reviewer`: LGTM. Role CRUD and assignment permission wiring, protected/in-use
+  `ApiError` envelopes, DTO validation, and audit metadata are correct.
+- Closed during review: PostgreSQL audit persistence now bounds external `traceId` and `ip`
+  values to their `varchar(128)` columns; PATCH duplicate `dataType` has explicit 400 coverage.
+- Out-of-scope hardening follow-ups: repository unit-of-work for atomic mutation + audit;
+  transactional role deletion or row locking to close the narrow count/delete concurrency
+  window; align pre-existing Drizzle cascade metadata with migration SQL in a schema slice.
+
+Follow-up:
+
+- M5-3 Web role management UI.
+
 ### M5-1 RBAC Data Model and Scope
 
 Scope:

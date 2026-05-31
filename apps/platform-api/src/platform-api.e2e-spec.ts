@@ -373,6 +373,237 @@ describe('platform-api', () => {
     );
   });
 
+  describe('role management API', () => {
+    it('creates, gets, updates, deletes, and audits roles', async () => {
+      const token = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const createResponse = await request(app.getHttpServer())
+        .post('/api/platform/roles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          enterpriseId: 'ent-default',
+          code: `role-crud-${suffix}`,
+          name: 'Role CRUD',
+          permissionCodes: ['platform:org:view'],
+          dataScopes: [
+            { dataType: 'profile', scope: 'department' },
+            { dataType: 'presence', scope: 'self' },
+          ],
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .get(`/api/platform/roles/${createResponse.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual(createResponse.body);
+        });
+
+      await request(app.getHttpServer())
+        .patch(`/api/platform/roles/${createResponse.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Trace-Id', `trace-role-update-${suffix}`)
+        .send({
+          name: 'Role CRUD Updated',
+          status: 'disabled',
+          permissionCodes: ['platform:employee:view'],
+          dataScopes: [{ dataType: 'report', scope: 'company' }],
+        })
+        .expect(200)
+        .expect((response) => {
+          expect(response.body).toEqual(
+            expect.objectContaining({
+              name: 'Role CRUD Updated',
+              status: 'disabled',
+              permissionCodes: ['platform:employee:view'],
+              dataScopes: [{ dataType: 'report', scope: 'company' }],
+            }),
+          );
+        });
+
+      await request(app.getHttpServer())
+        .delete(`/api/platform/roles/${createResponse.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Trace-Id', `trace-role-delete-${suffix}`)
+        .expect(200)
+        .expect({ success: true });
+
+      await request(app.getHttpServer())
+        .get(`/api/platform/roles/${createResponse.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(404);
+
+      expect(memoryStore.auditLogs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: 'platform.role.update',
+            resourceId: createResponse.body.id,
+            traceId: `trace-role-update-${suffix}`,
+            metadata: {
+              roleId: createResponse.body.id,
+              name: 'Role CRUD Updated',
+              status: 'disabled',
+              permissionCodes: ['platform:employee:view'],
+              dataScopes: [{ dataType: 'report', scope: 'company' }],
+            },
+          }),
+          expect.objectContaining({
+            action: 'platform.role.delete',
+            resourceId: createResponse.body.id,
+            traceId: `trace-role-delete-${suffix}`,
+            metadata: {
+              roleId: createResponse.body.id,
+              code: `role-crud-${suffix}`,
+            },
+          }),
+        ]),
+      );
+    });
+
+    it('rejects protected, in-use, duplicate, and invalid role mutations', async () => {
+      const token = await loginAsAdmin();
+      const suffix = Date.now().toString();
+
+      for (const method of ['patch', 'delete'] as const) {
+        const response = await request(app.getHttpServer())[method]('/api/platform/roles/role-admin')
+          .set('Authorization', `Bearer ${token}`)
+          .send(method === 'patch' ? { name: 'Changed Admin' } : undefined)
+          .expect(409);
+        expect(response.body.code).toBe('PLATFORM_ROLE_PROTECTED');
+      }
+
+      const role = await createRole(token, `role-in-use-${suffix}`, 'self');
+      const employee = await createEmployee(token, {
+        employeeNo: `RIU${suffix}`,
+        account: `role-in-use-${suffix}`,
+        name: 'Role In Use',
+      });
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${employee.body.id}/roles`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ roleIds: [role.body.id] })
+        .expect(200);
+      const inUseResponse = await request(app.getHttpServer())
+        .delete(`/api/platform/roles/${role.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(409);
+      expect(inUseResponse.body.code).toBe('PLATFORM_ROLE_IN_USE');
+
+      await request(app.getHttpServer())
+        .post('/api/platform/roles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          enterpriseId: 'ent-default',
+          code: `role-in-use-${suffix}`,
+          name: 'Duplicate Role',
+          permissionCodes: [],
+          dataScopes: [],
+        })
+        .expect(409)
+        .expect((response) => {
+          expect(response.body.code).toBe('PLATFORM_DUPLICATE_RESOURCE');
+        });
+
+      await request(app.getHttpServer())
+        .post('/api/platform/roles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          enterpriseId: 'ent-default',
+          code: `role-duplicate-scope-${suffix}`,
+          name: 'Duplicate Scope',
+          permissionCodes: [],
+          dataScopes: [
+            { dataType: 'profile', scope: 'self' },
+            { dataType: 'profile', scope: 'company' },
+          ],
+        })
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(`/api/platform/roles/${role.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          dataScopes: [
+            { dataType: 'presence', scope: 'self' },
+            { dataType: 'presence', scope: 'company' },
+          ],
+        })
+        .expect(400);
+      await request(app.getHttpServer())
+        .post('/api/platform/roles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          enterpriseId: 'ent-default',
+          code: `role-invalid-scope-${suffix}`,
+          name: 'Invalid Scope',
+          permissionCodes: [],
+          dataScopes: [{ dataType: 'unknown', scope: 'invalid' }],
+        })
+        .expect(400);
+    });
+
+    it('enforces role view/manage/assign permissions independently', async () => {
+      const suffix = Date.now().toString();
+      const assignRole = await memoryStore.createRole({
+        enterpriseId: 'ent-default',
+        code: `assign-role-${suffix}`,
+        name: 'Assign Role',
+        permissionCodes: ['platform:role:assign'],
+        dataScopes: [],
+      });
+      const manageRole = await memoryStore.createRole({
+        enterpriseId: 'ent-default',
+        code: `manage-role-${suffix}`,
+        name: 'Manage Role',
+        permissionCodes: ['platform:role:manage'],
+        dataScopes: [],
+      });
+      const assigner = await memoryStore.createEmployee({
+        enterpriseId: 'ent-default',
+        employeeNo: `RAS${suffix}`,
+        account: `role-assign-${suffix}`,
+        name: 'Role Assigner',
+        initialPassword: 'Scope1234',
+        roleIds: [assignRole.id],
+      });
+      const manager = await memoryStore.createEmployee({
+        enterpriseId: 'ent-default',
+        employeeNo: `RMG${suffix}`,
+        account: `role-manage-${suffix}`,
+        name: 'Role Manager',
+        initialPassword: 'Scope1234',
+        roleIds: [manageRole.id],
+      });
+      const target = await memoryStore.createEmployee({
+        enterpriseId: 'ent-default',
+        employeeNo: `RTG${suffix}`,
+        account: `role-target-${suffix}`,
+        name: 'Role Target',
+        initialPassword: 'Scope1234',
+      });
+      const assignToken = (await login(assigner.account)).body.accessToken as string;
+      const manageToken = (await login(manager.account)).body.accessToken as string;
+
+      await request(app.getHttpServer())
+        .get('/api/platform/roles')
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/api/platform/roles')
+        .set('Authorization', `Bearer ${manageToken}`)
+        .expect(403);
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${target.id}/roles`)
+        .set('Authorization', `Bearer ${assignToken}`)
+        .send({ roleIds: [manageRole.id] })
+        .expect(200);
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${target.id}/roles`)
+        .set('Authorization', `Bearer ${manageToken}`)
+        .send({ roleIds: [] })
+        .expect(403);
+    });
+  });
+
   it('returns normalized errors with trace id', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/platform/auth/login')

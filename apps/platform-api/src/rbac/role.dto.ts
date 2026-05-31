@@ -3,6 +3,7 @@ import type {
   DataScope,
   PlatformDataType,
   RoleDataScope,
+  UpdateRoleInput,
 } from '@work/platform-contract';
 import { PLATFORM_DATA_TYPES } from '@work/platform-contract';
 import { Type } from 'class-transformer';
@@ -43,4 +44,29 @@ export class CreateRoleDto implements CreateRoleInput {
   @ValidateNested({ each: true })
   @Type(() => RoleDataScopeDto)
   dataScopes!: RoleDataScopeDto[];
+}
+
+export class UpdateRoleDto implements UpdateRoleInput {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  permissionCodes?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RoleDataScopeDto)
+  dataScopes?: RoleDataScopeDto[];
+
+  @IsOptional()
+  @IsIn(['active', 'disabled'])
+  status?: 'active' | 'disabled';
 }

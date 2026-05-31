@@ -138,6 +138,25 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       action: 'integration.audit',
       actor_account: employee.account,
     });
+
+    await repository.recordAuditLog({
+      action: 'integration.audit.bounded-context',
+      resourceType: 'platform.employee',
+      result: 'success',
+      traceId: 't'.repeat(256),
+      ip: 'i'.repeat(256),
+    });
+    const boundedAuditLog = await pool.query<{ trace_id: string; ip: string }>(
+      `
+        SELECT trace_id, ip
+        FROM platform.audit_logs
+        WHERE action = 'integration.audit.bounded-context'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+    );
+    expect(boundedAuditLog.rows[0].trace_id).toHaveLength(128);
+    expect(boundedAuditLog.rows[0].ip).toHaveLength(128);
   });
 
   it('lists menus allowed by permission codes', async () => {
@@ -372,6 +391,50 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     ).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
       status: 400,
+    });
+  });
+
+  it('updates, counts assignments for, and physically deletes roles', async () => {
+    const suffix = Date.now().toString();
+    const role = await repository.createRole({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      code: `mutable-role-${suffix}`,
+      name: 'Mutable Role',
+      permissionCodes: ['platform:org:view'],
+      dataScopes: [{ dataType: 'profile', scope: 'self' }],
+    });
+    const employee = await repository.createEmployee({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      departmentId: DEFAULT_DEPARTMENT_ID,
+      employeeNo: `MR${suffix}`,
+      account: `mutable-role-user-${suffix}`,
+      name: 'Mutable Role User',
+      initialPassword: 'Passw0rd1',
+      roleIds: [role.id],
+    });
+
+    await expect(repository.countUsersWithRole(role.id)).resolves.toBe(1);
+    await expect(repository.updateRole(role.id, {
+      name: 'Updated Mutable Role',
+      status: 'disabled',
+      permissionCodes: ['platform:employee:view'],
+      dataScopes: [{ dataType: 'presence', scope: 'department_tree' }],
+    })).resolves.toEqual(
+      expect.objectContaining({
+        id: role.id,
+        name: 'Updated Mutable Role',
+        status: 'disabled',
+        permissionCodes: ['platform:employee:view'],
+        dataScopes: [{ dataType: 'presence', scope: 'department_tree' }],
+      }),
+    );
+
+    await repository.setUserRoles(employee.id, []);
+    await expect(repository.countUsersWithRole(role.id)).resolves.toBe(0);
+    await expect(repository.deleteRole(role.id)).resolves.toBe(true);
+    await expect(repository.findRoleById(role.id)).resolves.toBeUndefined();
+    await expect(pool.query('SELECT id FROM platform.roles WHERE id = $1', [role.id])).resolves.toMatchObject({
+      rowCount: 0,
     });
   });
 });

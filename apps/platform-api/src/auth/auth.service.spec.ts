@@ -540,6 +540,9 @@ function createRepositoryMock() {
     listRoles: vi.fn().mockResolvedValue([]),
     findRoleById: vi.fn().mockResolvedValue(role),
     createRole: vi.fn(),
+    updateRole: vi.fn(),
+    deleteRole: vi.fn(),
+    countUsersWithRole: vi.fn(),
     setUserRoles: vi.fn(),
     recordAuditLog: vi.fn().mockResolvedValue(undefined),
   } as PlatformRepository & {

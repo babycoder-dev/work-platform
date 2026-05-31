@@ -37,7 +37,7 @@ export class EmployeeController {
   }
 
   @Put(':id/roles')
-  @RequirePermissions('platform:role:manage')
+  @RequirePermissions('platform:role:assign')
   assignRoles(
     @Param('id') id: string,
     @Body(dtoValidationPipe(AssignEmployeeRolesDto)) input: AssignEmployeeRolesDto,

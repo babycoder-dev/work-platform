@@ -83,6 +83,46 @@ describe('PlatformMemoryStore', () => {
     });
   });
 
+  it('updates, counts assignments for, and deletes roles', async () => {
+    const store = new PlatformMemoryStore();
+    const role = await store.createRole({
+      enterpriseId: 'ent-default',
+      code: 'mutable-role',
+      name: 'Mutable Role',
+      permissionCodes: [],
+      dataScopes: [],
+    });
+    const employee = await store.createEmployee({
+      enterpriseId: 'ent-default',
+      employeeNo: '000003',
+      account: 'role-user',
+      name: 'Role User',
+      initialPassword: 'Passw0rd',
+      roleIds: [role.id],
+    });
+
+    await expect(store.countUsersWithRole(role.id)).resolves.toBe(1);
+    await expect(store.updateRole(role.id, {
+      name: 'Updated Role',
+      status: 'disabled',
+      permissionCodes: ['platform:org:view'],
+      dataScopes: [{ dataType: 'report', scope: 'company' }],
+    })).resolves.toEqual(
+      expect.objectContaining({
+        id: role.id,
+        name: 'Updated Role',
+        status: 'disabled',
+        permissionCodes: ['platform:org:view'],
+        dataScopes: [{ dataType: 'report', scope: 'company' }],
+      }),
+    );
+
+    await store.setUserRoles(employee.id, []);
+    await expect(store.countUsersWithRole(role.id)).resolves.toBe(0);
+    await expect(store.deleteRole(role.id)).resolves.toBe(true);
+    await expect(store.findRoleById(role.id)).resolves.toBeUndefined();
+  });
+
   it('updates local identity security state', async () => {
     const store = new PlatformMemoryStore();
     const lockedUntil = '2099-01-01T00:15:00.000Z';

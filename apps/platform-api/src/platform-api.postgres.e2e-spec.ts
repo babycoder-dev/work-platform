@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readPlatformDatabaseConfig } from './db/db.config';
 import { runMigrations } from './db/migrate';
 import { PlatformModule } from './platform.module';
+import { DEFAULT_ADMIN_ROLE_ID } from './seeds/seed-data';
 import { seedPlatform } from './seeds/seed-platform';
 import { hashPassword } from './security/secret-hash';
 
@@ -248,6 +249,70 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
         }),
       ]),
     );
+  });
+
+  it('round-trips role details and rejects protected or in-use role mutations', async () => {
+    const suffix = Date.now().toString();
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'admin',
+        password: adminPassword,
+      })
+      .expect(201);
+    const token = loginResponse.body.accessToken as string;
+    const roleResponse = await request(app.getHttpServer())
+      .post('/api/platform/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        code: `pg-role-api-${suffix}`,
+        name: 'PG Role API',
+        permissionCodes: ['platform:employee:view'],
+        dataScopes: [{ dataType: 'profile', scope: 'department' }],
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get(`/api/platform/roles/${roleResponse.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(roleResponse.body);
+      });
+    for (const method of ['patch', 'delete'] as const) {
+      await request(app.getHttpServer())[method](`/api/platform/roles/${DEFAULT_ADMIN_ROLE_ID}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(method === 'patch' ? { name: 'Changed Admin' } : undefined)
+        .expect(409)
+        .expect((response) => {
+          expect(response.body.code).toBe('PLATFORM_ROLE_PROTECTED');
+        });
+    }
+
+    const employeeResponse = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        employeeNo: `RA${suffix}`,
+        account: `pg-role-api-${suffix}`,
+        name: 'PG Role API User',
+        initialPassword: 'Passw0rd1',
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${employeeResponse.body.id}/roles`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ roleIds: [roleResponse.body.id] })
+      .expect(200);
+    await request(app.getHttpServer())
+      .delete(`/api/platform/roles/${roleResponse.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409)
+      .expect((response) => {
+        expect(response.body.code).toBe('PLATFORM_ROLE_IN_USE');
+      });
   });
 
   it('locks postgres-backed accounts after five wrong passwords', async () => {

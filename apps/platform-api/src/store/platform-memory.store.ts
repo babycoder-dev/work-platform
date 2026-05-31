@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { ApiError } from '@work/errors';
 import type {
   CreateAuditLogInput,
   CreateDepartmentInput,
@@ -12,6 +13,7 @@ import type {
   ModuleManifestDto,
   PermissionDto,
   RoleDto,
+  UpdateRoleInput,
 } from '@work/platform-contract';
 import type {
   AccessSession,
@@ -230,6 +232,10 @@ export class PlatformMemoryStore implements PlatformRepository {
   }
 
   async createRole(input: CreateRoleInput): Promise<RoleDto> {
+    if (Array.from(this.roles.values()).some((role) => role.enterpriseId === input.enterpriseId && role.code === input.code)) {
+      throw new ApiError('PLATFORM_DUPLICATE_RESOURCE', '资源已存在', { status: 409 });
+    }
+
     const role: RoleDto = {
       id: randomUUID(),
       enterpriseId: input.enterpriseId,
@@ -244,6 +250,32 @@ export class PlatformMemoryStore implements PlatformRepository {
 
     this.roles.set(role.id, role);
     return role;
+  }
+
+  async updateRole(id: string, input: UpdateRoleInput): Promise<RoleDto | undefined> {
+    const role = this.roles.get(id);
+    if (!role) {
+      return undefined;
+    }
+
+    const updated: RoleDto = {
+      ...role,
+      name: input.name ?? role.name,
+      description: input.description ?? role.description,
+      permissionCodes: input.permissionCodes ?? role.permissionCodes,
+      dataScopes: input.dataScopes ?? role.dataScopes,
+      status: input.status ?? role.status,
+    };
+    this.roles.set(id, updated);
+    return updated;
+  }
+
+  async deleteRole(id: string): Promise<boolean> {
+    return this.roles.delete(id);
+  }
+
+  async countUsersWithRole(roleId: string): Promise<number> {
+    return Array.from(this.employees.values()).filter((employee) => employee.roleIds.includes(roleId)).length;
   }
 
   async setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined> {
