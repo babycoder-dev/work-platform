@@ -461,6 +461,24 @@ describe('platform-api', () => {
       );
     });
 
+    it('derives the role enterprise from the authenticated user', async () => {
+      const token = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const response = await request(app.getHttpServer())
+        .post('/api/platform/roles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          enterpriseId: 'ent-other',
+          code: `role-tenant-${suffix}`,
+          name: 'Role Tenant Boundary',
+          permissionCodes: [],
+          dataScopes: [],
+        })
+        .expect(201);
+
+      expect(response.body.enterpriseId).toBe('ent-default');
+    });
+
     it('rejects protected, in-use, duplicate, and invalid role mutations', async () => {
       const token = await loginAsAdmin();
       const suffix = Date.now().toString();

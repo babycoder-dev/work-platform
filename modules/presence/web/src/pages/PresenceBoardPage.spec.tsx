@@ -39,7 +39,7 @@ describe('PresenceBoardPage', () => {
   });
 
   it('renders loading then list', async () => {
-    getBoard.mockResolvedValueOnce([record()]);
+    getBoard.mockResolvedValueOnce({ items: [record()] });
     render(<PresenceBoardPage />);
     expect(screen.getByText('加载中…')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
@@ -47,7 +47,7 @@ describe('PresenceBoardPage', () => {
   });
 
   it('renders empty state when no records', async () => {
-    getBoard.mockResolvedValueOnce([]);
+    getBoard.mockResolvedValueOnce({ items: [] });
     render(<PresenceBoardPage />);
     await waitFor(() => expect(screen.getByText('当前没有进行中的在位记录。')).toBeInTheDocument());
   });
@@ -59,7 +59,7 @@ describe('PresenceBoardPage', () => {
   });
 
   it('refresh button triggers reload', async () => {
-    getBoard.mockResolvedValueOnce([]).mockResolvedValueOnce([record({ userName: 'Bob' })]);
+    getBoard.mockResolvedValueOnce({ items: [] }).mockResolvedValueOnce({ items: [record({ userName: 'Bob' })] });
     render(<PresenceBoardPage />);
     await waitFor(() => expect(screen.getByText('当前没有进行中的在位记录。')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: '刷新' }));

@@ -180,7 +180,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     );
 
     const roleResponse = await request(app.getHttpServer())
-      .post('/api/roles')
+      .post('/api/platform/roles')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         enterpriseId: '00000000-0000-0000-0000-000000000001',
@@ -192,7 +192,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .post('/api/employees')
+      .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         enterpriseId: '00000000-0000-0000-0000-000000000001',
@@ -210,7 +210,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
 
   async function login(account: string, password: string): Promise<string> {
     const loginResponse = await request(app.getHttpServer())
-      .post('/api/auth/login')
+      .post('/api/platform/auth/login')
       .send({
         account,
         password,

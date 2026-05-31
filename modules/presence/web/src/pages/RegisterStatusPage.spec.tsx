@@ -43,7 +43,7 @@ describe('RegisterStatusPage', () => {
   });
 
   it('submits the form and reloads mine list', async () => {
-    get.mockResolvedValueOnce([]).mockResolvedValueOnce([mineRecord()]);
+    get.mockResolvedValueOnce({ items: [] }).mockResolvedValueOnce({ items: [mineRecord()] });
     post.mockResolvedValueOnce(mineRecord());
     render(<RegisterStatusPage />);
     await waitFor(() => expect(screen.getByText('暂无记录。')).toBeInTheDocument());
@@ -61,9 +61,9 @@ describe('RegisterStatusPage', () => {
   });
 
   it('cancels an active record', async () => {
-    get.mockResolvedValueOnce([mineRecord()]).mockResolvedValueOnce([
-      mineRecord({ cancelledAt: '2026-05-26T02:00:00.000Z' }),
-    ]);
+    get.mockResolvedValueOnce({ items: [mineRecord()] }).mockResolvedValueOnce({
+      items: [mineRecord({ cancelledAt: '2026-05-26T02:00:00.000Z' })],
+    });
     del.mockResolvedValueOnce(mineRecord({ cancelledAt: '2026-05-26T02:00:00.000Z' }));
     render(<RegisterStatusPage />);
     await waitFor(() => expect(screen.getByRole('button', { name: '取消' })).toBeInTheDocument());
@@ -74,7 +74,7 @@ describe('RegisterStatusPage', () => {
   });
 
   it('shows error when submit fails', async () => {
-    get.mockResolvedValueOnce([]);
+    get.mockResolvedValueOnce({ items: [] });
     post.mockRejectedValueOnce(new Error('boom'));
     render(<RegisterStatusPage />);
     await waitFor(() => expect(screen.getByText('暂无记录。')).toBeInTheDocument());
@@ -85,7 +85,7 @@ describe('RegisterStatusPage', () => {
   });
 
   it('does not show cancel button on already cancelled records', async () => {
-    get.mockResolvedValueOnce([mineRecord({ cancelledAt: '2026-05-26T02:00:00.000Z' })]);
+    get.mockResolvedValueOnce({ items: [mineRecord({ cancelledAt: '2026-05-26T02:00:00.000Z' })] });
     render(<RegisterStatusPage />);
     await waitFor(() => expect(screen.getByText('（已取消）')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: '取消' })).not.toBeInTheDocument();

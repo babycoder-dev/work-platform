@@ -2,6 +2,81 @@
 
 ## 2026-06-01
 
+### M5-4 Roles & Permissions Delivery Verification
+
+Scope:
+
+- Executed `docs/tasks/m5-4-delivery-verification.md`: full local gates, PostgreSQL gates,
+  Docker build, browser smoke, and M5 documentation close-out.
+- No new feature scope was added. The code changes below are regressions exposed during
+  delivery verification.
+
+Validation-exposed fixes:
+
+- Fixed `POST /roles` tenant isolation: `enterpriseId` is now derived from the authenticated
+  user instead of trusting the request body. Added an E2E assertion with a forged tenant id.
+- Fixed gateway local runtime: use `tsx` with the root tsconfig so decorated Nest source
+  imported across workspaces starts correctly; enable decorators in the shared tsconfig.
+- Mounted platform controllers below `/api/platform` in the gateway, matching the Shell and
+  manifest contract. Updated the gateway-composition presence E2E paths.
+- Fixed presence-web board and mine clients to unwrap backend `{ items }` envelopes. Updated
+  API-client and page tests.
+
+Command matrix:
+
+- `pnpm install --frozen-lockfile`: pass; lockfile unchanged.
+- `pnpm verify`: pass after dependency install.
+- `docker compose -f infra/docker-compose.yml up -d postgres`: pass after starting Docker
+  Desktop Linux engine.
+- PostgreSQL env + `pnpm db:setup`: pass; seed reports `permissionCount=12`.
+- PostgreSQL env + `pnpm verify:full`: pass. Unit: 123 passed. Web: 19 passed. E2E: 36
+  passed. Repository integration: 17 passed. PostgreSQL E2E: 12 passed.
+- `pnpm docker:build`: pass. The first attempt hit a transient registry `ECONNRESET`; a clean
+  standalone rerun built all six images successfully.
+- GitHub Actions: latest pushed `main` run for M5-3 passed. This M5-4 branch needs its own CI
+  run after push.
+
+Browser smoke:
+
+1. Pass. Started gateway + Shell against Docker PostgreSQL and signed in as `admin/admin123`.
+2. Pass. Created `部门负责人` through `/platform/roles`, granting `presence:board:view` and
+   `platform:employee:view`; set `profile=department`, `presence=company`, `report=self`.
+3. Pass. Queried `platform.role_data_scopes`; the created role persisted exactly those three
+   rows.
+4. Pass. Used the M5-3 role-side UI assignment entry to assign the role to a non-admin test
+   employee.
+5. Pass. Authenticated as that employee. `/api/platform/auth/me` returned the three distinct
+   scopes; `/api/platform/employees` returned only same-department employees, while the
+   browser `/presence/board` rendered same-department and cross-department status fixtures.
+   The employees Web page remains the intentional M5-3 placeholder, so profile filtering was
+   verified through the authenticated gateway API. Presence fixtures were inserted directly
+   into PostgreSQL for the smoke and removed afterwards.
+6. Pass. The system administrator row disables edit/delete in the UI; direct PATCH and DELETE
+   both returned `409 PLATFORM_ROLE_PROTECTED`. Deleting the assigned `部门负责人` role returned
+   `409 PLATFORM_ROLE_IN_USE`. Native browser confirmation blocked automated prompt control,
+   so the delete error assertion used the authenticated API fallback.
+7. Pass. Cleared the employee role assignment with `PUT /employees/:id/roles` body
+   `{ "roleIds": [] }`, then deleted `部门负责人` successfully with HTTP 200. Audit rows include
+   `platform.role.create`, both `platform.employee.roles.assign` writes, and
+   `platform.role.delete`.
+
+Exit checklist:
+
+- [x] UI configures per-data-type scopes and persists `role_data_scopes`.
+- [x] `CurrentUserDto.dataScopes` applies by type: employees use `profile`; presence board
+  uses `presence`.
+- [x] `isSystem` roles reject update/delete with `PLATFORM_ROLE_PROTECTED`.
+- [x] Assigned roles reject deletion with `PLATFORM_ROLE_IN_USE`.
+- [x] `platform:role:assign` exists in manifest, seed permissions, and the seeded admin role.
+- [x] Security baseline §4.4 / §5 is synchronized; prior security review has no unresolved
+  M5 blocking item.
+- [x] Local `pnpm verify`, PostgreSQL `pnpm verify:full`, Docker build, and browser smoke pass.
+  Latest pushed `main` CI is green; this branch CI follows after push.
+
+Follow-up:
+
+- Initiate M6 dynamic forms mini + file storage. Its RFC has not been created yet.
+
 ### M5-3 Role Management Web
 
 Scope:

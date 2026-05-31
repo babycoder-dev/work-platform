@@ -26,7 +26,13 @@ export class RoleController {
   @Post()
   @RequirePermissions('platform:role:manage')
   createRole(@Body(dtoValidationPipe(CreateRoleDto)) input: CreateRoleDto, @Req() request: PlatformRequest) {
-    return this.rbacService.createRole(input, buildPlatformAuditContext(request));
+    return this.rbacService.createRole(
+      {
+        ...input,
+        enterpriseId: request.currentUser!.enterpriseId,
+      },
+      buildPlatformAuditContext(request),
+    );
   }
 
   @Patch(':id')

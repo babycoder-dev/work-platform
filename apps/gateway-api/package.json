@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start:dev": "nest start --watch",
-    "start:prod": "tsx src/main.ts",
+    "start:dev": "tsx watch --tsconfig ../../tsconfig.base.json src/main.ts",
+    "start:prod": "tsx --tsconfig ../../tsconfig.base.json src/main.ts",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."

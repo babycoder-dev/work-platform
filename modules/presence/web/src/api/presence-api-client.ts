@@ -13,11 +13,13 @@ export interface PresenceApiClient {
 
 export function createPresenceApiClient(http: HttpClient): PresenceApiClient {
   return {
-    getBoard() {
-      return http.get<PresenceStatusRecordDto[]>('board');
+    async getBoard() {
+      const response = await http.get<{ items: PresenceStatusRecordDto[] }>('board');
+      return response.items;
     },
-    listMyRecords() {
-      return http.get<PresenceStatusRecordDto[]>('status-records/mine');
+    async listMyRecords() {
+      const response = await http.get<{ items: PresenceStatusRecordDto[] }>('status-records/mine');
+      return response.items;
     },
     createRecord(input) {
       return http.post<PresenceStatusRecordDto, CreatePresenceStatusRecordInput>('status-records', input);

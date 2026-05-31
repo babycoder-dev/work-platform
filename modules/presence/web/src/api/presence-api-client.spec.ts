@@ -9,7 +9,7 @@ describe('createPresenceApiClient', () => {
       calls,
       get: vi.fn(async (url: string) => {
         calls.push({ method: 'GET', url });
-        return [];
+        return { items: [{ id: 'record-001' }] };
       }),
       post: vi.fn(async (url: string, body?: unknown) => {
         calls.push({ method: 'POST', url, body });
@@ -24,17 +24,17 @@ describe('createPresenceApiClient', () => {
     } as never;
   }
 
-  it('getBoard hits GET board and unwraps array', async () => {
+  it('getBoard hits GET board and unwraps items', async () => {
     const http = makeHttp();
     const api = createPresenceApiClient(http);
-    await api.getBoard();
+    await expect(api.getBoard()).resolves.toEqual([{ id: 'record-001' }]);
     expect(http.calls).toEqual([{ method: 'GET', url: 'board' }]);
   });
 
-  it('listMyRecords hits GET status-records/mine', async () => {
+  it('listMyRecords hits GET status-records/mine and unwraps items', async () => {
     const http = makeHttp();
     const api = createPresenceApiClient(http);
-    await api.listMyRecords();
+    await expect(api.listMyRecords()).resolves.toEqual([{ id: 'record-001' }]);
     expect(http.calls).toEqual([{ method: 'GET', url: 'status-records/mine' }]);
   });
 
