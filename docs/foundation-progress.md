@@ -199,7 +199,7 @@ M4-4 完成结果：
 - M4 整段 Done；presence 模块进入维护态（后续优化进 M5+ 切片的 follow-up 或独立小切片）。
 - verification-log 锚点：`M4-4 Presence MVP Delivery Verification`。
 
-下一步启动 `M5-0: 审批 MVP RFC`，写 `docs/rfc/m5-approval-mvp.md`，定义状态机、审批权限、事件契约、schema 边界。
+下一步启动 `M5-0: 权限与角色管理 RFC`（`docs/rfc/m5-roles-permissions-admin.md`）。注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见 `docs/adr/0005-product-replan-roadmap.md`。
 
 ### 6.1 M3.5 收口切片
 
