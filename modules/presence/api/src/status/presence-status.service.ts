@@ -34,7 +34,7 @@ export class PresenceStatusService {
   ) {}
 
   async getBoard(currentUser: CurrentUserDto): Promise<{ items: PresenceStatusRecordDto[] }> {
-    const scope = await this.scopeService.resolveScope(currentUser);
+    const scope = await this.scopeService.resolveScope(currentUser, 'presence');
     const at = new Date().toISOString();
 
     let query;

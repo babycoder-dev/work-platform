@@ -60,6 +60,29 @@ describe('PlatformMemoryStore', () => {
     expect(verifyPassword('Passw0rd', identity?.passwordHash ?? '')).toBe(true);
   });
 
+  it('round-trips per-type role data scopes with non-system roles by default', async () => {
+    const store = new PlatformMemoryStore();
+    const role = await store.createRole({
+      enterpriseId: 'ent-default',
+      code: 'profile-reader',
+      name: 'Profile Reader',
+      permissionCodes: ['platform:employee:view'],
+      dataScopes: [
+        { dataType: 'profile', scope: 'company' },
+        { dataType: 'presence', scope: 'department' },
+      ],
+    });
+
+    await expect(store.findRoleById(role.id)).resolves.toEqual({
+      ...role,
+      dataScopes: [
+        { dataType: 'profile', scope: 'company' },
+        { dataType: 'presence', scope: 'department' },
+      ],
+      isSystem: false,
+    });
+  });
+
   it('updates local identity security state', async () => {
     const store = new PlatformMemoryStore();
     const lockedUntil = '2099-01-01T00:15:00.000Z';

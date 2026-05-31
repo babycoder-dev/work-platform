@@ -189,6 +189,9 @@ C/S 客户端：
 - M4–M6 内嵌阶段：introspection 后身份在 gateway 进程内传递，不签发内部 JWT。
 - M7 拆进程后：introspection 后签发短命内部 JWT，注入下游请求头，业务服务本地验签。内部 JWT 只在内网服务间流转，不下发给客户端。
 - introspection 结果可由调用方按短 TTL 缓存，缓存 TTL 不超过 60 秒，避免撤销窗口过长。
+- introspection 载荷 `CurrentUserDto.dataScopes` 使用按类型分组形状
+  `Record<PlatformDataType, DataScope[]>`；跨进程消费者（当前包括 presence）必须按目标数据类型读取，
+  不得把某一类型的范围用于另一类型。
 
 ## 5. 授权基线
 
@@ -218,6 +221,18 @@ C/S 客户端：
 
 ### 5.3 数据范围
 
+采用模型 B：数据权限按数据类型分别授权。同一用户对不同类型的数据可以有不同范围。
+
+可配置的数据类型固定为：
+
+```text
+profile
+presence
+report
+```
+
+系统 / 管理类数据（角色、权限、审计等）不进入按范围配置，只由功能权限控制。
+
 内置数据范围：
 
 ```text
@@ -229,6 +244,15 @@ custom
 ```
 
 业务查询必须在 service/repository 层应用数据范围，不得只在前端过滤。
+
+一个用户有多个 active 角色时，对每个数据类型独立取最宽范围：
+
+```text
+company > department_tree > department > self
+```
+
+不同数据类型互不影响。某类型缺失或为空数组时按 `self` 处理；`custom` 为预留值，仅有
+`custom` 且无有效范围时安全降级为 `self`，并标记 `degradedFromCustom=true`。
 
 ## 6. 审计基线
 

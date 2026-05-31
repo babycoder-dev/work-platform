@@ -49,7 +49,7 @@ export class RbacService {
         enterpriseId: role.enterpriseId,
         code: role.code,
         permissionCodes: role.permissionCodes,
-        dataScope: role.dataScope,
+        dataScopes: role.dataScopes,
       },
     });
 

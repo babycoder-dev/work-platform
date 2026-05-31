@@ -5,6 +5,7 @@ import {
   jsonb,
   pgSchema,
   primaryKey,
+  check,
   boolean,
   text,
   timestamp,
@@ -100,7 +101,7 @@ export const roles = platformSchema.table('roles', {
   code: varchar('code', { length: 64 }).notNull(),
   name: varchar('name', { length: 128 }).notNull(),
   description: text('description'),
-  dataScope: varchar('data_scope', { length: 32 }).notNull().default('self'),
+  isSystem: boolean('is_system').notNull().default(false),
   status: varchar('status', { length: 32 }).notNull().default('active'),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   ...timestamps,
@@ -115,6 +116,23 @@ export const rolePermissions = platformSchema.table('role_permissions', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   pk: primaryKey({ columns: [table.roleId, table.permissionCode], name: 'role_permissions_pk' }),
+}));
+
+export const roleDataScopes = platformSchema.table('role_data_scopes', {
+  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+  dataType: varchar('data_type', { length: 32 }).notNull(),
+  scope: varchar('scope', { length: 32 }).notNull(),
+  ...timestamps,
+}, (table) => ({
+  pk: primaryKey({ columns: [table.roleId, table.dataType], name: 'role_data_scopes_pk' }),
+  typeCheck: check(
+    'role_data_scopes_type_check',
+    sql`${table.dataType} IN ('profile', 'presence', 'report')`,
+  ),
+  scopeCheck: check(
+    'role_data_scopes_scope_check',
+    sql`${table.scope} IN ('self', 'department', 'department_tree', 'company', 'custom')`,
+  ),
 }));
 
 export const userRoles = platformSchema.table('user_roles', {

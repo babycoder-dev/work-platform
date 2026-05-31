@@ -1,5 +1,51 @@
 # Verification Log
 
+## 2026-05-31
+
+### M5-1 RBAC Data Model and Scope
+
+Scope:
+
+- Implemented `docs/tasks/m5-1-rbac-data-model-scope.md` only. Role CRUD expansion and the
+  `PUT /employees/:id/roles` guard switch remain M5-2.
+
+Change set:
+
+- Replaced single role `data_scope` with `platform.role_data_scopes` keyed by
+  `profile | presence | report`; added `roles.is_system`.
+- Changed `CurrentUserDto.dataScopes` to `Record<PlatformDataType, DataScope[]>` and
+  `PlatformScopePort.resolveScope(user, dataType)`.
+- Wired employee listing to `profile`, presence board to `presence`, admin seed to three
+  `company` rows with `is_system=true`, and added `platform:role:assign`.
+- Updated `docs/security-baseline.md` §4.4 and §5.3 for the introspection payload and model B.
+
+Verification:
+
+- `pnpm install`: pass; lockfile unchanged.
+- `pnpm verify`: pass (`lint`, `typecheck`, `test`, `test:e2e`, `build`).
+- Unit: 98 passed, 16 PostgreSQL-gated skipped. Web: 8 passed. Memory e2e: 20 passed,
+  11 PostgreSQL-gated skipped.
+- `git diff --check`: pass.
+- `pnpm docker:build`: blocked locally because Docker Desktop Linux engine is not running
+  (`//./pipe/dockerDesktopLinuxEngine` missing).
+- PostgreSQL §10.1 / §10.3 verification: depends on CI. Local `postgresql-x64-17` is stopped,
+  `localhost:5432` is not listening, and Docker Compose cannot start PostgreSQL for the same
+  missing Docker Desktop engine. Equivalent specs cover schema shape, memory role round-trip,
+  PostgreSQL role round-trip when the DB gate is enabled, scope isolation, active-role grouping,
+  and dynamic manifest-derived permission seed data. CI must still run `pnpm db:setup`,
+  `pnpm test:db`, `pnpm test:e2e:postgres`, seed idempotency, and the four SQL assertions in §10.3.
+
+Security review:
+
+- `security-reviewer`: LGTM. No scope widening, wrong-type consumer, custom/missing fallback,
+  introspection payload, repository/seed consistency, or M5-2 scope-creep finding.
+- Residual risk: CI PostgreSQL migration, seed idempotency, and SQL state assertions remain required.
+
+Follow-up:
+
+- M5-2 role management API, including duplicate `dataType` request validation and the
+  `platform:role:assign` guard switch.
+
 ## 2026-05-27
 
 ### M4-4 Presence MVP Delivery Verification

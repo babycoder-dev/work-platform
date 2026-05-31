@@ -167,7 +167,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
         code: `postgres-role-${uniqueSuffix}`,
         name: 'Postgres Role',
         permissionCodes: ['platform:org:view'],
-        dataScope: 'self',
+        dataScopes: [{ dataType: 'profile', scope: 'self' }],
       })
       .expect(201);
 
@@ -645,7 +645,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
         code,
         name: code,
         permissionCodes: ['platform:employee:view'],
-        dataScope,
+        dataScopes: [{ dataType: 'profile', scope: dataScope }],
       })
       .expect(201);
   }

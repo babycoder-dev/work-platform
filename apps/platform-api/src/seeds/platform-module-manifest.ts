@@ -20,6 +20,7 @@ export const platformModuleManifest: ModuleManifestDto = {
     { code: 'platform:employee:manage', name: '管理员工', moduleName: 'platform' },
     { code: 'platform:role:view', name: '查看角色', moduleName: 'platform' },
     { code: 'platform:role:manage', name: '管理角色', moduleName: 'platform' },
+    { code: 'platform:role:assign', name: '分配用户角色', moduleName: 'platform' },
     { code: 'platform:permission:view', name: '查看权限', moduleName: 'platform' },
   ],
   menus: [

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   CurrentUserDto,
+  PlatformDataType,
   PlatformScope,
   PlatformScopeKind,
   PlatformScopePort,
@@ -18,12 +19,14 @@ export const EFFECTIVE_SCOPE_ORDER: PlatformScopeKind[] = [
 export class PlatformScopeService implements PlatformScopePort {
   constructor(@Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository) {}
 
-  async resolveScope(user: CurrentUserDto): Promise<PlatformScope> {
-    const rawKind: PlatformScopeKind | 'custom' =
-      EFFECTIVE_SCOPE_ORDER.find((kind) => user.dataScopes.includes(kind)) ?? 'custom';
+  async resolveScope(user: CurrentUserDto, dataType: PlatformDataType): Promise<PlatformScope> {
+    const scopesForType = user.dataScopes[dataType] ?? [];
+    const rawKind = EFFECTIVE_SCOPE_ORDER.find((kind) => scopesForType.includes(kind)) ?? 'self';
+    const hasCustom = scopesForType.includes('custom');
+    const hasEffective = EFFECTIVE_SCOPE_ORDER.some((kind) => scopesForType.includes(kind));
 
-    let effectiveKind: PlatformScopeKind = rawKind === 'custom' ? 'self' : rawKind;
-    const degradedFromCustom = rawKind === 'custom';
+    let effectiveKind: PlatformScopeKind = rawKind;
+    const degradedFromCustom = hasCustom && !hasEffective;
 
     if (
       (effectiveKind === 'department' || effectiveKind === 'department_tree') &&

@@ -6,6 +6,8 @@ import type {
   LoginInput,
   LoginResult,
   PasswordPolicyDto,
+  PlatformDataType,
+  DataScope,
   PermissionDto,
   RoleDto,
 } from '@work/platform-contract';
@@ -255,6 +257,12 @@ export class AuthService {
       Array.from(permissionCodes).map((code) => this.repository.findPermissionByCode(code)),
     );
     const permissions = permissionResults.filter((permission): permission is PermissionDto => permission !== undefined);
+    const dataScopes: Record<PlatformDataType, DataScope[]> = { profile: [], presence: [], report: [] };
+    for (const role of roles) {
+      for (const dataScope of role.dataScopes) {
+        dataScopes[dataScope.dataType].push(dataScope.scope);
+      }
+    }
 
     return {
       id: employee.id,
@@ -266,7 +274,7 @@ export class AuthService {
       departmentName: department?.name,
       roles: roles.map((role) => role.code),
       permissions,
-      dataScopes: roles.map((role) => role.dataScope),
+      dataScopes,
       mustChangePassword: employee.mustChangePassword,
     };
   }

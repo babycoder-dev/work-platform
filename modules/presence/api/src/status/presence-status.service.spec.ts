@@ -189,6 +189,7 @@ describe('PresenceStatusService', () => {
 
     await service.getBoard(currentUser());
 
+    expect(scopeService.resolveScope).toHaveBeenCalledWith(currentUser(), 'presence');
     expect(repository.listActiveRecords).toHaveBeenCalledWith(
       expect.objectContaining({
         enterpriseId: 'enterprise-001',
@@ -317,7 +318,11 @@ function currentUser(): CurrentUserDto {
     departmentName: 'Operations',
     roles: ['employee'],
     permissions: [{ code: presencePermissions.statusCreate, name: 'create', moduleName: 'presence' }],
-    dataScopes: ['self'],
+    dataScopes: {
+      profile: ['self'],
+      presence: ['self'],
+      report: ['self'],
+    },
     mustChangePassword: false,
   };
 }

@@ -42,11 +42,23 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       enterpriseId: DEFAULT_ENTERPRISE_ID,
       code: `integration-role-${suffix}`,
       name: 'Integration Role',
-      dataScope: 'department',
+      dataScopes: [
+        { dataType: 'profile', scope: 'company' },
+        { dataType: 'presence', scope: 'department' },
+      ],
       permissionCodes: ['platform:org:view', 'platform:employee:view'],
     });
 
     expect(role.permissionCodes).toEqual(['platform:org:view', 'platform:employee:view']);
+    await expect(repository.findRoleById(role.id)).resolves.toEqual(
+      expect.objectContaining({
+        dataScopes: [
+          { dataType: 'presence', scope: 'department' },
+          { dataType: 'profile', scope: 'company' },
+        ],
+        isSystem: false,
+      }),
+    );
 
     const employee = await repository.createEmployee({
       enterpriseId: DEFAULT_ENTERPRISE_ID,
@@ -342,7 +354,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
         enterpriseId: DEFAULT_ENTERPRISE_ID,
         code: roleCode,
         name: 'Missing Permission Role',
-        dataScope: 'self',
+        dataScopes: [{ dataType: 'profile', scope: 'self' }],
         permissionCodes: ['platform:missing:permission'],
       }),
     ).rejects.toMatchObject({

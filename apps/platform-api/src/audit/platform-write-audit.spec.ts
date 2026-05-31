@@ -207,7 +207,8 @@ describe('platform write audit coverage', () => {
       code: 'audit-role',
       name: 'Audit Role',
       permissionCodes: [],
-      dataScope: 'self',
+      dataScopes: [{ dataType: 'profile', scope: 'self' }],
+      isSystem: false,
       status: 'active',
     };
     const repository = {
@@ -220,7 +221,7 @@ describe('platform write audit coverage', () => {
       code: role.code,
       name: role.name,
       permissionCodes: [],
-      dataScope: 'self',
+      dataScopes: [{ dataType: 'profile', scope: 'self' }],
     }, auditContext)).rejects.toThrow('audit unavailable');
   });
 });

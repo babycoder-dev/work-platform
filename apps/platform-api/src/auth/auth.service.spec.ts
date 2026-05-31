@@ -56,7 +56,11 @@ describe('AuthService', () => {
 
     expect(result.user.roles).toEqual([]);
     expect(result.user.permissions).toEqual([]);
-    expect(result.user.dataScopes).toEqual([]);
+    expect(result.user.dataScopes).toEqual({
+      profile: [],
+      presence: [],
+      report: [],
+    });
   });
 
   it('fails login when audit writing fails', async () => {
@@ -431,6 +435,46 @@ describe('AuthService', () => {
       }),
     );
   });
+
+  it('groups active role data scopes by type and excludes disabled roles', async () => {
+    const repository = createRepositoryMock();
+    repository.findEmployeeById.mockResolvedValue({
+      ...employee,
+      roleIds: ['role-profile', 'role-presence', 'role-disabled'],
+    });
+    repository.findRoleById.mockImplementation(async (id: string) => ({
+      'role-profile': {
+        ...role,
+        id,
+        code: id,
+        dataScopes: [{ dataType: 'profile', scope: 'company' }],
+      },
+      'role-presence': {
+        ...role,
+        id,
+        code: id,
+        dataScopes: [{ dataType: 'presence', scope: 'department' }],
+      },
+      'role-disabled': {
+        ...role,
+        id,
+        code: id,
+        dataScopes: [{ dataType: 'report', scope: 'company' }],
+        status: 'disabled',
+      },
+    })[id]);
+    const service = new AuthService(repository);
+
+    await expect(service.toCurrentUser(employee.id)).resolves.toEqual(
+      expect.objectContaining({
+        dataScopes: {
+          profile: ['company'],
+          presence: ['department'],
+          report: [],
+        },
+      }),
+    );
+  });
 });
 
 const employee: EmployeeDto = {
@@ -451,7 +495,12 @@ const role: RoleDto = {
   code: 'admin',
   name: '系统管理员',
   permissionCodes: ['platform:org:view'],
-  dataScope: 'company',
+  dataScopes: [
+    { dataType: 'profile', scope: 'company' },
+    { dataType: 'presence', scope: 'company' },
+    { dataType: 'report', scope: 'company' },
+  ],
+  isSystem: true,
   status: 'active',
 };
 

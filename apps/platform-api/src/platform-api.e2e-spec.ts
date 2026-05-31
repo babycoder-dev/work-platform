@@ -293,7 +293,7 @@ describe('platform-api', () => {
         code: `audit-role-${suffix}`,
         name: '审计测试角色',
         permissionCodes: ['platform:org:view'],
-        dataScope: 'self',
+        dataScopes: [{ dataType: 'profile', scope: 'self' }],
       })
       .expect(201);
 
@@ -745,7 +745,7 @@ describe('platform-api', () => {
         code,
         name: code,
         permissionCodes: ['platform:employee:view'],
-        dataScope,
+        dataScopes: [{ dataType: 'profile', scope: dataScope }],
       })
       .expect(201);
   }

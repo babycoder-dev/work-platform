@@ -1,7 +1,22 @@
-import type { CreateRoleInput, DataScope } from '@work/platform-contract';
-import { IsArray, IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import type {
+  CreateRoleInput,
+  DataScope,
+  PlatformDataType,
+  RoleDataScope,
+} from '@work/platform-contract';
+import { PLATFORM_DATA_TYPES } from '@work/platform-contract';
+import { Type } from 'class-transformer';
+import { IsArray, IsIn, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 const DATA_SCOPES: DataScope[] = ['self', 'department', 'department_tree', 'company', 'custom'];
+
+export class RoleDataScopeDto implements RoleDataScope {
+  @IsIn(PLATFORM_DATA_TYPES)
+  dataType!: PlatformDataType;
+
+  @IsIn(DATA_SCOPES)
+  scope!: DataScope;
+}
 
 export class CreateRoleDto implements CreateRoleInput {
   @IsNotEmpty()
@@ -24,6 +39,8 @@ export class CreateRoleDto implements CreateRoleInput {
   @IsString({ each: true })
   permissionCodes!: string[];
 
-  @IsIn(DATA_SCOPES)
-  dataScope!: DataScope;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RoleDataScopeDto)
+  dataScopes!: RoleDataScopeDto[];
 }

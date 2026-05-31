@@ -1,3 +1,5 @@
+import type { PlatformDataType } from './scope';
+
 export type DataScope = 'self' | 'department' | 'department_tree' | 'company' | 'custom';
 
 export interface PermissionDto {
@@ -7,6 +9,11 @@ export interface PermissionDto {
   description?: string;
 }
 
+export interface RoleDataScope {
+  dataType: PlatformDataType;
+  scope: DataScope;
+}
+
 export interface RoleDto {
   id: string;
   enterpriseId: string;
@@ -14,7 +21,8 @@ export interface RoleDto {
   name: string;
   description?: string;
   permissionCodes: string[];
-  dataScope: DataScope;
+  dataScopes: RoleDataScope[];
+  isSystem: boolean;
   status: 'active' | 'disabled';
 }
 
@@ -24,7 +32,15 @@ export interface CreateRoleInput {
   name: string;
   description?: string;
   permissionCodes: string[];
-  dataScope: DataScope;
+  dataScopes: RoleDataScope[];
+}
+
+export interface UpdateRoleInput {
+  name?: string;
+  description?: string;
+  permissionCodes?: string[];
+  dataScopes?: RoleDataScope[];
+  status?: 'active' | 'disabled';
 }
 
 export interface AssignUserRolesInput {

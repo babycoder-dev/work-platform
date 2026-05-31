@@ -22,7 +22,7 @@ export class EmployeeService {
   ) {}
 
   async listEmployees(currentUser: CurrentUserDto) {
-    const scope = await this.scopeService.resolveScope(currentUser);
+    const scope = await this.scopeService.resolveScope(currentUser, 'profile');
     const all = await this.repository.listEmployees();
     const items = all.filter((employee) => this.matchScope(employee, scope));
     return {

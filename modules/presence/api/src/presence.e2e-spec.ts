@@ -187,7 +187,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
         code: input.roleCode,
         name: input.roleCode,
         permissionCodes: input.permissionCodes,
-        dataScope: input.dataScope,
+        dataScopes: [{ dataType: 'presence', scope: input.dataScope }],
       })
       .expect(201);
 

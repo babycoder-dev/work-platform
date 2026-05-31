@@ -1,4 +1,5 @@
 import type { DataScope, PermissionDto } from './rbac';
+import type { PlatformDataType } from './scope';
 
 export interface LoginInput {
   account: string;
@@ -21,7 +22,7 @@ export interface CurrentUserDto {
   departmentName?: string;
   roles: string[];
   permissions: PermissionDto[];
-  dataScopes: DataScope[];
+  dataScopes: Record<PlatformDataType, DataScope[]>;
   mustChangePassword: boolean;
 }
 

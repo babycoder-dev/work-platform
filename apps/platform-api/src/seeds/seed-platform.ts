@@ -44,6 +44,7 @@ export async function seedPlatform(): Promise<SeedPlatformResult> {
       await upsertPermissions(client);
       await upsertMenus(client);
       const adminRoleId = await upsertAdminRole(client, enterpriseId);
+      await seedAdminDataScopes(client, adminRoleId);
       await grantRolePermissions(client, adminRoleId);
       const adminUserId = await upsertAdminEmployee(client, {
         account: bootstrapConfig.adminAccount,
@@ -206,12 +207,12 @@ async function upsertMenus(client: Client): Promise<void> {
 async function upsertAdminRole(client: Client, enterpriseId: string): Promise<string> {
   const result = await client.query<{ id: string }>(
     `
-      INSERT INTO platform.roles (id, enterprise_id, code, name, data_scope, status)
-      VALUES ($1, $2, 'admin', '系统管理员', 'company', 'active')
+      INSERT INTO platform.roles (id, enterprise_id, code, name, is_system, status)
+      VALUES ($1, $2, 'admin', '系统管理员', true, 'active')
       ON CONFLICT (enterprise_id, code)
       DO UPDATE SET
         name = EXCLUDED.name,
-        data_scope = EXCLUDED.data_scope,
+        is_system = true,
         status = 'active',
         deleted_at = NULL,
         updated_at = now()
@@ -221,6 +222,22 @@ async function upsertAdminRole(client: Client, enterpriseId: string): Promise<st
   );
 
   return result.rows[0].id;
+}
+
+async function seedAdminDataScopes(client: Client, roleId: string): Promise<void> {
+  for (const dataType of ['profile', 'presence', 'report']) {
+    await client.query(
+      `
+        INSERT INTO platform.role_data_scopes (role_id, data_type, scope)
+        VALUES ($1, $2, 'company')
+        ON CONFLICT (role_id, data_type)
+        DO UPDATE SET
+          scope = EXCLUDED.scope,
+          updated_at = now()
+      `,
+      [roleId, dataType],
+    );
+  }
 }
 
 async function grantRolePermissions(client: Client, roleId: string): Promise<void> {

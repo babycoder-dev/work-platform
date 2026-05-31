@@ -4,7 +4,6 @@ import type {
   CreateDepartmentInput,
   CreateEmployeeInput,
   CreateRoleInput,
-  DataScope,
   DepartmentDto,
   EmployeeDto,
   EmployeeStatus,
@@ -12,6 +11,7 @@ import type {
   MenuDto,
   ModuleManifestDto,
   PermissionDto,
+  RoleDataScope,
   RoleDto,
 } from '@work/platform-contract';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
@@ -102,9 +102,10 @@ interface RoleRow {
   code: string;
   name: string;
   description: string | null;
-  data_scope: DataScope;
+  is_system: boolean;
   status: RoleDto['status'];
   permission_codes: string[];
+  data_scopes: RoleDataScope[];
 }
 
 @Injectable()
@@ -523,19 +524,20 @@ export class PostgresPlatformRepository implements PlatformRepository {
       await client.query('BEGIN');
       const result = await client.query<RoleRow>(
         `
-          INSERT INTO platform.roles (enterprise_id, code, name, description, data_scope, status)
-          VALUES ($1, $2, $3, $4, $5, 'active')
+          INSERT INTO platform.roles (enterprise_id, code, name, description, status)
+          VALUES ($1, $2, $3, $4, 'active')
           RETURNING
             id,
             enterprise_id,
             code,
             name,
             description,
-            data_scope,
+            is_system,
             status,
-            ARRAY[]::text[] AS permission_codes
+            ARRAY[]::text[] AS permission_codes,
+            ARRAY[]::json[] AS data_scopes
         `,
-        [input.enterpriseId, input.code, input.name, input.description ?? null, input.dataScope],
+        [input.enterpriseId, input.code, input.name, input.description ?? null],
       );
       const role = mapRole(result.rows[0]);
 
@@ -549,11 +551,21 @@ export class PostgresPlatformRepository implements PlatformRepository {
           [role.id, permissionCode],
         );
       }
+      for (const dataScope of input.dataScopes) {
+        await client.query(
+          `
+            INSERT INTO platform.role_data_scopes (role_id, data_type, scope)
+            VALUES ($1, $2, $3)
+          `,
+          [role.id, dataScope.dataType, dataScope.scope],
+        );
+      }
       await client.query('COMMIT');
 
       return {
         ...role,
         permissionCodes: input.permissionCodes,
+        dataScopes: input.dataScopes,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -659,13 +671,18 @@ function roleSelectSql(suffix: string): string {
       r.code,
       r.name,
       r.description,
-      r.data_scope,
+      r.is_system,
       r.status,
       COALESCE((
         SELECT array_agg(rp.permission_code ORDER BY rp.permission_code)
         FROM platform.role_permissions rp
         WHERE rp.role_id = r.id
-      ), ARRAY[]::text[]) AS permission_codes
+      ), ARRAY[]::text[]) AS permission_codes,
+      COALESCE((
+        SELECT json_agg(json_build_object('dataType', rds.data_type, 'scope', rds.scope) ORDER BY rds.data_type)
+        FROM platform.role_data_scopes rds
+        WHERE rds.role_id = r.id
+      ), '[]'::json) AS data_scopes
     FROM platform.roles r
     ${suffix}
   `;
@@ -798,7 +815,8 @@ function mapRole(row: RoleRow): RoleDto {
     name: row.name,
     description: row.description ?? undefined,
     permissionCodes: row.permission_codes ?? [],
-    dataScope: row.data_scope,
+    dataScopes: row.data_scopes ?? [],
+    isSystem: row.is_system,
     status: row.status,
   };
 }

@@ -237,7 +237,8 @@ export class PlatformMemoryStore implements PlatformRepository {
       name: input.name,
       description: input.description,
       permissionCodes: input.permissionCodes,
-      dataScope: input.dataScope,
+      dataScopes: input.dataScopes,
+      isSystem: false,
       status: 'active',
     };
 
@@ -315,7 +316,12 @@ export class PlatformMemoryStore implements PlatformRepository {
       code: 'admin',
       name: '系统管理员',
       permissionCodes: seedPermissions.map((permission) => permission.code),
-      dataScope: 'company',
+      dataScopes: [
+        { dataType: 'profile', scope: 'company' },
+        { dataType: 'presence', scope: 'company' },
+        { dataType: 'report', scope: 'company' },
+      ],
+      isSystem: true,
       status: 'active',
     };
     this.roles.set(adminRole.id, adminRole);
