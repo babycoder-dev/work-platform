@@ -91,6 +91,17 @@ docs/platform-core.md
 modules/presence/contract
 ```
 
+### 2.7 开始 M5 权限与角色管理
+
+```text
+docs/foundation-progress.md
+docs/product-requirements.md
+docs/adr/0005-product-replan-roadmap.md
+docs/rfc/m5-roles-permissions-admin.md
+docs/security-baseline.md
+apps/platform-api/src/scope, apps/platform-api/src/rbac, packages/platform-contract
+```
+
 ## 3. 文档职责
 
 | 文档                           | 职责                         | 什么时候更新                          |
@@ -168,6 +179,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - Presence MVP 交付 smoke runbook：`docs/runbooks/presence-mvp-smoke.md`（M4-4 首次落地，后续里程碑沿用 `docs/runbooks/` 目录）
 - 产品需求规格：`docs/product-requirements.md`（2026-05 重规划，单一事实源）
 - 产品重规划 ADR：`docs/adr/0005-product-replan-roadmap.md`（修正 ADR-0002 的 M5–M8 执行顺序）
+- M5 权限与角色管理 RFC：`docs/rfc/m5-roles-permissions-admin.md`（按类型数据范围模型 B、角色管理、Scope 改造）
 
 后续建议补充：
 

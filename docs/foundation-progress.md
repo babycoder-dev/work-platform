@@ -185,8 +185,12 @@
 当前建议执行：
 
 ```text
-M5-0: 权限与角色管理 RFC（docs/rfc/m5-roles-permissions-admin.md）
+M5-1: 角色数据模型 + 按类型数据范围 + Scope 改造（docs/tasks/m5-1-rbac-data-model-scope.md）
 ```
+
+M5-0 RFC 已完成：`docs/rfc/m5-roles-permissions-admin.md`（目标/非目标、按类型数据范围模型 B、
+`role_data_scopes` 迁移、`PlatformScopeService` 按类型改造、API 契约、权限点、审计、Web 范围、
+4 个切片计划与已决定事项）。M5 切片进度见下方 §6.2。
 
 上一切片任务包：`docs/tasks/m4-4-presence-delivery-verification.md`。
 
@@ -199,7 +203,7 @@ M4-4 完成结果：
 - M4 整段 Done；presence 模块进入维护态（后续优化进 M5+ 切片的 follow-up 或独立小切片）。
 - verification-log 锚点：`M4-4 Presence MVP Delivery Verification`。
 
-下一步启动 `M5-0: 权限与角色管理 RFC`（`docs/rfc/m5-roles-permissions-admin.md`）。注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见 `docs/adr/0005-product-replan-roadmap.md`。
+下一步启动 `M5-1: 角色数据模型 + 按类型数据范围 + Scope 改造`（`docs/tasks/m5-1-rbac-data-model-scope.md`）。注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见 `docs/adr/0005-product-replan-roadmap.md`。
 
 ### 6.1 M3.5 收口切片
 
@@ -213,6 +217,16 @@ M4-4 完成结果：
 | M3.5-E  | Platform 数据范围 resolver                | Done | 2026-05-24 完成；PlatformScopeService + employees 列表接入 scope；详见 verification-log `M3.5-E Platform Scope Service`                    |
 | M3.5-F  | Shell 引入 react-router-dom@6，路由拆组件 | Done | 2026-05-24 完成；BrowserRouter + 动态模块路由 + 拆 RequirePermission/UnknownPathView；详见 verification-log `M3.5-F Shell Router`          |
 | M3.5-G  | 跨 schema 数据访问规则文档化              | Done | 2026-05-25 完成；module-contract.md §7.1 + foundation-blueprint §5 末尾指向；详见 verification-log `M3.5-G Cross-schema Data Access Rules` |
+
+### 6.2 M5 权限与角色管理切片
+
+| 切片 | 能力                                   | 状态    | 说明                                                                                       |
+| ---- | -------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| M5-0 | RFC                                    | Done    | 2026-05-31 完成；`docs/rfc/m5-roles-permissions-admin.md`                                  |
+| M5-1 | 数据模型 + 按类型数据范围 + Scope 改造 | Pending | `docs/tasks/m5-1-rbac-data-model-scope.md`；安全敏感，必过 `security-reviewer`；下一步启动 |
+| M5-2 | 角色管理 API（CRUD + 分配 + 审计）     | Pending | `docs/tasks/m5-2-role-management-api.md`；依赖 M5-1                                        |
+| M5-3 | Web 角色管理 UI                        | Pending | `docs/tasks/m5-3-role-management-web.md`；依赖 M5-1/M5-2                                   |
+| M5-4 | 交付验证                               | Pending | `docs/tasks/m5-4-delivery-verification.md`；依赖 M5-1/M5-2/M5-3                            |
 
 ## 7. 当前阻塞项
 
