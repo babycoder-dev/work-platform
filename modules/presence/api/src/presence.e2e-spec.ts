@@ -191,7 +191,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
       })
       .expect(201);
 
-    await request(app.getHttpServer())
+    const employeeResponse = await request(app.getHttpServer())
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
@@ -201,9 +201,16 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
         account: input.account,
         name: input.account,
         initialPassword: 'Presence123',
-        roleIds: [roleResponse.body.id],
       })
       .expect(201);
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${employeeResponse.body.id}/roles`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        roleIds: [roleResponse.body.id],
+      })
+      .expect(200);
 
     return login(input.account, 'Presence123');
   }

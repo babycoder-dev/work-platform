@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readPlatformDatabaseConfig } from '../db/db.config';
 import { runMigrations } from '../db/migrate';
 import {
+  DEFAULT_ADMIN_ROLE_ID,
   DEFAULT_ADMIN_USER_ID,
   DEFAULT_DEPARTMENT_ID,
   DEFAULT_ENTERPRISE_ID,
@@ -67,10 +68,11 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       account: `integration-user-${suffix}`,
       name: 'Integration User',
       initialPassword: 'Passw0rd1',
-      roleIds: [role.id],
     });
 
-    expect(employee.roleIds).toEqual([role.id]);
+    await expect(repository.setUserRoles(employee.id, [role.id], DEFAULT_ENTERPRISE_ID)).resolves.toEqual(
+      expect.objectContaining({ roleIds: [role.id] }),
+    );
     const identity = await repository.findLocalIdentityByAccount(employee.account);
     expect(identity).toEqual(
       expect.objectContaining({
@@ -82,7 +84,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     expect(identity?.lockedUntil).toBeUndefined();
     expect(verifyPassword('Passw0rd1', identity?.passwordHash ?? '')).toBe(true);
 
-    const reassigned = await repository.setUserRoles(employee.id, []);
+    const reassigned = await repository.setUserRoles(employee.id, [], DEFAULT_ENTERPRISE_ID);
     expect(reassigned).toMatchObject({
       id: employee.id,
       roleIds: [],
@@ -381,17 +383,70 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       status: 400,
     });
 
-    const roles = await repository.listRoles();
+    const roles = await repository.listRoles(DEFAULT_ENTERPRISE_ID);
     expect(roles.some((role) => role.code === roleCode)).toBe(false);
   });
 
   it('maps invalid role assignments to platform reference errors', async () => {
     await expect(
-      repository.setUserRoles(DEFAULT_ADMIN_USER_ID, ['00000000-0000-0000-0000-00000000ffff']),
+      repository.setUserRoles(DEFAULT_ADMIN_USER_ID, ['00000000-0000-0000-0000-00000000ffff'], DEFAULT_ENTERPRISE_ID),
     ).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
       status: 400,
     });
+  });
+
+  it('rejects cross-tenant employee departments and role assignments defensively', async () => {
+    const suffix = Date.now().toString();
+    const enterprise = await pool.query<{ id: string }>(
+      `
+        INSERT INTO platform.enterprises (code, name, status)
+        VALUES ($1, $2, 'active')
+        RETURNING id
+      `,
+      [`security-${suffix}`, 'Security Tenant'],
+    );
+    const foreignEnterpriseId = enterprise.rows[0].id;
+    const foreignDepartment = await repository.createDepartment({
+      enterpriseId: foreignEnterpriseId,
+      code: `SEC${suffix}`,
+      name: 'Security Department',
+    });
+    const foreignRole = await repository.createRole({
+      enterpriseId: foreignEnterpriseId,
+      code: `security-role-${suffix}`,
+      name: 'Security Role',
+      permissionCodes: [],
+      dataScopes: [],
+    });
+    const foreignEmployee = await repository.createEmployee({
+      enterpriseId: foreignEnterpriseId,
+      departmentId: foreignDepartment.id,
+      employeeNo: `SEC${suffix}`,
+      account: `security-user-${suffix}`,
+      name: 'Security User',
+      initialPassword: 'Passw0rd1',
+    });
+
+    await expect(repository.createEmployee({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      departmentId: foreignDepartment.id,
+      employeeNo: `BAD${suffix}`,
+      account: `security-department-${suffix}`,
+      name: 'Cross Tenant Department',
+      initialPassword: 'Passw0rd1',
+    })).rejects.toMatchObject({
+      code: 'PLATFORM_REFERENCE_NOT_FOUND',
+      status: 400,
+    });
+    await expect(repository.setUserRoles(DEFAULT_ADMIN_USER_ID, [foreignRole.id], DEFAULT_ENTERPRISE_ID)).rejects.toMatchObject({
+      code: 'PLATFORM_REFERENCE_NOT_FOUND',
+      status: 400,
+    });
+    await expect(repository.setUserRoles(foreignEmployee.id, [DEFAULT_ADMIN_ROLE_ID], DEFAULT_ENTERPRISE_ID)).resolves.toBeUndefined();
+    await expect(repository.findEmployeeById(foreignEmployee.id)).resolves.toEqual(
+      expect.objectContaining({ roleIds: [] }),
+    );
   });
 
   it('updates, counts assignments for, and physically deletes roles', async () => {
@@ -410,16 +465,22 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       account: `mutable-role-user-${suffix}`,
       name: 'Mutable Role User',
       initialPassword: 'Passw0rd1',
-      roleIds: [role.id],
     });
+    await repository.setUserRoles(employee.id, [role.id], DEFAULT_ENTERPRISE_ID);
 
     await expect(repository.countUsersWithRole(role.id)).resolves.toBe(1);
+    await expect(repository.listRoles('00000000-0000-0000-0000-00000000ffff')).resolves.not.toContainEqual(
+      expect.objectContaining({ id: role.id }),
+    );
+    await expect(repository.updateRole(role.id, { name: 'Cross Tenant Update' }, '00000000-0000-0000-0000-00000000ffff'))
+      .resolves.toBeUndefined();
+    await expect(repository.deleteRole(role.id, '00000000-0000-0000-0000-00000000ffff')).resolves.toBe(false);
     await expect(repository.updateRole(role.id, {
       name: 'Updated Mutable Role',
       status: 'disabled',
       permissionCodes: ['platform:employee:view'],
       dataScopes: [{ dataType: 'presence', scope: 'department_tree' }],
-    })).resolves.toEqual(
+    }, DEFAULT_ENTERPRISE_ID)).resolves.toEqual(
       expect.objectContaining({
         id: role.id,
         name: 'Updated Mutable Role',
@@ -429,9 +490,9 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       }),
     );
 
-    await repository.setUserRoles(employee.id, []);
+    await repository.setUserRoles(employee.id, [], DEFAULT_ENTERPRISE_ID);
     await expect(repository.countUsersWithRole(role.id)).resolves.toBe(0);
-    await expect(repository.deleteRole(role.id)).resolves.toBe(true);
+    await expect(repository.deleteRole(role.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
     await expect(repository.findRoleById(role.id)).resolves.toBeUndefined();
     await expect(pool.query('SELECT id FROM platform.roles WHERE id = $1', [role.id])).resolves.toMatchObject({
       rowCount: 0,

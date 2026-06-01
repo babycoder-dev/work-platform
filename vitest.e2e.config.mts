@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    fileParallelism: false,
     include: ['apps/**/*.e2e-spec.ts', 'modules/**/*.e2e-spec.ts'],
     testTimeout: 30000,
   },

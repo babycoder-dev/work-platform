@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ApiError } from '@work/errors';
 import type {
   CreateAuditLogInput,
   CreateDepartmentInput,
@@ -218,6 +219,12 @@ export class PostgresPlatformRepository implements PlatformRepository {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      if (input.departmentId !== undefined) {
+        const department = await this.findDepartmentById(input.departmentId);
+        if (!department || department.enterpriseId !== input.enterpriseId) {
+          throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
+        }
+      }
       const employeeResult = await client.query<EmployeeRow>(
         `
           INSERT INTO platform.employees (
@@ -268,12 +275,11 @@ export class PostgresPlatformRepository implements PlatformRepository {
         [employee.id, input.account, hashPassword(input.initialPassword)],
       );
 
-      await replaceUserRoles(client, employee.id, input.roleIds ?? []);
       await client.query('COMMIT');
 
       return {
         ...employee,
-        roleIds: input.roleIds ?? [],
+        roleIds: [],
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -507,16 +513,17 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return result.rows.map(mapModuleManifest);
   }
 
-  async listRoles(): Promise<RoleDto[]> {
-    const result = await this.pool.query<RoleRow>(roleSelectSql('WHERE r.deleted_at IS NULL ORDER BY r.code'));
+  async listRoles(enterpriseId: string): Promise<RoleDto[]> {
+    const result = await this.pool.query<RoleRow>(
+      roleSelectSql('WHERE r.enterprise_id = $1 AND r.deleted_at IS NULL ORDER BY r.code'),
+      [enterpriseId],
+    );
 
     return result.rows.map(mapRole);
   }
 
   async findRoleById(id: string): Promise<RoleDto | undefined> {
-    const result = await this.pool.query<RoleRow>(roleSelectSql('WHERE r.id = $1 AND r.deleted_at IS NULL'), [id]);
-
-    return mapFirst(result, mapRole);
+    return findRoleById(this.pool, id);
   }
 
   async createRole(input: CreateRoleInput): Promise<RoleDto> {
@@ -576,12 +583,12 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
-  async updateRole(id: string, input: UpdateRoleInput): Promise<RoleDto | undefined> {
+  async updateRole(id: string, input: UpdateRoleInput, enterpriseId: string): Promise<RoleDto | undefined> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       const existingRole = await findRoleById(client, id);
-      if (!existingRole) {
+      if (!existingRole || existingRole.enterpriseId !== enterpriseId) {
         await client.query('ROLLBACK');
         return undefined;
       }
@@ -594,9 +601,9 @@ export class PostgresPlatformRepository implements PlatformRepository {
             description = CASE WHEN $3::boolean THEN $4 ELSE description END,
             status = COALESCE($5, status),
             updated_at = now()
-          WHERE id = $1 AND deleted_at IS NULL
+          WHERE id = $1 AND enterprise_id = $6 AND deleted_at IS NULL
         `,
-        [id, input.name ?? null, input.description !== undefined, input.description ?? null, input.status ?? null],
+        [id, input.name ?? null, input.description !== undefined, input.description ?? null, input.status ?? null, enterpriseId],
       );
       if (input.permissionCodes !== undefined) {
         await replaceRolePermissions(client, id, input.permissionCodes);
@@ -615,9 +622,9 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
-  async deleteRole(id: string): Promise<boolean> {
+  async deleteRole(id: string, enterpriseId: string): Promise<boolean> {
     try {
-      const result = await this.pool.query('DELETE FROM platform.roles WHERE id = $1', [id]);
+      const result = await this.pool.query('DELETE FROM platform.roles WHERE id = $1 AND enterprise_id = $2', [id, enterpriseId]);
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
       mapPostgresError(error);
@@ -632,14 +639,18 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return Number(result.rows[0].count);
   }
 
-  async setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined> {
+  async setUserRoles(userId: string, roleIds: string[], enterpriseId: string): Promise<EmployeeDto | undefined> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       const employee = await findEmployeeById(client, userId);
-      if (!employee) {
+      if (!employee || employee.enterpriseId !== enterpriseId) {
         await client.query('ROLLBACK');
         return undefined;
+      }
+      const visibleRoleIds = new Set((await listRolesByEnterpriseId(client, enterpriseId)).map((role) => role.id));
+      if (roleIds.some((roleId) => !visibleRoleIds.has(roleId))) {
+        throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
       }
 
       await replaceUserRoles(client, userId, roleIds);
@@ -679,7 +690,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
         input.actorAccount ?? null,
         input.action,
         input.resourceType,
-        input.resourceId ?? null,
+        limitVarchar(input.resourceId, 128),
         limitVarchar(input.traceId, 128),
         limitVarchar(input.ip, 128),
         input.userAgent ?? null,
@@ -715,15 +726,30 @@ function employeeSelectSql(suffix: string): string {
 }
 
 async function findEmployeeById(executor: QueryExecutor, id: string): Promise<EmployeeDto | undefined> {
+  if (!isUuid(id)) {
+    return undefined;
+  }
   const result = await executor.query<EmployeeRow>(employeeSelectSql('WHERE e.id = $1 AND e.deleted_at IS NULL'), [id]);
 
   return mapFirst(result, mapEmployee);
 }
 
 async function findRoleById(executor: QueryExecutor, id: string): Promise<RoleDto | undefined> {
+  if (!isUuid(id)) {
+    return undefined;
+  }
   const result = await executor.query<RoleRow>(roleSelectSql('WHERE r.id = $1 AND r.deleted_at IS NULL'), [id]);
 
   return mapFirst(result, mapRole);
+}
+
+async function listRolesByEnterpriseId(executor: QueryExecutor, enterpriseId: string): Promise<RoleDto[]> {
+  const result = await executor.query<RoleRow>(
+    roleSelectSql('WHERE r.enterprise_id = $1 AND r.deleted_at IS NULL ORDER BY r.code'),
+    [enterpriseId],
+  );
+
+  return result.rows.map(mapRole);
 }
 
 function roleSelectSql(suffix: string): string {
@@ -799,6 +825,10 @@ function mapFirst<Row extends QueryResultRow, Dto>(result: QueryResult<Row>, map
 
 function limitVarchar(value: string | undefined, maxLength: number): string | null {
   return value?.slice(0, maxLength) ?? null;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 function mapEnterprise(row: EnterpriseRow): EnterpriseDto {

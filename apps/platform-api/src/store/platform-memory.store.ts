@@ -117,6 +117,12 @@ export class PlatformMemoryStore implements PlatformRepository {
   }
 
   async createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto> {
+    if (
+      input.departmentId !== undefined &&
+      this.departments.get(input.departmentId)?.enterpriseId !== input.enterpriseId
+    ) {
+      throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
+    }
     const employee: EmployeeDto = {
       id: randomUUID(),
       enterpriseId: input.enterpriseId,
@@ -128,7 +134,7 @@ export class PlatformMemoryStore implements PlatformRepository {
       mobile: input.mobile,
       email: input.email,
       status: 'active',
-      roleIds: input.roleIds ?? [],
+      roleIds: [],
       mustChangePassword: true,
     };
 
@@ -223,8 +229,8 @@ export class PlatformMemoryStore implements PlatformRepository {
     return permission;
   }
 
-  async listRoles(): Promise<RoleDto[]> {
-    return Array.from(this.roles.values());
+  async listRoles(enterpriseId: string): Promise<RoleDto[]> {
+    return Array.from(this.roles.values()).filter((role) => role.enterpriseId === enterpriseId);
   }
 
   async findRoleById(id: string): Promise<RoleDto | undefined> {
@@ -252,9 +258,9 @@ export class PlatformMemoryStore implements PlatformRepository {
     return role;
   }
 
-  async updateRole(id: string, input: UpdateRoleInput): Promise<RoleDto | undefined> {
+  async updateRole(id: string, input: UpdateRoleInput, enterpriseId: string): Promise<RoleDto | undefined> {
     const role = this.roles.get(id);
-    if (!role) {
+    if (!role || role.enterpriseId !== enterpriseId) {
       return undefined;
     }
 
@@ -270,7 +276,11 @@ export class PlatformMemoryStore implements PlatformRepository {
     return updated;
   }
 
-  async deleteRole(id: string): Promise<boolean> {
+  async deleteRole(id: string, enterpriseId: string): Promise<boolean> {
+    const role = this.roles.get(id);
+    if (!role || role.enterpriseId !== enterpriseId) {
+      return false;
+    }
     return this.roles.delete(id);
   }
 
@@ -278,10 +288,13 @@ export class PlatformMemoryStore implements PlatformRepository {
     return Array.from(this.employees.values()).filter((employee) => employee.roleIds.includes(roleId)).length;
   }
 
-  async setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined> {
+  async setUserRoles(userId: string, roleIds: string[], enterpriseId: string): Promise<EmployeeDto | undefined> {
     const employee = this.employees.get(userId);
-    if (!employee) {
+    if (!employee || employee.enterpriseId !== enterpriseId) {
       return undefined;
+    }
+    if (roleIds.some((roleId) => this.roles.get(roleId)?.enterpriseId !== enterpriseId)) {
+      throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
     }
 
     const updated: EmployeeDto = {

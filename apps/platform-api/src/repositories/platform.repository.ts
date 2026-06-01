@@ -69,13 +69,13 @@ export interface PlatformRepository {
   findPermissionByCode(code: string): Promise<PermissionDto | undefined>;
   listMenusByPermissionCodes(permissionCodes: string[]): Promise<MenuDto[]>;
   listActiveModuleManifests(): Promise<ModuleManifestDto[]>;
-  listRoles(): Promise<RoleDto[]>;
+  listRoles(enterpriseId: string): Promise<RoleDto[]>;
   findRoleById(id: string): Promise<RoleDto | undefined>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;
-  updateRole(id: string, input: UpdateRoleInput): Promise<RoleDto | undefined>;
-  deleteRole(id: string): Promise<boolean>;
+  updateRole(id: string, input: UpdateRoleInput, enterpriseId: string): Promise<RoleDto | undefined>;
+  deleteRole(id: string, enterpriseId: string): Promise<boolean>;
   countUsersWithRole(roleId: string): Promise<number>;
-  setUserRoles(userId: string, roleIds: string[]): Promise<EmployeeDto | undefined>;
+  setUserRoles(userId: string, roleIds: string[], enterpriseId: string): Promise<EmployeeDto | undefined>;
   recordAuditLog(input: CreateAuditLogInput): Promise<void>;
 }
 

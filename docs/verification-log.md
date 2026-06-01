@@ -21,6 +21,23 @@ Validation-exposed fixes:
   manifest contract. Updated the gateway-composition presence E2E paths.
 - Fixed presence-web board and mine clients to unwrap backend `{ items }` envelopes. Updated
   API-client and page tests.
+- Serialized E2E spec files because PostgreSQL suites share the seeded admin account; parallel
+  password mutation/reset caused nondeterministic `verify:full` failures.
+- Closed the security second-pass cross-tenant role authorization gap: role
+  get/list/update/delete operations are scoped by the authenticated tenant, role assignment
+  validates every `roleId` and the target employee against that tenant before persistence, and cross-tenant hits return
+  404 to avoid existence disclosure. The same review found and closed an employee-creation
+  bypass: public `POST /employees` no longer accepts `roleIds`, so assignment always goes through
+  guarded `PUT /employees/:id/roles`; employee creation also derives `enterpriseId` from the
+  authenticated user. `CreateEmployeeInput` and both repositories no longer allow roles during
+  employee creation. Employee departments are validated against the authenticated tenant in the
+  service and repositories. Repositories validate assignment role ids defensively, and auth ignores
+  any persisted cross-tenant role or department contamination. Rejected role update/delete, role
+  assignment, and employee department-reference writes record bounded failure audits without
+  cross-tenant details. PostgreSQL treats malformed UUID paths as missing resources and truncates
+  audit `resourceId` values to the schema bound, preserving 404 + failure-audit behavior for oversized
+  ids. Other employee-side bare-id mutations (`updateStatus` and `resetPassword`) remain a recorded follow-up for M8
+  personnel/organization work or a dedicated security slice.
 
 Command matrix:
 
@@ -29,8 +46,8 @@ Command matrix:
 - `docker compose -f infra/docker-compose.yml up -d postgres`: pass after starting Docker
   Desktop Linux engine.
 - PostgreSQL env + `pnpm db:setup`: pass; seed reports `permissionCount=12`.
-- PostgreSQL env + `pnpm verify:full`: pass. Unit: 123 passed. Web: 19 passed. E2E: 36
-  passed. Repository integration: 17 passed. PostgreSQL E2E: 12 passed.
+- PostgreSQL env + `pnpm verify:full`: pass. Unit: 126 passed. Web: 19 passed. E2E: 39
+  passed. Repository integration: 18 passed. PostgreSQL E2E: 13 passed.
 - `pnpm docker:build`: pass. The first attempt hit a transient registry `ECONNRESET`; a clean
   standalone rerun built all six images successfully.
 - GitHub Actions: latest pushed `main` run for M5-3 passed. This M5-4 branch needs its own CI
@@ -69,7 +86,8 @@ Exit checklist:
 - [x] Assigned roles reject deletion with `PLATFORM_ROLE_IN_USE`.
 - [x] `platform:role:assign` exists in manifest, seed permissions, and the seeded admin role.
 - [x] Security baseline §4.4 / §5 is synchronized; prior security review has no unresolved
-  M5 blocking item.
+  M5 blocking item. Security second-pass High finding for cross-tenant role access is closed;
+  employee-side bare-id mutation follow-up is recorded above.
 - [x] Local `pnpm verify`, PostgreSQL `pnpm verify:full`, Docker build, and browser smoke pass.
   Latest pushed `main` CI is green; this branch CI follows after push.
 

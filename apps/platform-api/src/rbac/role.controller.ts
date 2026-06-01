@@ -13,14 +13,14 @@ export class RoleController {
 
   @Get()
   @RequirePermissions('platform:role:view')
-  listRoles() {
-    return this.rbacService.listRoles();
+  listRoles(@Req() request: PlatformRequest) {
+    return this.rbacService.listRoles(request.currentUser!.enterpriseId);
   }
 
   @Get(':id')
   @RequirePermissions('platform:role:view')
-  getRole(@Param('id') id: string) {
-    return this.rbacService.getRole(id);
+  getRole(@Param('id') id: string, @Req() request: PlatformRequest) {
+    return this.rbacService.getRole(id, request.currentUser!.enterpriseId);
   }
 
   @Post()
@@ -42,12 +42,17 @@ export class RoleController {
     @Body(dtoValidationPipe(UpdateRoleDto)) input: UpdateRoleDto,
     @Req() request: PlatformRequest,
   ) {
-    return this.rbacService.updateRole(id, input, buildPlatformAuditContext(request));
+    return this.rbacService.updateRole(
+      id,
+      input,
+      request.currentUser!.enterpriseId,
+      buildPlatformAuditContext(request),
+    );
   }
 
   @Delete(':id')
   @RequirePermissions('platform:role:manage')
   deleteRole(@Param('id') id: string, @Req() request: PlatformRequest) {
-    return this.rbacService.deleteRole(id, buildPlatformAuditContext(request));
+    return this.rbacService.deleteRole(id, request.currentUser!.enterpriseId, buildPlatformAuditContext(request));
   }
 }

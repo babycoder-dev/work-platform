@@ -308,7 +308,6 @@ describe('platform-api', () => {
         account: `audit-user-${suffix}`,
         name: '审计测试员工',
         initialPassword: 'Passw0rd1',
-        roleIds: [roleResponse.body.id],
       })
       .expect(201);
 
@@ -479,6 +478,173 @@ describe('platform-api', () => {
       expect(response.body.enterpriseId).toBe('ent-default');
     });
 
+    it('hides cross-tenant roles and rejects cross-tenant role assignment', async () => {
+      const token = await loginAsAdmin();
+      const suffix = Date.now().toString();
+      const foreignRole = await memoryStore.createRole({
+        enterpriseId: 'ent-other',
+        code: `foreign-role-${suffix}`,
+        name: 'Foreign Role',
+        permissionCodes: [],
+        dataScopes: [],
+      });
+      const localRole = await memoryStore.createRole({
+        enterpriseId: 'ent-default',
+        code: `local-role-${suffix}`,
+        name: 'Local Role',
+        permissionCodes: [],
+        dataScopes: [],
+      });
+      const createdForeignEmployee = await memoryStore.createEmployee({
+        enterpriseId: 'ent-other',
+        employeeNo: `FRE${suffix}`,
+        account: `foreign-role-employee-${suffix}`,
+        name: 'Foreign Role Employee',
+        initialPassword: 'Scope1234',
+      });
+      const foreignEmployee = await memoryStore.setUserRoles(createdForeignEmployee.id, [foreignRole.id], 'ent-other');
+      const target = await createEmployee(token, {
+        employeeNo: `FRT${suffix}`,
+        account: `foreign-role-target-${suffix}`,
+        name: 'Foreign Role Target',
+      });
+      const assignmentAuditCount = memoryStore.auditLogs.filter(
+        (audit) => audit.action === 'platform.employee.roles.assign' && audit.result === 'success',
+      ).length;
+
+      await request(app.getHttpServer())
+        .get('/api/platform/roles')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((response) => {
+          expect(response.body.items).not.toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                id: foreignRole.id,
+              }),
+            ]),
+          );
+        });
+
+      for (const method of ['get', 'patch', 'delete'] as const) {
+        await request(app.getHttpServer())[method](`/api/platform/roles/${foreignRole.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send(method === 'patch' ? { name: 'Changed Foreign Role' } : undefined)
+          .expect(404);
+      }
+
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${target.body.id}/roles`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ roleIds: [foreignRole.id] })
+        .expect(404);
+
+      await expect(memoryStore.findEmployeeById(target.body.id)).resolves.toEqual(
+        expect.objectContaining({
+          roleIds: [],
+        }),
+      );
+
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${createdForeignEmployee.id}/roles`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ roleIds: [localRole.id] })
+        .expect(404);
+
+      await expect(memoryStore.findEmployeeById(createdForeignEmployee.id)).resolves.toEqual(foreignEmployee);
+      await expect(memoryStore.findRoleById(foreignRole.id)).resolves.toEqual(foreignRole);
+      expect(
+        memoryStore.auditLogs.filter(
+          (audit) => audit.action === 'platform.employee.roles.assign' && audit.result === 'success',
+        ),
+      ).toHaveLength(assignmentAuditCount);
+      expect(memoryStore.auditLogs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action: 'platform.role.update', result: 'failure' }),
+          expect.objectContaining({ action: 'platform.role.delete', result: 'failure' }),
+          expect.objectContaining({ action: 'platform.employee.roles.assign', result: 'failure' }),
+        ]),
+      );
+    });
+
+    it('rejects role injection through employee creation without role assignment permission', async () => {
+      const suffix = Date.now().toString();
+      const employeeCreatorRole = await memoryStore.createRole({
+        enterpriseId: 'ent-default',
+        code: `employee-creator-${suffix}`,
+        name: 'Employee Creator',
+        permissionCodes: ['platform:employee:create'],
+        dataScopes: [],
+      });
+      const employeeCreator = await memoryStore.createEmployee({
+        enterpriseId: 'ent-default',
+        employeeNo: `EC${suffix}`,
+        account: `employee-creator-${suffix}`,
+        name: 'Employee Creator',
+        initialPassword: 'Scope1234',
+      });
+      await memoryStore.setUserRoles(employeeCreator.id, [employeeCreatorRole.id], 'ent-default');
+      const employeeCreatorToken = (await login(employeeCreator.account)).body.accessToken as string;
+
+      await request(app.getHttpServer())
+        .post('/api/platform/employees')
+        .set('Authorization', `Bearer ${employeeCreatorToken}`)
+        .send({
+          enterpriseId: 'ent-default',
+          employeeNo: `EI${suffix}`,
+          account: `employee-injection-${suffix}`,
+          name: 'Employee Injection',
+          initialPassword: 'Scope1234',
+          roleIds: ['role-admin'],
+        })
+        .expect(400);
+
+      await expect(memoryStore.findLocalIdentityByAccount(`employee-injection-${suffix}`)).resolves.toBeUndefined();
+
+      const created = await request(app.getHttpServer())
+        .post('/api/platform/employees')
+        .set('Authorization', `Bearer ${employeeCreatorToken}`)
+        .send({
+          enterpriseId: 'ent-other',
+          employeeNo: `ET${suffix}`,
+          account: `employee-tenant-${suffix}`,
+          name: 'Employee Tenant Boundary',
+          initialPassword: 'Scope1234',
+        })
+        .expect(201);
+      expect(created.body.enterpriseId).toBe('ent-default');
+
+      const foreignDepartment = await memoryStore.createDepartment({
+        enterpriseId: 'ent-other',
+        code: `ETD${suffix}`,
+        name: 'Foreign Department',
+      });
+      await request(app.getHttpServer())
+        .post('/api/platform/employees')
+        .set('Authorization', `Bearer ${employeeCreatorToken}`)
+        .send({
+          enterpriseId: 'ent-default',
+          departmentId: foreignDepartment.id,
+          employeeNo: `ED${suffix}`,
+          account: `employee-department-${suffix}`,
+          name: 'Employee Department Boundary',
+          initialPassword: 'Scope1234',
+        })
+        .expect(404);
+      await expect(memoryStore.findLocalIdentityByAccount(`employee-department-${suffix}`)).resolves.toBeUndefined();
+      expect(memoryStore.auditLogs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: 'platform.employee.create',
+            result: 'failure',
+            metadata: {
+              reason: 'request_rejected',
+            },
+          }),
+        ]),
+      );
+    });
+
     it('rejects protected, in-use, duplicate, and invalid role mutations', async () => {
       const token = await loginAsAdmin();
       const suffix = Date.now().toString();
@@ -582,16 +748,16 @@ describe('platform-api', () => {
         account: `role-assign-${suffix}`,
         name: 'Role Assigner',
         initialPassword: 'Scope1234',
-        roleIds: [assignRole.id],
       });
+      await memoryStore.setUserRoles(assigner.id, [assignRole.id], 'ent-default');
       const manager = await memoryStore.createEmployee({
         enterpriseId: 'ent-default',
         employeeNo: `RMG${suffix}`,
         account: `role-manage-${suffix}`,
         name: 'Role Manager',
         initialPassword: 'Scope1234',
-        roleIds: [manageRole.id],
       });
+      await memoryStore.setUserRoles(manager.id, [manageRole.id], 'ent-default');
       const target = await memoryStore.createEmployee({
         enterpriseId: 'ent-default',
         employeeNo: `RTG${suffix}`,
@@ -999,7 +1165,7 @@ describe('platform-api', () => {
       .expect(201);
   }
 
-  function createEmployee(
+  async function createEmployee(
     token: string,
     input: {
       employeeNo: string;
@@ -1009,7 +1175,7 @@ describe('platform-api', () => {
       roleIds?: string[];
     },
   ) {
-    return request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -1019,9 +1185,20 @@ describe('platform-api', () => {
         account: input.account,
         name: input.name,
         initialPassword: 'Scope1234',
-        roleIds: input.roleIds,
       })
       .expect(201);
+
+    if (input.roleIds !== undefined) {
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${response.body.id}/roles`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          roleIds: input.roleIds,
+        })
+        .expect(200);
+    }
+
+    return response;
   }
 
   function login(account: string) {

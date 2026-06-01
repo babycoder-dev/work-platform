@@ -247,11 +247,14 @@ export class AuthService {
       throw new UnauthorizedException('用户不存在');
     }
 
-    const department = employee.departmentId
+    const departmentResult = employee.departmentId
       ? await this.repository.findDepartmentById(employee.departmentId)
       : undefined;
+    const department = departmentResult?.enterpriseId === employee.enterpriseId ? departmentResult : undefined;
     const roleResults = await Promise.all(employee.roleIds.map((roleId) => this.repository.findRoleById(roleId)));
-    const roles = roleResults.filter((role): role is RoleDto => role !== undefined && role.status === 'active');
+    const roles = roleResults.filter(
+      (role): role is RoleDto => role !== undefined && role.enterpriseId === employee.enterpriseId && role.status === 'active',
+    );
     const permissionCodes = new Set(roles.flatMap((role) => role.permissionCodes));
     const permissionResults = await Promise.all(
       Array.from(permissionCodes).map((code) => this.repository.findPermissionByCode(code)),
@@ -270,7 +273,7 @@ export class AuthService {
       employeeNo: employee.employeeNo,
       name: employee.name,
       enterpriseId: employee.enterpriseId,
-      departmentId: employee.departmentId,
+      departmentId: department?.id,
       departmentName: department?.name,
       roles: roles.map((role) => role.code),
       permissions,

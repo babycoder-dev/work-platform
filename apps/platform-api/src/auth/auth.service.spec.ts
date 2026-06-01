@@ -436,11 +436,31 @@ describe('AuthService', () => {
     );
   });
 
+  it('does not expose a persisted cross-tenant department association', async () => {
+    const repository = createRepositoryMock();
+    repository.findDepartmentById.mockResolvedValue({
+      id: 'dept-foreign',
+      enterpriseId: 'ent-other',
+      code: 'OTHER',
+      name: 'Other Tenant Department',
+      sortOrder: 1,
+      status: 'active',
+    });
+    const service = new AuthService(repository);
+
+    await expect(service.toCurrentUser(employee.id)).resolves.toEqual(
+      expect.objectContaining({
+        departmentId: undefined,
+        departmentName: undefined,
+      }),
+    );
+  });
+
   it('groups active role data scopes by type and excludes disabled roles', async () => {
     const repository = createRepositoryMock();
     repository.findEmployeeById.mockResolvedValue({
       ...employee,
-      roleIds: ['role-profile', 'role-presence', 'role-disabled'],
+      roleIds: ['role-profile', 'role-presence', 'role-disabled', 'role-foreign'],
     });
     repository.findRoleById.mockImplementation(async (id: string) => ({
       'role-profile': {
@@ -461,6 +481,14 @@ describe('AuthService', () => {
         code: id,
         dataScopes: [{ dataType: 'report', scope: 'company' }],
         status: 'disabled',
+      },
+      'role-foreign': {
+        ...role,
+        id,
+        code: id,
+        enterpriseId: 'ent-other',
+        permissionCodes: ['platform:employee:create'],
+        dataScopes: [{ dataType: 'report', scope: 'company' }],
       },
     })[id]);
     const service = new AuthService(repository);

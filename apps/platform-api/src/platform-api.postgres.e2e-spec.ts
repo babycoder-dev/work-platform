@@ -315,6 +315,123 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       });
   });
 
+  it('hides cross-tenant roles and rejects cross-tenant employee references', async () => {
+    const suffix = Date.now().toString();
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/platform/auth/login')
+      .send({
+        account: 'admin',
+        password: adminPassword,
+      })
+      .expect(201);
+    const token = loginResponse.body.accessToken as string;
+    const enterprise = await pool.query<{ id: string }>(
+      `
+        INSERT INTO platform.enterprises (code, name, status)
+        VALUES ($1, $2, 'active')
+        RETURNING id
+      `,
+      [`pg-security-${suffix}`, 'PG Security Tenant'],
+    );
+    const foreignEnterpriseId = enterprise.rows[0].id;
+    const department = await pool.query<{ id: string }>(
+      `
+        INSERT INTO platform.departments (enterprise_id, code, name, status)
+        VALUES ($1, $2, $3, 'active')
+        RETURNING id
+      `,
+      [foreignEnterpriseId, `PGSEC${suffix}`, 'PG Security Department'],
+    );
+    const foreignDepartmentId = department.rows[0].id;
+    const role = await pool.query<{ id: string }>(
+      `
+        INSERT INTO platform.roles (enterprise_id, code, name, status)
+        VALUES ($1, $2, $3, 'active')
+        RETURNING id
+      `,
+      [foreignEnterpriseId, `pg-security-role-${suffix}`, 'PG Security Role'],
+    );
+    const foreignRoleId = role.rows[0].id;
+    const target = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        employeeNo: `PGSEC${suffix}`,
+        account: `pg-security-target-${suffix}`,
+        name: 'PG Security Target',
+        initialPassword: 'Passw0rd1',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get('/api/platform/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: foreignRoleId })]));
+      });
+    for (const method of ['get', 'patch', 'delete'] as const) {
+      await request(app.getHttpServer())[method](`/api/platform/roles/${foreignRoleId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Trace-Id', `trace-pg-security-role-${method}-${suffix}`)
+        .send(method === 'patch' ? { name: 'Changed Foreign Role' } : undefined)
+        .expect(404);
+    }
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${target.body.id}/roles`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-pg-security-assign-${suffix}`)
+      .send({ roleIds: [foreignRoleId] })
+      .expect(404);
+    await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-pg-security-department-${suffix}`)
+      .send({
+        enterpriseId: '00000000-0000-0000-0000-000000000001',
+        departmentId: foreignDepartmentId,
+        employeeNo: `PGDEPT${suffix}`,
+        account: `pg-security-department-${suffix}`,
+        name: 'PG Security Department Boundary',
+        initialPassword: 'Passw0rd1',
+      })
+      .expect(404);
+    const oversizedId = 'x'.repeat(256);
+    await request(app.getHttpServer())
+      .patch(`/api/platform/roles/${oversizedId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-pg-security-role-oversized-${suffix}`)
+      .send({ name: 'Oversized Role Id' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${oversizedId}/roles`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-pg-security-assign-oversized-${suffix}`)
+      .send({ roleIds: [] })
+      .expect(404);
+
+    await expect(pool.query('SELECT role_id FROM platform.user_roles WHERE user_id = $1', [target.body.id])).resolves.toMatchObject({
+      rowCount: 0,
+    });
+    await expect(pool.query('SELECT id FROM platform.employees WHERE account = $1', [`pg-security-department-${suffix}`])).resolves.toMatchObject({
+      rowCount: 0,
+    });
+    await expect(fetchFailureAuditActionsByTraceSuffix(pool, suffix)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: 'platform.role.update', result: 'failure' }),
+        expect.objectContaining({ action: 'platform.role.delete', result: 'failure' }),
+        expect.objectContaining({ action: 'platform.employee.roles.assign', result: 'failure' }),
+        expect.objectContaining({ action: 'platform.employee.create', result: 'failure' }),
+      ]),
+    );
+    await expect(fetchAuditResourceIdsByTraceSuffix(pool, suffix)).resolves.toEqual(
+      expect.arrayContaining([
+        'x'.repeat(128),
+      ]),
+    );
+  });
+
   it('locks postgres-backed accounts after five wrong passwords', async () => {
     const uniqueSuffix = Date.now().toString();
     const account = `lockout-test-${uniqueSuffix}`;
@@ -715,7 +832,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .expect(201);
   }
 
-  function createEmployee(
+  async function createEmployee(
     token: string,
     suffix: string,
     input: {
@@ -727,7 +844,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     },
   ) {
     void suffix;
-    return request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -737,9 +854,20 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
         account: input.account,
         name: input.name,
         initialPassword: 'Scope1234',
-        roleIds: input.roleIds,
       })
       .expect(201);
+
+    if (input.roleIds !== undefined) {
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${response.body.id}/roles`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          roleIds: input.roleIds,
+        })
+        .expect(200);
+    }
+
+    return response;
   }
 
   function login(account: string) {
@@ -802,6 +930,38 @@ async function fetchAuditActionsByTraceSuffix(pool: Pool, suffix: string) {
   );
 
   return auditResult.rows;
+}
+
+async function fetchFailureAuditActionsByTraceSuffix(pool: Pool, suffix: string) {
+  const auditResult = await pool.query<{
+    action: string;
+    result: string;
+  }>(
+    `
+      SELECT action, result
+      FROM platform.audit_logs
+      WHERE trace_id LIKE $1
+        AND result = 'failure'
+      ORDER BY created_at ASC
+    `,
+    [`trace-pg-security-%-${suffix}`],
+  );
+
+  return auditResult.rows;
+}
+
+async function fetchAuditResourceIdsByTraceSuffix(pool: Pool, suffix: string) {
+  const auditResult = await pool.query<{ resource_id: string | null }>(
+    `
+      SELECT resource_id
+      FROM platform.audit_logs
+      WHERE trace_id LIKE $1
+      ORDER BY created_at ASC
+    `,
+    [`trace-pg-security-%-oversized-${suffix}`],
+  );
+
+  return auditResult.rows.map((row) => row.resource_id);
 }
 
 async function fetchLoginAuditsByAccount(pool: Pool, account: string) {

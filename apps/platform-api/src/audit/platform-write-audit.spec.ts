@@ -66,6 +66,7 @@ describe('platform write audit coverage', () => {
       createEmployee: vi.fn().mockResolvedValue(employee),
       findEmployeeById: vi.fn().mockResolvedValue(employee),
       updateEmployee: vi.fn().mockResolvedValue({ ...employee, status: 'disabled' }),
+      listRoles: vi.fn().mockResolvedValue([{ id: 'role-audit' }]),
       setUserRoles: vi.fn().mockResolvedValue({ ...employee, roleIds: ['role-audit'] }),
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
@@ -80,7 +81,7 @@ describe('platform write audit coverage', () => {
       initialPassword: 'Passw0rd1',
     }, auditContext);
     await service.updateStatus(employee.id, { status: 'disabled' }, auditContext);
-    await service.assignRoles({ userId: employee.id, roleIds: ['role-audit'] }, auditContext);
+    await service.assignRoles({ userId: employee.id, roleIds: ['role-audit'] }, employee.enterpriseId, auditContext);
 
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({

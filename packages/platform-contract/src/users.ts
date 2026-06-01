@@ -25,7 +25,6 @@ export interface CreateEmployeeInput {
   mobile?: string;
   email?: string;
   initialPassword: string;
-  roleIds?: string[];
 }
 
 export interface UpdateEmployeeStatusInput {

@@ -47,10 +47,6 @@ export class CreateEmployeeDto implements CreateEmployeeInput {
   @MinLength(8)
   initialPassword!: string;
 
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  roleIds?: string[];
 }
 
 export class UpdateEmployeeStatusDto implements UpdateEmployeeStatusInput {

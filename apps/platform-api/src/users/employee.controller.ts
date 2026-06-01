@@ -23,7 +23,13 @@ export class EmployeeController {
     @Body(dtoValidationPipe(CreateEmployeeDto)) input: CreateEmployeeDto,
     @Req() request: PlatformRequest,
   ) {
-    return this.employeeService.createEmployee(input, buildPlatformAuditContext(request));
+    return this.employeeService.createEmployee(
+      {
+        ...input,
+        enterpriseId: request.currentUser!.enterpriseId,
+      },
+      buildPlatformAuditContext(request),
+    );
   }
 
   @Put(':id/status')
@@ -48,6 +54,7 @@ export class EmployeeController {
         userId: id,
         roleIds: input.roleIds,
       },
+      request.currentUser!.enterpriseId,
       buildPlatformAuditContext(request),
     );
   }

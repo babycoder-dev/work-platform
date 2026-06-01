@@ -46,6 +46,13 @@ export class EmployeeService {
   }
 
   async createEmployee(input: CreateEmployeeInput, auditContext: PlatformAuditContext = {}) {
+    if (input.departmentId !== undefined) {
+      const department = await this.repository.findDepartmentById(input.departmentId);
+      if (!department || department.enterpriseId !== input.enterpriseId) {
+        await this.recordFailureAudit('platform.employee.create', undefined, auditContext);
+        throw new NotFoundException('部门不存在');
+      }
+    }
     const employee = await this.repository.createEmployee(input);
     await this.repository.recordAuditLog({
       actorUserId: auditContext.actorUserId,
@@ -103,10 +110,20 @@ export class EmployeeService {
     return saved;
   }
 
-  async assignRoles(input: AssignUserRolesInput, auditContext: PlatformAuditContext = {}) {
-    const employee = await this.repository.setUserRoles(input.userId, input.roleIds);
-    if (!employee) {
-      throw new NotFoundException('员工不存在');
+  async assignRoles(input: AssignUserRolesInput, enterpriseId: string, auditContext: PlatformAuditContext = {}) {
+    let employee: EmployeeDto | undefined;
+    try {
+      const availableRoleIds = new Set((await this.repository.listRoles(enterpriseId)).map((role) => role.id));
+      if (input.roleIds.some((roleId) => !availableRoleIds.has(roleId))) {
+        throw new NotFoundException('角色不存在');
+      }
+      employee = await this.repository.setUserRoles(input.userId, input.roleIds, enterpriseId);
+      if (!employee) {
+        throw new NotFoundException('员工不存在');
+      }
+    } catch (error) {
+      await this.recordFailureAudit('platform.employee.roles.assign', input.userId, auditContext);
+      throw error;
     }
 
     await this.repository.recordAuditLog({
@@ -163,5 +180,26 @@ export class EmployeeService {
       ...employee,
       mustChangePassword: true,
     };
+  }
+
+  private async recordFailureAudit(
+    action: string,
+    resourceId: string | undefined,
+    auditContext: PlatformAuditContext,
+  ) {
+    await this.repository.recordAuditLog({
+      actorUserId: auditContext.actorUserId,
+      actorAccount: auditContext.actorAccount,
+      action,
+      resourceType: 'platform.employee',
+      resourceId,
+      traceId: auditContext.traceId,
+      ip: auditContext.ip,
+      userAgent: auditContext.userAgent,
+      result: 'failure',
+      metadata: {
+        reason: 'request_rejected',
+      },
+    });
   }
 }

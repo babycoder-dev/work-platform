@@ -52,12 +52,33 @@ describe('PlatformMemoryStore', () => {
       initialPassword: 'Passw0rd',
     });
 
-    const updated = await store.setUserRoles(employee.id, ['role-admin']);
+    const updated = await store.setUserRoles(employee.id, ['role-admin'], 'ent-default');
 
     const identity = await store.findLocalIdentityByAccount('zhangsan');
     expect(updated?.roleIds).toEqual(['role-admin']);
     expect(identity?.userId).toBe(employee.id);
     expect(verifyPassword('Passw0rd', identity?.passwordHash ?? '')).toBe(true);
+  });
+
+  it('rejects employee creation with a department from another tenant', async () => {
+    const store = new PlatformMemoryStore();
+    const foreignDepartment = await store.createDepartment({
+      enterpriseId: 'ent-other',
+      code: 'OTHER',
+      name: 'Other Tenant',
+    });
+
+    await expect(store.createEmployee({
+      enterpriseId: 'ent-default',
+      departmentId: foreignDepartment.id,
+      employeeNo: '000099',
+      account: 'cross-tenant-department',
+      name: 'Cross Tenant Department',
+      initialPassword: 'Passw0rd',
+    })).rejects.toMatchObject({
+      code: 'PLATFORM_REFERENCE_NOT_FOUND',
+      status: 400,
+    });
   });
 
   it('round-trips per-type role data scopes with non-system roles by default', async () => {
@@ -98,16 +119,19 @@ describe('PlatformMemoryStore', () => {
       account: 'role-user',
       name: 'Role User',
       initialPassword: 'Passw0rd',
-      roleIds: [role.id],
     });
+    await store.setUserRoles(employee.id, [role.id], 'ent-default');
 
     await expect(store.countUsersWithRole(role.id)).resolves.toBe(1);
+    await expect(store.listRoles('ent-other')).resolves.not.toContainEqual(expect.objectContaining({ id: role.id }));
+    await expect(store.updateRole(role.id, { name: 'Cross Tenant Update' }, 'ent-other')).resolves.toBeUndefined();
+    await expect(store.deleteRole(role.id, 'ent-other')).resolves.toBe(false);
     await expect(store.updateRole(role.id, {
       name: 'Updated Role',
       status: 'disabled',
       permissionCodes: ['platform:org:view'],
       dataScopes: [{ dataType: 'report', scope: 'company' }],
-    })).resolves.toEqual(
+    }, 'ent-default')).resolves.toEqual(
       expect.objectContaining({
         id: role.id,
         name: 'Updated Role',
@@ -117,9 +141,9 @@ describe('PlatformMemoryStore', () => {
       }),
     );
 
-    await store.setUserRoles(employee.id, []);
+    await store.setUserRoles(employee.id, [], 'ent-default');
     await expect(store.countUsersWithRole(role.id)).resolves.toBe(0);
-    await expect(store.deleteRole(role.id)).resolves.toBe(true);
+    await expect(store.deleteRole(role.id, 'ent-default')).resolves.toBe(true);
     await expect(store.findRoleById(role.id)).resolves.toBeUndefined();
   });
 
