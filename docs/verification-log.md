@@ -43,7 +43,12 @@ Independent security review:
 - Froze Files attachment as a single-reference model and added `staged -> attached` versus
   `staged -> deleting -> deleted` atomic claim rules, exact-reference idempotency, cleanup retry behavior,
   and concurrent attach / cleanup tests.
-- Third pass: pending after the second review-fix commit.
+- Third pass: `BLOCK`. The second-pass findings were closed. The reviewer identified two remaining Medium
+  cleanup convergence details.
+- Made `staged_expires_at` mandatory for every staged object; quota accounting now includes `deleting`
+  objects until disk release is confirmed. Cleanup treats an already-missing disk file as idempotent success
+  so a prior database update failure can converge to `deleted`.
+- Final pass: pending after the third review-fix commit.
 
 Validation:
 

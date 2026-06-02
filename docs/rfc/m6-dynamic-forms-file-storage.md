@@ -356,7 +356,7 @@ file_objects
   status varchar(32) not null
   uploaded_by uuid not null
   created_at timestamptz not null
-  staged_expires_at timestamptz null
+  staged_expires_at timestamptz not null
   deleted_at timestamptz null
   unique (provider, storage_key)
   unique (enterprise_id, id)
@@ -413,7 +413,9 @@ Docker Compose 增加持久化 volume 挂载。部署文档必须把文件 volum
 - 磁盘剩余空间阈值：低于 10% 或 2 GiB（取更严格者）拒绝新上传，并记录可观测告警日志。
 - 清理任务审计 / 指标：记录清理数量和释放字节数，不记录文件路径。
 
-配额统计必须计入 `staged` 与 `attached` 文件，不能通过不绑定文件绕过。
+上传成功进入 `staged` 时必须写 `staged_expires_at = created_at + staged TTL`，不允许产生无到期时间的
+staged 对象。配额统计必须计入所有尚未确认释放磁盘空间的状态（`staged | attached | deleting`），
+不能通过不绑定文件或删除失败绕过。
 M6-2 用 `FilesCleanupService` 在 gateway 进程内按默认 15 分钟周期清理，并提供可单独执行的
 `files:cleanup-staged` 命令用于运维补跑；M7 调度基建落地后再把触发器切换到统一 scheduler。
 
@@ -425,7 +427,8 @@ attach 与 cleanup 必须按以下状态机竞争，不允许“先查再改”�
 - cleanup 用行锁或等价条件更新原子 claim 已过期且无引用的对象：
   `staged -> deleting WHERE staged_expires_at <= now()`。claim 成功后才允许删除磁盘对象。
 - 磁盘删除成功后写 `deleted_at` 并转 `deleting -> deleted`；磁盘删除失败时保持 `deleting`，
-  记录 bounded failure audit / 告警，并由后续 cleanup 重试。`deleting` 对象禁止 attach。
+  记录 bounded failure audit / 告警，并由后续 cleanup 重试。`deleting` 对象禁止 attach。重试时磁盘
+  文件已经不存在视为幂等删除成功，继续收敛为 `deleted`；磁盘删除成功但数据库更新失败也按此路径恢复。
 - 完全相同引用的 attach 幂等重试可返回已有 `attached` 对象；不同引用一律拒绝。
 
 ### 6.4 私有访问模型
@@ -590,6 +593,7 @@ db:setup = platform -> presence -> files -> forms -> seed
 - 同租户其他上传者的 staged fileId 不得被绑定。
 - staged TTL 清理、租户 / 用户配额、速率限制和磁盘阈值拒绝可验证。
 - attach 与 cleanup 并发时只有一个原子 claim 成功；磁盘删除失败保持 `deleting` 并可重试。
+- staged 对象必须有 expiry；`deleting` 继续计入配额；删除成功但数据库更新失败可幂等恢复为 `deleted`。
 - 单个文件最多一个引用；相同引用 attach 幂等，不同引用复用拒绝。
 - `openFile` 只允许同租户 actor context；路径 traversal storage key 被拒绝。
 - 审计不含内容、磁盘绝对路径或跨租户 metadata。
