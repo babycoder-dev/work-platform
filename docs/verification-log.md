@@ -1,5 +1,41 @@
 # Verification Log
 
+## 2026-06-02
+
+### M6-0 Dynamic Forms Mini And File Storage Proposed RFC
+
+Scope:
+
+- Drafted `docs/rfc/m6-dynamic-forms-file-storage.md` as a backend-first Proposed RFC.
+- No feature code, dependency, lockfile, migration, or frontend implementation changed in this slice.
+- Frontend configuration and submission UI remain deferred until the product prototype is confirmed.
+
+Change set:
+
+- Defined fixed form slots, typed fields, snapshot record values, and separate `forms.*` schema ownership.
+- Chose local disk + `LocalFileStorageProvider` for the first file-storage implementation; MinIO remains a
+  replaceable future provider.
+- Defined a separate `files.*` schema, opaque storage keys, upload limits, MIME / extension allowlists,
+  traversal protection, Docker volume persistence, and backup requirements.
+- Kept file contents private: M6 does not expose a generic content-download route that authorizes by UUID
+  alone. Domain modules must proxy content through their own authorization-aware APIs.
+- Defined public Forms / Files ports and a Platform employee lookup port so later modules can validate
+  people and file fields without cross-schema reads.
+- Split M6 into backend slices M6-1 through M6-4 and deferred Web work to M6-W pending prototype review.
+- Updated document index, progress board, and domain glossary.
+
+Validation:
+
+- `git diff --check`: pass.
+- `rg` consistency scan: pass. Stale progress text saying the M6 RFC did not exist was removed.
+- `pnpm exec prettier --check docs/rfc/m6-dynamic-forms-file-storage.md docs/doc-index.md docs/domain-glossary.md docs/foundation-progress.md`:
+  not run successfully because this new docs-only worktree has no installed `prettier` binary.
+- `pnpm verify`: intentionally not run; this Proposed RFC slice changes documentation only.
+
+Follow-up:
+
+- Review and accept the RFC, then create the self-contained M6-1 backend task package.
+
 ## 2026-06-01
 
 ### M5-4 Roles & Permissions Delivery Verification

@@ -102,6 +102,18 @@ docs/security-baseline.md
 apps/platform-api/src/scope, apps/platform-api/src/rbac, packages/platform-contract
 ```
 
+### 2.8 开始 M6 动态表单 mini + 文件存储
+
+```text
+docs/foundation-progress.md
+docs/product-requirements.md
+docs/adr/0005-product-replan-roadmap.md
+docs/rfc/m6-dynamic-forms-file-storage.md
+docs/security-baseline.md
+docs/module-contract.md
+modules/presence/api（共享模块接入模式参考）
+```
+
 ## 3. 文档职责
 
 | 文档                           | 职责                         | 什么时候更新                          |
@@ -180,6 +192,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - 产品需求规格：`docs/product-requirements.md`（2026-05 重规划，单一事实源）
 - 产品重规划 ADR：`docs/adr/0005-product-replan-roadmap.md`（修正 ADR-0002 的 M5–M8 执行顺序）
 - M5 权限与角色管理 RFC：`docs/rfc/m5-roles-permissions-admin.md`（按类型数据范围模型 B、角色管理、Scope 改造）
+- M6 动态表单 mini + 文件存储 RFC：`docs/rfc/m6-dynamic-forms-file-storage.md`（固定槽位、快照值、本地磁盘 provider、私有文件访问边界）
 
 后续建议补充：
 
