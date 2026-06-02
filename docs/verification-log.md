@@ -48,7 +48,8 @@ Independent security review:
 - Made `staged_expires_at` mandatory for every staged object; quota accounting now includes `deleting`
   objects until disk release is confirmed. Cleanup treats an already-missing disk file as idempotent success
   so a prior database update failure can converge to `deleted`.
-- Final pass: pending after the third review-fix commit.
+- Final pass: `LGTM / PASS`. The reviewer confirmed no remaining High or Medium findings. M6-0 remains
+  `Proposed` until product / architecture review accepts the RFC.
 
 Validation:
 
