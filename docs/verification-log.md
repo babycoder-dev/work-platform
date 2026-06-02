@@ -37,7 +37,13 @@ Independent security review:
   backup / restore requirements, and metadata-volume integrity checks.
 - Updated `docs/module-contract.md` with the shared backend module exception and synchronized the service
   split timing to vNext. Updated `docs/security-baseline.md` §4.4 to the same ADR-0005 timing.
-- Second pass: pending after the review-fix commit.
+- Second pass: `BLOCK`. The original three High and five Medium findings were closed. The reviewer found
+  three remaining Medium specification ambiguities.
+- Synchronized the shared backend module exception into root `AGENTS.md`, not only `docs/module-contract.md`.
+- Froze Files attachment as a single-reference model and added `staged -> attached` versus
+  `staged -> deleting -> deleted` atomic claim rules, exact-reference idempotency, cleanup retry behavior,
+  and concurrent attach / cleanup tests.
+- Third pass: pending after the second review-fix commit.
 
 Validation:
 

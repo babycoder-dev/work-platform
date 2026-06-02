@@ -356,6 +356,7 @@ file_objects
   status varchar(32) not null
   uploaded_by uuid not null
   created_at timestamptz not null
+  staged_expires_at timestamptz null
   deleted_at timestamptz null
   unique (provider, storage_key)
   unique (enterprise_id, id)
@@ -369,6 +370,7 @@ file_references
   reference_id varchar(128) not null
   attached_by uuid not null
   created_at timestamptz not null
+  unique (enterprise_id, file_id)
   unique (enterprise_id, file_id, owner_module, reference_type, reference_id)
   foreign key (enterprise_id, file_id)
     references files.file_objects(enterprise_id, id) on delete cascade
@@ -378,7 +380,9 @@ file_references
 对象先处于 `staged`；业务记录成功绑定时，由 Files service 参与 Forms 发起的同一个 opaque
 `UnitOfWork`，写 `file_references` 并转为 `attached`。同一引用操作必须幂等。Forms service 负责先
 生成 record id，再调用 `attachFiles` 校验并写引用；Forms 记录事务失败时引用也必须回滚。
-`status` 只允许 `staged | attached | deleted`。
+`status` 只允许 `staged | attached | deleting | deleted`。M6 采用**单引用模型**：一个文件对象最多绑定
+一个业务引用，不允许把已绑定到档案的文件再次绑定到日报等更宽可见范围。只有
+`enterpriseId + fileId + ownerModule + referenceType + referenceId` 完全相同的 attach 重试才按幂等成功处理。
 
 ### 6.3 本地磁盘 provider
 
@@ -412,6 +416,17 @@ Docker Compose 增加持久化 volume 挂载。部署文档必须把文件 volum
 配额统计必须计入 `staged` 与 `attached` 文件，不能通过不绑定文件绕过。
 M6-2 用 `FilesCleanupService` 在 gateway 进程内按默认 15 分钟周期清理，并提供可单独执行的
 `files:cleanup-staged` 命令用于运维补跑；M7 调度基建落地后再把触发器切换到统一 scheduler。
+
+attach 与 cleanup 必须按以下状态机竞争，不允许“先查再改”：
+
+- attach 在 Forms 发起的 opaque `UnitOfWork` 内用行锁或等价条件更新 claim：
+  `staged -> attached WHERE enterprise_id = ? AND id = ? AND uploaded_by = ? AND status = 'staged'`，
+  同一事务写唯一 `file_references`。事务回滚时状态和引用一起回滚，磁盘对象保持不动。
+- cleanup 用行锁或等价条件更新原子 claim 已过期且无引用的对象：
+  `staged -> deleting WHERE staged_expires_at <= now()`。claim 成功后才允许删除磁盘对象。
+- 磁盘删除成功后写 `deleted_at` 并转 `deleting -> deleted`；磁盘删除失败时保持 `deleting`，
+  记录 bounded failure audit / 告警，并由后续 cleanup 重试。`deleting` 对象禁止 attach。
+- 完全相同引用的 attach 幂等重试可返回已有 `attached` 对象；不同引用一律拒绝。
 
 ### 6.4 私有访问模型
 
@@ -519,6 +534,7 @@ M6 属安全敏感基建。实现时必须同步更新 `docs/security-baseline.m
 - 文件大小、magic-byte MIME、扩展名、字段数量、字段值长度全部有硬上限。
 - staged 文件必须 owner-bound；绑定时写 Files 模块拥有的引用表。TTL 清理、租户 / 用户配额、
   上传限流、磁盘阈值拒绝和告警不能延后。
+- attach 与 cleanup 必须用原子 claim 状态迁移防竞态；M6 文件采用单引用模型，不允许跨业务记录复用。
 - 不开放匿名下载，不在错误、日志、审计泄露磁盘路径。
 - 文件内容读取必须由拥有业务授权语义的模块代理，不允许仅凭 fileId 读取。
 - 代理下载默认 `attachment` + `nosniff`；只有检测通过的安全图片允许按明确业务场景 inline。
@@ -573,6 +589,8 @@ db:setup = platform -> presence -> files -> forms -> seed
 - 同租户本人可读取 metadata；其他上传者、跨租户、未知 id 按不存在处理。
 - 同租户其他上传者的 staged fileId 不得被绑定。
 - staged TTL 清理、租户 / 用户配额、速率限制和磁盘阈值拒绝可验证。
+- attach 与 cleanup 并发时只有一个原子 claim 成功；磁盘删除失败保持 `deleting` 并可重试。
+- 单个文件最多一个引用；相同引用 attach 幂等，不同引用复用拒绝。
 - `openFile` 只允许同租户 actor context；路径 traversal storage key 被拒绝。
 - 审计不含内容、磁盘绝对路径或跨租户 metadata。
 

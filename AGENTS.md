@@ -50,6 +50,14 @@ modules/<module>/web
 modules/<module>/api
 ```
 
+共享后端基建模块例外：
+
+- 为多个业务模块提供底层能力、且当前没有独立用户页面的共享后端模块，可以先创建
+  `contract/ + api/`，例如 M6 的 `forms`、`files`。
+- 例外模块仍必须声明 server-side manifest、permissions、events、DTO/schema、API prefix，并遵守
+  schema ownership、公开 contract、权限、审计、测试和 gateway 装配规则。
+- 一旦提供用户可见配置页、列表页或填报页，必须补 `web/`。
+
 必须声明：
 
 - manifest

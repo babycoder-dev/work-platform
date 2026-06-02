@@ -235,7 +235,7 @@ M5 已退出：M5-1 至 M5-4 全部完成。下一步审查 M6 动态表单 mini
 
 | 切片 | 能力 | 状态 | 说明 |
 | ---- | ---- | ---- | ---- |
-| M6-0 | RFC | In Progress | 2026-06-02 起草 Proposed RFC；独立安全审查首轮 BLOCK 后已修订，待二审 |
+| M6-0 | RFC | In Progress | 2026-06-02 起草 Proposed RFC；独立安全二审后继续收紧文件状态机，待三审 |
 | M6-1 | contract + schema + repository | Pending | RFC Accepted 后启动 |
 | M6-2 | 本地磁盘 Files provider + 上传 API | Pending | M6-1 完成后启动；必过 security-reviewer |
 | M6-3 | Forms API + 快照记录 + 文件 / 人员字段 | Pending | M6-2 完成后启动；必过 security-reviewer |
