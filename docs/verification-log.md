@@ -24,6 +24,21 @@ Change set:
 - Split M6 into backend slices M6-1 through M6-4 and deferred Web work to M6-W pending prototype review.
 - Updated document index, progress board, and domain glossary.
 
+Independent security review:
+
+- First pass: `BLOCK`. The reviewer identified three High and five Medium RFC gaps before M6-1.
+- Split definition permissions by slot family so profile and report administrators cannot edit each other's
+  definitions; reserved presence slots remain 404 until M9.
+- Added `staged -> attached` file lifecycle, owner-bound attachment, `files.file_references`, staged TTL
+  cleanup, tenant / user quotas, upload rate limits, and disk free-space rejection plus alert logging.
+- Added composite tenant FKs for Forms child rows and Files references so PostgreSQL rejects cross-tenant
+  parent-child contamination even if a repository filter regresses.
+- Added magic-byte detection, safe download headers, concrete form input limits, sensitive coordinated
+  backup / restore requirements, and metadata-volume integrity checks.
+- Updated `docs/module-contract.md` with the shared backend module exception and synchronized the service
+  split timing to vNext. Updated `docs/security-baseline.md` §4.4 to the same ADR-0005 timing.
+- Second pass: pending after the review-fix commit.
+
 Validation:
 
 - `git diff --check`: pass.

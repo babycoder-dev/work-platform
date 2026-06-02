@@ -91,7 +91,7 @@ files.*
 export const FILE_STORAGE_SERVICE = Symbol('FILE_STORAGE_SERVICE');
 
 export interface FileStoragePort {
-  assertAttachableFiles(actor: FileActorContext, fileIds: string[]): Promise<FileObjectDto[]>;
+  attachFiles(actor: FileActorContext, input: AttachFilesInput, uow: UnitOfWork): Promise<FileObjectDto[]>;
   openFile(actor: FileActorContext, fileId: string): Promise<ReadableFileObject>;
 }
 
@@ -165,6 +165,29 @@ options?        // single_select / multi_select only
 - `employee` 值只接受员工 id；service 通过 Platform Core 公开 lookup port 校验同租户员工并生成快照。
 - 每个 definition 限制字段数；默认最大 100，配置可下调，不允许请求绕过。
 
+### 5.2.1 输入硬上限
+
+实现不得只依赖数据库列宽。DTO 与 service 必须在解析和持久化前应用以下默认硬上限：
+
+| 项 | 上限 |
+| -- | ---- |
+| 每个 definition 字段数 | 100 |
+| `fieldKey` 长度 | 64 characters |
+| `label` 长度 | 128 characters |
+| `description` 长度 | 512 characters |
+| 单选 / 多选 options 数 | 100 |
+| option key 长度 | 64 characters |
+| option label 长度 | 128 characters |
+| `text` 长度 | 512 characters |
+| `textarea` 长度 | 10,000 characters |
+| `multi_select` 选中项 | 100 |
+| 单个 `file` / `image` 字段文件数 | 10 |
+| 单个 `employee` 字段人员数 | 100 |
+| 单条记录全部 values JSON 序列化后大小 | 256 KiB |
+
+`number` 必须是有限 JSON number；`date` 必须是 ISO 8601 日期字符串。未知 DTO 字段、multipart
+额外字段、重复 value key 和超过上限的输入统一返回 400。
+
 ### 5.3 Schema
 
 新增 `forms` schema：
@@ -191,11 +214,12 @@ form_definitions
   created_at timestamptz not null
   updated_at timestamptz not null
   unique (enterprise_id, slot_key)
+  unique (enterprise_id, id)
 
 form_fields
   id uuid pk
   enterprise_id uuid not null
-  definition_id uuid not null references forms.form_definitions(id) on delete cascade
+  definition_id uuid not null
   field_key varchar(64) not null
   label varchar(128) not null
   field_type varchar(32) not null
@@ -207,11 +231,13 @@ form_fields
   created_at timestamptz not null
   updated_at timestamptz not null
   unique (definition_id, field_key)
+  foreign key (enterprise_id, definition_id)
+    references forms.form_definitions(enterprise_id, id) on delete cascade
 
 form_records
   id uuid pk
   enterprise_id uuid not null
-  definition_id uuid not null references forms.form_definitions(id)
+  definition_id uuid not null
   slot_key varchar(128) not null
   definition_revision integer not null
   subject_type varchar(64) not null
@@ -219,11 +245,14 @@ form_records
   submitted_by uuid not null
   created_at timestamptz not null
   updated_at timestamptz not null
+  unique (enterprise_id, id)
+  foreign key (enterprise_id, definition_id)
+    references forms.form_definitions(enterprise_id, id)
 
 form_record_values
   id uuid pk
   enterprise_id uuid not null
-  record_id uuid not null references forms.form_records(id) on delete cascade
+  record_id uuid not null
   field_key varchar(64) not null
   field_label_snapshot varchar(128) not null
   field_type_snapshot varchar(32) not null
@@ -231,6 +260,8 @@ form_record_values
   display_snapshot jsonb null
   sort_order_snapshot integer not null
   unique (record_id, field_key)
+  foreign key (enterprise_id, record_id)
+    references forms.form_records(enterprise_id, id) on delete cascade
 ```
 
 `revision` 只用于并发更新检测和记录“提交时看到的 definition revision”，不是完整版本表。旧 definition
@@ -242,7 +273,8 @@ form_record_values
 
 1. 按认证租户和注册槽位读取 active definition 与字段。
 2. 拒绝未知字段、重复字段、缺失必填字段和类型不匹配值。
-3. 对 `file` / `image` 调用 `FILE_STORAGE_SERVICE.assertAttachableFiles(...)`。
+3. 对 `file` / `image` 调用 `FILE_STORAGE_SERVICE.attachFiles(...)`；只允许绑定当前用户上传的
+   `staged` 文件，并以 `forms / form_record / recordId` 原子写入引用。
 4. 对 `employee` 调用 Platform Core 公开 employee lookup port，校验同租户员工并生成显示快照。
 5. 写 `form_records` 和带 label / type / display 快照的 `form_record_values`。
 6. 写审计并发布领域事件。
@@ -250,14 +282,34 @@ form_record_values
 下游业务模块负责决定 `subjectType / subjectId` 是否可写、哪些记录可读。Forms service 只接受调用模块
 通过公开 port 传入的 actor context，不自行猜测档案、在位、日报的数据范围语义。
 
+M6 内嵌阶段用 opaque `UnitOfWork` 协调同一 PostgreSQL transaction：Forms repository 只写
+`forms.*`，Files service 只写 `files.*`，双方不暴露 table 定义、不写跨 schema SQL。这样记录值与
+`file_references` 要么一起提交，要么一起回滚。`UnitOfWork` 是内嵌阶段内部 port，不进入对外 HTTP
+DTO。vNext 拆服务时，再在保持对外 API / DTO 稳定的前提下把内部协调替换为 reservation + outbox；
+M6 不提前引入分布式事务。
+
 ### 5.5 HTTP API
 
-M6 提供 definition 管理 API，用于后续管理 UI：
+M6 提供 definition 管理 API，用于后续管理 UI。controller 先通过 slot registry 解析 `slotKey`，
+再按槽位族执行动态权限检查；不得只挂一个跨槽位的 manage 权限：
 
 | 方法 + 路径 | 权限点 | 说明 |
 | ----------- | ------ | ---- |
-| `GET /api/forms/definitions/:slotKey` | `forms:definition:view` | 获取当前租户槽位定义 |
-| `PUT /api/forms/definitions/:slotKey` | `forms:definition:manage` | 整组替换字段，revision 乐观并发 |
+| `GET /api/forms/definitions/:slotKey` | 对应槽位族 `*:view` | 获取当前租户槽位定义 |
+| `PUT /api/forms/definitions/:slotKey` | 对应槽位族 `*:manage` | 整组替换字段，revision 乐观并发 |
+
+槽位族权限映射：
+
+| 槽位族 | view | manage |
+| ------ | ---- | ------ |
+| `profile.employee` | `forms:profile-definition:view` | `forms:profile-definition:manage` |
+| `report.daily` | `forms:report-definition:view` | `forms:report-definition:manage` |
+| `presence.status.*`（M9 才启用） | `forms:presence-definition:view` | `forms:presence-definition:manage` |
+
+未知或 reserved 槽位在权限判断前返回 404；持有另一槽位族 manage 权限不能读写当前槽位。
+实现使用专用 `FormsDefinitionPermissionGuard`（或等价 guard）：先由 slot registry 解析 active 槽位，
+再映射到唯一权限码并检查 `currentUser.permissions`。不得在 controller 内临时拼字符串判断，也不得
+用一个静态 `forms:*` 权限覆盖全部槽位。
 
 记录写入 / 读取优先通过 `FORMS_SERVICE` port 提供给 M8 / M9 / M10。M6 不开放“按任意 subject
 列出所有记录”的通用 HTTP API，避免绕过下游模块的数据范围与业务授权。M6 后端 smoke 通过 service
@@ -285,6 +337,7 @@ M6 首期采用：
 
 ```text
 files.file_objects
+files.file_references
 files.schema_migrations
 ```
 
@@ -305,9 +358,27 @@ file_objects
   created_at timestamptz not null
   deleted_at timestamptz null
   unique (provider, storage_key)
+  unique (enterprise_id, id)
+
+file_references
+  id uuid pk
+  enterprise_id uuid not null
+  file_id uuid not null
+  owner_module varchar(64) not null
+  reference_type varchar(64) not null
+  reference_id varchar(128) not null
+  attached_by uuid not null
+  created_at timestamptz not null
+  unique (enterprise_id, file_id, owner_module, reference_type, reference_id)
+  foreign key (enterprise_id, file_id)
+    references files.file_objects(enterprise_id, id) on delete cascade
 ```
 
-文件 metadata 与磁盘对象分离。数据库只保存 opaque storage key，不保存用户可控绝对路径。
+文件 metadata 与磁盘对象分离。数据库只保存 opaque storage key，不保存用户可控绝对路径。上传完成后
+对象先处于 `staged`；业务记录成功绑定时，由 Files service 参与 Forms 发起的同一个 opaque
+`UnitOfWork`，写 `file_references` 并转为 `attached`。同一引用操作必须幂等。Forms service 负责先
+生成 record id，再调用 `attachFiles` 校验并写引用；Forms 记录事务失败时引用也必须回滚。
+`status` 只允许 `staged | attached | deleted`。
 
 ### 6.3 本地磁盘 provider
 
@@ -320,10 +391,27 @@ file_objects
 - 默认单文件最大 20 MiB，由 `FILE_STORAGE_MAX_BYTES` 配置；必须存在硬上限。
 - MIME 与扩展名都按 allowlist 校验；图片首期允许 `image/jpeg`、`image/png`、`image/webp`，
   普通附件 allowlist 在任务包中显式列出。
+- MIME 不得只信任 multipart header 或扩展名；provider 必须读取 magic bytes 检测真实类型，
+  伪造 MIME 或扩展名不一致统一拒绝。
 - 原始文件名只用于展示和下载 header，必须清理控制字符并限制长度。
 - 日志、错误信封和审计不得输出磁盘绝对路径。
 
-Docker Compose 增加持久化 volume 挂载；备份 / 恢复文档必须把文件 volume 与 PostgreSQL 一并列为备份对象。
+Docker Compose 增加持久化 volume 挂载。部署文档必须把文件 volume 与 PostgreSQL 一并列为敏感
+备份对象，要求受限 ACL、保留 / 删除策略、协调备份步骤，以及恢复后的 metadata-volume 完整性检查。
+
+### 6.3.1 上传滥用治理
+
+本地 volume 是有限资源。M6-2 必须同时实现：
+
+- `staged` 文件 TTL 清理：默认 24 小时；只清理无 `file_references` 的对象和磁盘文件。
+- 租户总配额：默认 10 GiB；用户总配额：默认 1 GiB；配置可下调，不能关闭。
+- 用户上传速率限制：默认每分钟 20 次、每小时 200 MiB；超限返回 429。
+- 磁盘剩余空间阈值：低于 10% 或 2 GiB（取更严格者）拒绝新上传，并记录可观测告警日志。
+- 清理任务审计 / 指标：记录清理数量和释放字节数，不记录文件路径。
+
+配额统计必须计入 `staged` 与 `attached` 文件，不能通过不绑定文件绕过。
+M6-2 用 `FilesCleanupService` 在 gateway 进程内按默认 15 分钟周期清理，并提供可单独执行的
+`files:cleanup-staged` 命令用于运维补跑；M7 调度基建落地后再把触发器切换到统一 scheduler。
 
 ### 6.4 私有访问模型
 
@@ -332,11 +420,12 @@ Docker Compose 增加持久化 volume 挂载；备份 / 恢复文档必须把文
 - `POST /api/files`：认证用户上传，返回 `FileObjectDto`；权限 `files:object:upload`。
 - 文件内容读取：由拥有业务授权语义的模块调用 `FILE_STORAGE_SERVICE.openFile(...)` 后通过自己的
   auth-aware API 代理。例如 M8 档案照片、M9 在位附件、M10 日报附件分别在各自 service 应用数据范围。
-- Forms service 在记录提交时只允许绑定同租户、active、可附加的 fileId。
+- Forms service 在记录提交时只允许绑定同租户、`staged`、`uploadedBy === actor.userId` 的 fileId；
+  委托绑定不在 M6 范围。绑定时由 Files service 原子写 `file_references`。
 - 跨租户 fileId、未知 fileId、已删除 fileId 一律按不存在处理，不泄露存在性。
 
-M6 不提供最终用户通用文件浏览器，不提供匿名链接。孤儿文件清理、引用计数与保留策略在实际业务接入
-后按数据量另开切片。
+M6 不提供最终用户通用文件浏览器，不提供匿名链接。业务记录删除后的引用释放与 attached 文件保留
+策略在首个真实业务接入时冻结；但 staged TTL 清理、引用表、配额和限流必须在 M6-2 完成。
 
 ### 6.5 上传 API
 
@@ -346,6 +435,9 @@ M6 不提供最终用户通用文件浏览器，不提供匿名链接。孤儿�
 | `GET /api/files/:id` | `files:object:view-own` | 仅上传者读取本人上传的 metadata，便于提交前预览 |
 
 内容读取不从 controller 暴露通用路由；只经 `FILE_STORAGE_SERVICE` 给授权业务 service 使用。
+后续业务代理下载必须统一设置 `X-Content-Type-Options: nosniff`；普通附件强制
+`Content-Disposition: attachment`。只有 magic-byte 检测通过且属于安全图片 allowlist 的对象才允许
+业务模块按明确场景使用 `inline`。
 
 ## 7. Platform Core 扩出口
 
@@ -374,15 +466,20 @@ export interface PlatformEmployeeLookupPort {
 两个 contract manifest 声明：
 
 ```text
-forms:definition:view
-forms:definition:manage
+forms:profile-definition:view
+forms:profile-definition:manage
+forms:report-definition:view
+forms:report-definition:manage
+forms:presence-definition:view      // M9 启用 presence.status.* 时注册
+forms:presence-definition:manage    // M9 启用 presence.status.* 时注册
 forms:record:submit
 forms:record:view
 files:object:upload
 files:object:view-own
 ```
 
-本期不自动给普通员工授予权限。seed 的系统管理员继续获得所有 active manifest 权限。
+权限命名继续遵守 `<module>:<resource>:<action>`。本期不自动给普通员工授予权限。seed 的系统管理员
+继续获得所有 active manifest 权限；reserved 的 presence definition 权限到 M9 启用槽位时再注册。
 
 ### 8.2 审计
 
@@ -419,11 +516,14 @@ M6 属安全敏感基建。实现时必须同步更新 `docs/security-baseline.m
 - 所有租户边界从认证 actor context 派生。
 - repository 所有读写带 `enterprise_id`；跨租户对象按不存在处理。
 - 文件名不参与物理路径；路径解析必须防 traversal。
-- 文件大小、MIME、扩展名、字段数量、字段值长度全部有硬上限。
+- 文件大小、magic-byte MIME、扩展名、字段数量、字段值长度全部有硬上限。
+- staged 文件必须 owner-bound；绑定时写 Files 模块拥有的引用表。TTL 清理、租户 / 用户配额、
+  上传限流、磁盘阈值拒绝和告警不能延后。
 - 不开放匿名下载，不在错误、日志、审计泄露磁盘路径。
 - 文件内容读取必须由拥有业务授权语义的模块代理，不允许仅凭 fileId 读取。
+- 代理下载默认 `attachment` + `nosniff`；只有检测通过的安全图片允许按明确业务场景 inline。
 - 写操作走审计；拒绝路径记录 bounded failure audit，不回写敏感值。
-- PostgreSQL 与本地磁盘 volume 必须一并备份恢复。
+- PostgreSQL 与本地磁盘 volume 必须协调备份恢复，备份按敏感数据保护并做恢复完整性检查。
 
 M6-2 与 M6-3 完成前都必须跑 `security-reviewer` 独立二审。
 
@@ -454,20 +554,25 @@ db:setup = platform -> presence -> files -> forms -> seed
 
 - 注册槽位可读写；未知槽位拒绝。
 - 字段 key 唯一、类型白名单、options 约束、字段数量上限。
+- 输入硬上限逐项验证：文本长度、options 数、数组元素数、file / employee 数、values JSON 总大小。
+- profile / report 槽位权限交叉拒绝；reserved / 未知槽位在权限判断前 404。
 - revision 乐观并发冲突拒绝。
 - 提交记录后 label / type / display 快照保持不变，即使 definition 后续修改。
 - 必填、未知字段、重复字段、类型错误拒绝。
-- `file` / `image` 只接受 Files port 认可的同租户 fileId。
+- `file` / `image` 只接受 Files port 认可的当前上传者同租户 staged fileId，并产生幂等引用。
 - `employee` 只接受 Platform Core lookup 返回的同租户员工，显示快照正确。
 - repository 所有 read / write 按 enterpriseId 隔离。
+- PostgreSQL 复合 FK 拒绝跨租户 definition / record 子表污染。
 
 ### 11.2 Files
 
 - multipart 单文件上传成功，metadata 与 sha256 正确。
-- 超大小、非法 MIME、非法扩展名、空文件拒绝。
+- 超大小、非法 MIME、伪造 MIME、非法扩展名、空文件和 multipart 附加字段拒绝。
 - 原始文件名不能改变 storage root；控制字符被清理。
 - 临时写失败不留下 metadata 或残留临时文件。
 - 同租户本人可读取 metadata；其他上传者、跨租户、未知 id 按不存在处理。
+- 同租户其他上传者的 staged fileId 不得被绑定。
+- staged TTL 清理、租户 / 用户配额、速率限制和磁盘阈值拒绝可验证。
 - `openFile` 只允许同租户 actor context；路径 traversal storage key 被拒绝。
 - 审计不含内容、磁盘绝对路径或跨租户 metadata。
 
@@ -486,6 +591,7 @@ M6 后端完成必须满足：
 - 填报记录可存取，旧记录保留字段 label / type / display 快照。
 - 文件与人员字段均完成同租户校验；文件只保存 opaque fileId。
 - 本地磁盘 provider 可持久化文件；Docker volume 与备份恢复文档就绪。
+- staged TTL 清理、引用表、租户 / 用户配额、上传限流、磁盘阈值拒绝和可观测告警已落地。
 - 文件内容没有通用 UUID 下载入口；后续业务模块只能经公开 port 接入并在自己的 API 应用授权。
 - 两个模块 schema、contract、repository、migration、manifest、审计、事件、测试齐全。
 - 安全基线同步，`security-reviewer` 二审无未决 High / Medium。
@@ -500,7 +606,7 @@ M6 后端完成必须满足：
 | ---- | ---- | -------- |
 | **M6-0** | 本 RFC：冻结模块边界、slot、schema、文件 provider、安全边界和后端切片 | 文档审查 |
 | **M6-1** | `forms` / `files` contract、manifest、权限 seed、schema、迁移、repository 双实现、gateway 装配、根脚本 | 建议 |
-| **M6-2** | 本地磁盘 Files provider + 上传 API + Docker volume / 环境变量 / 部署备份文档 + tests | **必过 `security-reviewer`** |
+| **M6-2** | 本地磁盘 Files provider + staged / attached 引用生命周期 + TTL 清理 + 配额 / 限流 / 磁盘阈值 + 上传 API + Docker volume / 环境变量 / 协调备份恢复文档 + tests | **必过 `security-reviewer`** |
 | **M6-3** | Forms definition API、记录 service / port、快照值、文件 / 人员字段校验、Platform employee lookup port、审计、事件、tests | **必过 `security-reviewer`** |
 | **M6-4** | 后端交付验证：`verify` / `verify:full` / Docker build / API smoke / verification-log 收口 | — |
 | **M6-W** | 前端配置页、填报控件、上传交互；等待产品原型后另发任务包 | 待原型 |
@@ -512,6 +618,7 @@ M6 后端完成必须满足：
 - M6 仍内嵌 gateway，不提前拆独立服务。
 - 文件首期用本地磁盘 provider；MinIO 保留为替换实现，不在本期引入。
 - 文件默认私有；不提供仅凭 fileId 下载内容的通用路由。
+- staged 文件 owner-bound；M6-2 必须落引用表、TTL 清理、配额、限流和磁盘阈值治理。
 - 表单记录保存 label / type / display 快照；不建完整 definition 版本历史。
 - 人员选择器通过 Platform Core 公开 employee lookup port 校验与取快照，不跨 schema 查询。
 - Web 等待产品原型，以独立任务包实现；后端先行。
@@ -521,4 +628,5 @@ M6 后端完成必须满足：
 - 普通附件 MIME / 扩展名 allowlist 的首期清单，在 M6-2 任务包冻结。
 - `presence.status.<statusTypeCode>` 的 validator port 与 M9 状态字典契约，在 M9 RFC 最终落位；
   M6 期间保持 reserved，不接受写入。
-- 孤儿文件清理与保留策略在 M8 / M9 / M10 首个真实接入后按数据量决定，不阻塞 M6。
+- attached 文件在业务记录删除后的释放与保留策略，在 M8 / M9 / M10 首个真实接入时冻结；M6-2
+  已先落 staged TTL 清理和引用表。

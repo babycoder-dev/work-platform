@@ -213,7 +213,7 @@ M5 已退出：M5-1 至 M5-4 全部完成。下一步审查 M6 动态表单 mini
 | 切片    | 能力                                      | 状态 | 说明                                                                                                                                       |
 | ------- | ----------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | M3.5-A  | 让模块 manifest 由各 contract 包统一供给  | Done | 2026-05-21 完成；业务模块平台侧 manifest 已迁回各 contract 包；详见 verification-log `M3.5-A Manifest Single Source`                       |
-| M3.5-B  | ADR-0003 Gateway 边界                     | Done | 2026-05-22 完成；ADR-0003 固定 gateway M4–M6 内嵌、M7 拆分；详见 verification-log `M3.5-B Gateway Boundary ADR`                            |
+| M3.5-B  | ADR-0003 Gateway 边界                     | Done | 2026-05-22 完成；原 ADR-0003 固定 gateway M4–M6 内嵌、老 M7 拆分；ADR-0005 已把拆分推迟至 vNext；详见 verification-log `M3.5-B Gateway Boundary ADR` |
 | M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token）      | Done | 2026-05-23 完成；ADR-0004 确立 Phantom Token、introspection 复用 `/auth/me`；详见 verification-log `M3.5-B2 Phantom Token ADR`             |
 | M3.5-C  | 登录失败审计 + 锁定策略落地               | Done | 2026-05-23 完成；5 次失败锁定 15 分钟、登录失败审计闭合；详见 verification-log `M3.5-C Login Failure Audit and Lockout`                    |
 | M3.5-D  | 首次登录改密 + 管理员重置密码端点         | Done | 2026-05-23 完成；两个改密端点 + must_change_password 双表同步；详见 verification-log `M3.5-D Password Change and Reset`                    |
@@ -235,7 +235,7 @@ M5 已退出：M5-1 至 M5-4 全部完成。下一步审查 M6 动态表单 mini
 
 | 切片 | 能力 | 状态 | 说明 |
 | ---- | ---- | ---- | ---- |
-| M6-0 | RFC | In Progress | 2026-06-02 起草 Proposed RFC；后端边界待审查 |
+| M6-0 | RFC | In Progress | 2026-06-02 起草 Proposed RFC；独立安全审查首轮 BLOCK 后已修订，待二审 |
 | M6-1 | contract + schema + repository | Pending | RFC Accepted 后启动 |
 | M6-2 | 本地磁盘 Files provider + 上传 API | Pending | M6-1 完成后启动；必过 security-reviewer |
 | M6-3 | Forms API + 快照记录 + 文件 / 人员字段 | Pending | M6-2 完成后启动；必过 security-reviewer |

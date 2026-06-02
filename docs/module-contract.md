@@ -10,6 +10,16 @@ api/
 contract/
 ```
 
+共享后端基建模块例外：
+
+- 为多个业务模块提供底层能力、且当前没有独立用户页面的共享后端模块，可以先交付
+  `api/ + contract/`，例如 M6 的 `modules/forms`、`modules/files`。
+- 例外模块仍必须由 contract 导出 server-side `ModuleManifestDto`、permissions、events、DTO/schema
+  与 API prefix；`webEntry` 和 menus 可以为空。
+- 一旦共享模块提供用户可见配置页、列表页或填报页，必须补 `web/` 并遵守 §6 / §7.2。
+- 该例外只省略尚不存在的 Web UI，不放松 schema ownership、公开 contract、权限、审计、测试或
+  gateway 装配要求。
+
 `contract` 必须声明：
 
 - manifest
@@ -143,10 +153,13 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 #### 7.1.1 术语与适用范围
 
 - **平台模块**：`apps/platform-api`、`packages/platform-contract`、`packages/platform-sdk`。
-- **业务模块**：`modules/<name>/contract`、`modules/<name>/api`、`modules/<name>/web`。
+- **业务模块**：通常包含 `modules/<name>/contract`、`modules/<name>/api`、`modules/<name>/web`；
+  无独立用户页面的共享后端基建模块可按 §1 例外先交付 `contract + api`。
 - **schema**：PostgreSQL schema。`platform.*` 由 platform-api 拥有并写入；`<module>.*` 由对应业务模块拥有并写入。
-- **内嵌阶段**：M4–M6，业务模块嵌入 gateway-api 进程，所有 NestJS provider 在同一进程，共享同一数据库连接池。详见 `docs/adr/0003-gateway-boundary.md`。
-- **拆分阶段**：M7+，业务模块拆为独立服务，跨进程通信走 HTTP。
+- **内嵌阶段**：M4 起、直至 vNext 拆分前，业务模块嵌入 gateway-api 进程，所有 NestJS provider
+  在同一进程。详见 `docs/adr/0003-gateway-boundary.md` 与 `docs/adr/0005-product-replan-roadmap.md`。
+- **拆分阶段**：vNext 按真实部署需求拆为独立服务，跨进程通信走 HTTP。ADR-0005 已把原 ADR-0003
+  的 “M7 拆分” 推迟到 vNext。
 
 本节规则对内嵌阶段和拆分阶段都生效。差异只在第 7.1.2 节允许通道的实现层。
 
@@ -154,7 +167,7 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 
 业务模块需要 platform 数据时，只允许下列三种通道之一：
 
-1. **注入 platform 模块公开的 service**（M4–M6 内嵌阶段推荐路径）
+1. **注入 platform 模块公开的 service**（当前内嵌阶段推荐路径）
 
    业务 service 通过 NestJS 依赖注入获得 platform 模块导出的 service 实例，例如：
 
@@ -165,13 +178,13 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
    ) {}
    ```
 
-   M7 拆分阶段时，platform 模块导出的同一注入 token 的 provider 会切换为基于 HTTP introspection 的 client 实现；业务 service 代码与接口签名不变。
+   vNext 拆分阶段时，platform 模块导出的同一注入 token 的 provider 会切换为基于 HTTP introspection 的 client 实现；业务 service 代码与接口签名不变。
 
    注入 token 必须通过 `packages/platform-contract` 或 `packages/platform-sdk` 导出，业务模块不得 `import` `apps/platform-api/...` 内部路径。
 
-2. **HTTP 调用 `/api/platform/...` 公开 API**（M7+ 跨进程默认路径）
+2. **HTTP 调用 `/api/platform/...` 公开 API**（vNext 跨进程默认路径）
 
-   通过 `@work/platform-sdk` 或 `@work/http-client` 调用对外稳定的 `/api/platform/...` 路由。仅用于跨进程或跨服务边界。M4–M6 内嵌阶段不推荐用本进程 HTTP 调用自己的 platform 模块，徒增 I/O。
+   通过 `@work/platform-sdk` 或 `@work/http-client` 调用对外稳定的 `/api/platform/...` 路由。仅用于跨进程或跨服务边界。当前内嵌阶段不推荐用本进程 HTTP 调用自己的 platform 模块，徒增 I/O。
 
 3. **订阅 platform 领域事件**
 
@@ -210,13 +223,13 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 | 需要平台员工 / 部门基础信息（姓名、状态、所属部门） | 通道 1（注入对应平台 lookup service）   | service 层调用 platform lookup service 拿到 ID 集合或快照对象 → 在自己 schema 内按 ID 检索 → 在 service 层拼装结果。当前 platform 尚未导出此类 service，需要按 §7.1.6 扩出流程先在 platform 模块新增对应 service 与注入 token                                                                                                                                                           |
 | 业务写操作记录审计                                  | 通道 1（注入 `PLATFORM_AUDIT_SERVICE`） | service 层调用 `PlatformAuditPort.record({...})` 写入 `platform.audit_logs`；业务模块不得 `import` `platform.audit_logs` 的 schema 定义，也不得在自己的 repository 里写死该表名。`PLATFORM_AUDIT_SERVICE` 自 M4-2 起已通过 `packages/platform-contract` 暴露                                                                                                                            |
 | 响应平台状态变化（员工禁用、角色变更）              | 通道 3（订阅 `platform.*` 事件）        | 在业务模块自己的 event handler 中处理 `platform.employee.status.updated` 等事件 → 写入自己 schema 的投影 / 清理本模块缓存；不允许轮询 `platform.*` 表                                                                                                                                                                                                                                   |
-| 跨进程调用平台 API                                  | 通道 2（HTTP）                          | M7 拆分阶段通过 `@work/platform-sdk` 客户端调用 `/api/platform/...`；内嵌阶段不使用本通道                                                                                                                                                                                                                                                                                               |
+| 跨进程调用平台 API                                  | 通道 2（HTTP）                          | vNext 拆分阶段通过 `@work/platform-sdk` 客户端调用 `/api/platform/...`；内嵌阶段不使用本通道                                                                                                                                                                                                                                                                                            |
 
 #### 7.1.6 当前已可用 platform 出口与扩出流程
 
 当前已可用的 platform service 注入 token（业务模块在 M4-1 起可以直接使用）：
 
-- `PLATFORM_SCOPE_SERVICE`（接口 `PlatformScopePort`）：解析当前用户数据范围。详见 `docs/platform-core.md §5`。来源：`packages/platform-contract/src/scope.ts` 暴露 token 与接口；`apps/platform-api/src/scope/platform-scope.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M4-2 起）。业务模块 `imports: [PlatformModule]` + `@Inject(PLATFORM_SCOPE_SERVICE) port: PlatformScopePort`。M7 拆分后 PlatformModule 提供的实现切换为基于 HTTP introspection 的 client，业务模块代码无需改写。
+- `PLATFORM_SCOPE_SERVICE`（接口 `PlatformScopePort`）：解析当前用户数据范围。详见 `docs/platform-core.md §5`。来源：`packages/platform-contract/src/scope.ts` 暴露 token 与接口；`apps/platform-api/src/scope/platform-scope.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M4-2 起）。业务模块 `imports: [PlatformModule]` + `@Inject(PLATFORM_SCOPE_SERVICE) port: PlatformScopePort`。vNext 拆分后 PlatformModule 提供的实现切换为基于 HTTP introspection 的 client，业务模块代码无需改写。
 - `PLATFORM_AUDIT_SERVICE`（接口 `PlatformAuditPort`）：业务模块写审计的统一入口，封装 `PlatformRepository.recordAuditLog`。来源：`packages/platform-contract/src/audit.ts` 暴露 token 与接口；`apps/platform-api/src/audit/platform-audit.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M4-2 起）。业务模块 `imports: [PlatformModule]` + `@Inject(PLATFORM_AUDIT_SERVICE) port: PlatformAuditPort`。
 
 按 M4 之后业务需求待补的 platform 出口（**不在 M3.5-G 范围**，由后续业务切片按真实需求驱动新增）：
@@ -230,13 +243,13 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 3. 业务模块在 `imports` 中引入对应 platform module，并通过 contract 包导出的 token 注入；不得 `import` `apps/platform-api/...` 内部路径。
 4. 同步更新本节 §7.1.6 "已可用 platform 出口"列表，避免后续模块作者重复扩出。
 
-#### 7.1.7 M7 兼容性承诺
+#### 7.1.7 vNext 拆分兼容性承诺
 
-本节定义的允许通道在 M7 拆进程后全部仍然有效：
+本节定义的允许通道在 vNext 拆进程后全部仍然有效：
 
 - 通道 1（注入 platform service）：注入 token 与接口签名不变；platform 模块导出的 provider 实现由本进程 service class 切换为基于 HTTP introspection 的 client。业务 service 代码无需改写。
-- 通道 2（HTTP）：M7 之后变成跨进程默认调用方式；内嵌阶段代码若直接走 HTTP，可平滑过渡。
-- 通道 3（订阅事件）：M7 后事件投递从进程内 event bus 升级为 Redis Stream / 消息队列，业务模块订阅接口不变。
+- 通道 2（HTTP）：vNext 拆分后变成跨进程默认调用方式；内嵌阶段代码若直接走 HTTP，可平滑过渡。
+- 通道 3（订阅事件）：vNext 拆分后事件投递从进程内 event bus 升级为 Redis Stream / 消息队列，业务模块订阅接口不变。
 
 业务模块不得在代码或注释中假设"内嵌阶段"作为永久状态。任何"现在能直接调 service 所以可以省略事件订阅"的简化都视为技术债，必须随事件能力完善而迁移。
 
