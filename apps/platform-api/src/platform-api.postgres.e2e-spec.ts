@@ -10,7 +10,7 @@ import { runMigrations } from './db/migrate';
 import { PlatformModule } from './platform.module';
 import { DEFAULT_ADMIN_ROLE_ID } from './seeds/seed-data';
 import { seedPlatform } from './seeds/seed-platform';
-import { hashPassword } from './security/secret-hash';
+import { hashPassword, verifyPassword } from './security/secret-hash';
 
 const runPostgresE2E = process.env.RUN_POSTGRES_E2E === 'true';
 const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123';
@@ -410,10 +410,61 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .set('X-Trace-Id', `trace-pg-security-assign-oversized-${suffix}`)
       .send({ roleIds: [] })
       .expect(404);
+    const foreignEmployee = await pool.query<{ id: string }>(
+      `
+        INSERT INTO platform.employees (
+          enterprise_id,
+          department_id,
+          employee_no,
+          account,
+          name,
+          status,
+          must_change_password
+        )
+        VALUES ($1, $2, $3, $4, $5, 'active', true)
+        RETURNING id
+      `,
+      [
+        foreignEnterpriseId,
+        foreignDepartmentId,
+        `PGFEMP${suffix}`,
+        `pg-security-foreign-employee-${suffix}`,
+        'PG Security Foreign Employee',
+      ],
+    );
+    const foreignEmployeeId = foreignEmployee.rows[0].id;
+    await pool.query(
+      `
+        INSERT INTO platform.local_identities (user_id, account, password_hash, must_change_password)
+        VALUES ($1, $2, $3, true)
+      `,
+      [foreignEmployeeId, `pg-security-foreign-employee-${suffix}`, hashPassword('Foreign123')],
+    );
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${foreignEmployeeId}/status`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-pg-security-status-${suffix}`)
+      .send({ status: 'disabled' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${foreignEmployeeId}/password`)
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Trace-Id', `trace-pg-security-password-${suffix}`)
+      .send({ newPassword: 'Changed123' })
+      .expect(404);
 
     await expect(pool.query('SELECT role_id FROM platform.user_roles WHERE user_id = $1', [target.body.id])).resolves.toMatchObject({
       rowCount: 0,
     });
+    await expect(pool.query('SELECT status, must_change_password FROM platform.employees WHERE id = $1', [foreignEmployeeId])).resolves.toMatchObject({
+      rows: [expect.objectContaining({ status: 'active', must_change_password: true })],
+    });
+    const foreignIdentity = await pool.query<{ password_hash: string }>(
+      'SELECT password_hash FROM platform.local_identities WHERE user_id = $1',
+      [foreignEmployeeId],
+    );
+    expect(verifyPassword('Foreign123', foreignIdentity.rows[0].password_hash)).toBe(true);
+    expect(verifyPassword('Changed123', foreignIdentity.rows[0].password_hash)).toBe(false);
     await expect(pool.query('SELECT id FROM platform.employees WHERE account = $1', [`pg-security-department-${suffix}`])).resolves.toMatchObject({
       rowCount: 0,
     });
@@ -423,6 +474,8 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
         expect.objectContaining({ action: 'platform.role.delete', result: 'failure' }),
         expect.objectContaining({ action: 'platform.employee.roles.assign', result: 'failure' }),
         expect.objectContaining({ action: 'platform.employee.create', result: 'failure' }),
+        expect.objectContaining({ action: 'platform.employee.status.update', result: 'failure' }),
+        expect.objectContaining({ action: 'platform.employee.password.reset', result: 'failure' }),
       ]),
     );
     await expect(fetchAuditResourceIdsByTraceSuffix(pool, suffix)).resolves.toEqual(

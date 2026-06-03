@@ -335,10 +335,15 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
-  async updatePassword(userId: string, input: UpdatePasswordInput): Promise<void> {
+  async updatePassword(userId: string, input: UpdatePasswordInput, enterpriseId?: string): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      const employee = await findEmployeeById(client, userId);
+      if (!employee || (enterpriseId !== undefined && employee.enterpriseId !== enterpriseId)) {
+        await client.query('ROLLBACK');
+        return false;
+      }
       await client.query(
         `
           UPDATE platform.local_identities
@@ -364,6 +369,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
         [userId, input.mustChangePassword],
       );
       await client.query('COMMIT');
+      return true;
     } catch (error) {
       await client.query('ROLLBACK');
       mapPostgresError(error);
@@ -372,7 +378,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
-  async updateEmployee(employee: EmployeeDto): Promise<EmployeeDto> {
+  async updateEmployee(employee: EmployeeDto, enterpriseId?: string): Promise<EmployeeDto | undefined> {
     try {
       const result = await this.pool.query<EmployeeRow>(
         `
@@ -388,7 +394,9 @@ export class PostgresPlatformRepository implements PlatformRepository {
             status = $9,
             must_change_password = $10,
             updated_at = now()
-          WHERE id = $1 AND deleted_at IS NULL
+          WHERE id = $1
+            AND ($11::uuid IS NULL OR enterprise_id = $11)
+            AND deleted_at IS NULL
           RETURNING
             id,
             enterprise_id,
@@ -418,10 +426,11 @@ export class PostgresPlatformRepository implements PlatformRepository {
           employee.email ?? null,
           employee.status,
           employee.mustChangePassword,
+          enterpriseId ?? null,
         ],
       );
 
-      return mapEmployee(result.rows[0]);
+      return mapFirst(result, mapEmployee);
     } catch (error) {
       mapPostgresError(error);
     }

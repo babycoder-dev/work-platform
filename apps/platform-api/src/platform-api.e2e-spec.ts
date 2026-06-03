@@ -4,6 +4,7 @@ import { configurePlatformHttp } from '@work/nest-common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PlatformModule } from './platform.module';
+import { verifyPassword } from './security/secret-hash';
 import { PlatformMemoryStore } from './store/platform-memory.store';
 
 describe('platform-api', () => {
@@ -551,7 +552,25 @@ describe('platform-api', () => {
         .send({ roleIds: [localRole.id] })
         .expect(404);
 
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${createdForeignEmployee.id}/status`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'disabled' })
+        .expect(404);
+
+      await request(app.getHttpServer())
+        .put(`/api/platform/employees/${createdForeignEmployee.id}/password`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ newPassword: 'Changed123' })
+        .expect(404);
+
       await expect(memoryStore.findEmployeeById(createdForeignEmployee.id)).resolves.toEqual(foreignEmployee);
+      const foreignIdentity = await memoryStore.findLocalIdentityByAccount(createdForeignEmployee.account);
+      if (!foreignIdentity) {
+        throw new Error('Foreign identity should remain present');
+      }
+      expect(verifyPassword('Scope1234', foreignIdentity.passwordHash)).toBe(true);
+      expect(verifyPassword('Changed123', foreignIdentity.passwordHash)).toBe(false);
       await expect(memoryStore.findRoleById(foreignRole.id)).resolves.toEqual(foreignRole);
       expect(
         memoryStore.auditLogs.filter(
@@ -563,6 +582,8 @@ describe('platform-api', () => {
           expect.objectContaining({ action: 'platform.role.update', result: 'failure' }),
           expect.objectContaining({ action: 'platform.role.delete', result: 'failure' }),
           expect.objectContaining({ action: 'platform.employee.roles.assign', result: 'failure' }),
+          expect.objectContaining({ action: 'platform.employee.status.update', result: 'failure' }),
+          expect.objectContaining({ action: 'platform.employee.password.reset', result: 'failure' }),
         ]),
       );
     });

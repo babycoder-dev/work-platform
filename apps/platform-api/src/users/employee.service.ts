@@ -78,10 +78,12 @@ export class EmployeeService {
   async updateStatus(
     id: string,
     input: UpdateEmployeeStatusInput,
+    enterpriseId: string,
     auditContext: PlatformAuditContext = {},
   ): Promise<EmployeeDto> {
     const employee = await this.repository.findEmployeeById(id);
-    if (!employee) {
+    if (!employee || employee.enterpriseId !== enterpriseId) {
+      await this.recordFailureAudit('platform.employee.status.update', id, auditContext);
       throw new NotFoundException('员工不存在');
     }
 
@@ -90,7 +92,11 @@ export class EmployeeService {
       status: input.status,
     };
 
-    const saved = await this.repository.updateEmployee(updated);
+    const saved = await this.repository.updateEmployee(updated, enterpriseId);
+    if (!saved) {
+      await this.recordFailureAudit('platform.employee.status.update', id, auditContext);
+      throw new NotFoundException('员工不存在');
+    }
     await this.repository.recordAuditLog({
       actorUserId: auditContext.actorUserId,
       actorAccount: auditContext.actorAccount,
@@ -147,17 +153,23 @@ export class EmployeeService {
   async resetPassword(
     employeeId: string,
     input: ResetEmployeePasswordInput,
+    enterpriseId: string,
     auditContext: PlatformAuditContext = {},
   ): Promise<EmployeeDto> {
     const employee = await this.repository.findEmployeeById(employeeId);
-    if (!employee) {
+    if (!employee || employee.enterpriseId !== enterpriseId) {
+      await this.recordFailureAudit('platform.employee.password.reset', employeeId, auditContext);
       throw new NotFoundException('员工不存在');
     }
 
-    await this.repository.updatePassword(employeeId, {
+    const updated = await this.repository.updatePassword(employeeId, {
       passwordHash: hashPassword(input.newPassword),
       mustChangePassword: true,
-    });
+    }, enterpriseId);
+    if (!updated) {
+      await this.recordFailureAudit('platform.employee.password.reset', employeeId, auditContext);
+      throw new NotFoundException('员工不存在');
+    }
     await this.repository.recordAuditLog({
       actorUserId: auditContext.actorUserId,
       actorAccount: auditContext.actorAccount,

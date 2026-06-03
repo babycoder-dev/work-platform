@@ -184,11 +184,11 @@ export class PlatformMemoryStore implements PlatformRepository {
     }
   }
 
-  async updatePassword(userId: string, input: UpdatePasswordInput): Promise<void> {
+  async updatePassword(userId: string, input: UpdatePasswordInput, enterpriseId?: string): Promise<boolean> {
     const identity = Array.from(this.identities.values()).find((item) => item.userId === userId);
     const employee = this.employees.get(userId);
-    if (!identity || !employee) {
-      return;
+    if (!identity || !employee || (enterpriseId !== undefined && employee.enterpriseId !== enterpriseId)) {
+      return false;
     }
 
     identity.passwordHash = input.passwordHash;
@@ -200,6 +200,7 @@ export class PlatformMemoryStore implements PlatformRepository {
       ...employee,
       mustChangePassword: input.mustChangePassword,
     });
+    return true;
   }
 
   async listPermissions(): Promise<PermissionDto[]> {
@@ -306,7 +307,11 @@ export class PlatformMemoryStore implements PlatformRepository {
     return updated;
   }
 
-  async updateEmployee(employee: EmployeeDto): Promise<EmployeeDto> {
+  async updateEmployee(employee: EmployeeDto, enterpriseId?: string): Promise<EmployeeDto | undefined> {
+    const existing = this.employees.get(employee.id);
+    if (!existing || (enterpriseId !== undefined && existing.enterpriseId !== enterpriseId)) {
+      return undefined;
+    }
     this.employees.set(employee.id, employee);
     return employee;
   }

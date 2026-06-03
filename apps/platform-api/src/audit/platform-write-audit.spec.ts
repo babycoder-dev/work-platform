@@ -80,7 +80,7 @@ describe('platform write audit coverage', () => {
       name: employee.name,
       initialPassword: 'Passw0rd1',
     }, auditContext);
-    await service.updateStatus(employee.id, { status: 'disabled' }, auditContext);
+    await service.updateStatus(employee.id, { status: 'disabled' }, employee.enterpriseId, auditContext);
     await service.assignRoles({ userId: employee.id, roleIds: ['role-audit'] }, employee.enterpriseId, auditContext);
 
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
@@ -130,7 +130,7 @@ describe('platform write audit coverage', () => {
         failedAttempts: 2,
         mustChangePassword: true,
       }),
-      updatePassword: vi.fn().mockResolvedValue(undefined),
+      updatePassword: vi.fn().mockResolvedValue(true),
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
 
@@ -169,7 +169,7 @@ describe('platform write audit coverage', () => {
     };
     const repository = {
       findEmployeeById: vi.fn().mockResolvedValue(employee),
-      updatePassword: vi.fn().mockResolvedValue(undefined),
+      updatePassword: vi.fn().mockResolvedValue(true),
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
 
@@ -178,7 +178,7 @@ describe('platform write audit coverage', () => {
       {} as unknown as PlatformScopeService,
     ).resetPassword(employee.id, {
       newPassword: 'Resetpass1',
-    }, auditContext);
+    }, employee.enterpriseId, auditContext);
 
     const updateInput = vi.mocked(repository.updatePassword).mock.calls[0][1];
     expect(verifyPassword('Resetpass1', updateInput.passwordHash)).toBe(true);

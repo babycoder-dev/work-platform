@@ -45,6 +45,21 @@ Change set:
   - Restricted `test:e2e` to no-DB e2e files so `verify:full` does not duplicate Postgres e2e suites
     when `RUN_POSTGRES_E2E=true`; DB e2e remains covered by `test:e2e:postgres`.
 
+Independent review follow-up:
+
+- `security-reviewer` found no blocking issue in the M6-1 forms/files scaffold itself.
+- The review did surface a pre-existing platform employee tenant-isolation gap in
+  `PUT /api/platform/employees/:id/status` and `PUT /api/platform/employees/:id/password`: both paths accepted a
+  raw target employee id and did not verify it belonged to `request.currentUser.enterpriseId`.
+- Fixed in this branch because it is backend security baseline work: employee status update and password reset now
+  receive the authenticated tenant from the controller, reject cross-tenant targets as 404, write bounded failure
+  audit records, and use repository write-side tenant guards to prevent TOCTOU-style cross-tenant mutation.
+- Added memory and PostgreSQL e2e coverage proving cross-tenant status/password mutations return 404 and do not
+  change the foreign employee.
+- Second security-reviewer pass confirmed the High finding is closed with no blocking findings. A low-severity
+  regression-test suggestion was also covered: memory and PostgreSQL e2e now assert the foreign employee password
+  hash still matches the original password and not the rejected reset password.
+
 Validation:
 
 - `pnpm install`: pass.
@@ -65,6 +80,8 @@ Validation:
     - `test:db`: 4 files passed, 23 tests passed, including forms/files empty-schema + idempotent
       migration + repository isolation.
     - `test:e2e:postgres`: 2 files passed, 13 tests passed.
+  - Re-ran after the independent security-reviewer follow-up fix; final `pnpm verify` and Docker-backed
+    `pnpm db:setup && pnpm verify:full` remained pass.
   - Temporary PostgreSQL container was removed after verification.
 
 Follow-up:

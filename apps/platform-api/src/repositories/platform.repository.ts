@@ -61,8 +61,8 @@ export interface PlatformRepository {
   findEmployeeById(id: string): Promise<EmployeeDto | undefined>;
   findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined>;
   updateLocalIdentitySecurityState(userId: string, input: UpdateLocalIdentitySecurityStateInput): Promise<void>;
-  updatePassword(userId: string, input: UpdatePasswordInput): Promise<void>;
-  updateEmployee(employee: EmployeeDto): Promise<EmployeeDto>;
+  updatePassword(userId: string, input: UpdatePasswordInput, enterpriseId?: string): Promise<boolean>;
+  updateEmployee(employee: EmployeeDto, enterpriseId?: string): Promise<EmployeeDto | undefined>;
   createAccessSession(input: CreateAccessSessionInput): Promise<AccessSession>;
   findAccessSession(accessToken: string): Promise<AccessSession | undefined>;
   listPermissions(): Promise<PermissionDto[]>;

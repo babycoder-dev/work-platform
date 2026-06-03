@@ -39,7 +39,12 @@ export class EmployeeController {
     @Body(dtoValidationPipe(UpdateEmployeeStatusDto)) input: UpdateEmployeeStatusDto,
     @Req() request: PlatformRequest,
   ) {
-    return this.employeeService.updateStatus(id, input, buildPlatformAuditContext(request));
+    return this.employeeService.updateStatus(
+      id,
+      input,
+      request.currentUser!.enterpriseId,
+      buildPlatformAuditContext(request),
+    );
   }
 
   @Put(':id/roles')
@@ -66,6 +71,11 @@ export class EmployeeController {
     @Body(dtoValidationPipe(ResetEmployeePasswordDto)) input: ResetEmployeePasswordDto,
     @Req() request: PlatformRequest,
   ) {
-    return this.employeeService.resetPassword(id, input, buildPlatformAuditContext(request));
+    return this.employeeService.resetPassword(
+      id,
+      input,
+      request.currentUser!.enterpriseId,
+      buildPlatformAuditContext(request),
+    );
   }
 }
