@@ -104,6 +104,12 @@ importers:
       '@nestjs/platform-express':
         specifier: ^11.0.0
         version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21)
+      '@work/files-api':
+        specifier: workspace:*
+        version: link:../../modules/files/api
+      '@work/forms-api':
+        specifier: workspace:*
+        version: link:../../modules/forms/api
       '@work/nest-common':
         specifier: workspace:*
         version: link:../../packages/nest-common
@@ -198,6 +204,12 @@ importers:
       '@work/event-bus':
         specifier: workspace:*
         version: link:../../packages/event-bus
+      '@work/files-contract':
+        specifier: workspace:*
+        version: link:../../modules/files/contract
+      '@work/forms-contract':
+        specifier: workspace:*
+        version: link:../../modules/forms/contract
       '@work/nest-common':
         specifier: workspace:*
         version: link:../../packages/nest-common
@@ -307,6 +319,74 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
 
   modules/approval/contract:
+    dependencies:
+      '@work/platform-contract':
+        specifier: workspace:*
+        version: link:../../../packages/platform-contract
+      '@work/platform-sdk':
+        specifier: workspace:*
+        version: link:../../../packages/platform-sdk
+
+  modules/files/api:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^11.0.0
+        version: 11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@work/files-contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@work/nest-common':
+        specifier: workspace:*
+        version: link:../../../packages/nest-common
+      pg:
+        specifier: ^8.13.1
+        version: 8.20.0
+    devDependencies:
+      '@nestjs/core':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.21)(@nestjs/websockets@11.1.21)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/testing':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21)(@nestjs/platform-express@11.1.21)
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.20.0
+
+  modules/files/contract:
+    dependencies:
+      '@work/platform-contract':
+        specifier: workspace:*
+        version: link:../../../packages/platform-contract
+      '@work/platform-sdk':
+        specifier: workspace:*
+        version: link:../../../packages/platform-sdk
+
+  modules/forms/api:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^11.0.0
+        version: 11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@work/forms-contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@work/nest-common':
+        specifier: workspace:*
+        version: link:../../../packages/nest-common
+      pg:
+        specifier: ^8.13.1
+        version: 8.20.0
+    devDependencies:
+      '@nestjs/core':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.21)(@nestjs/websockets@11.1.21)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/testing':
+        specifier: ^11.0.0
+        version: 11.1.21(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21)(@nestjs/platform-express@11.1.21)
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.20.0
+
+  modules/forms/contract:
     dependencies:
       '@work/platform-contract':
         specifier: workspace:*

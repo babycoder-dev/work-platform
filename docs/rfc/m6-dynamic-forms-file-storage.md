@@ -2,7 +2,7 @@
 
 ## 状态
 
-Proposed
+Accepted
 
 ## 1. 目标
 

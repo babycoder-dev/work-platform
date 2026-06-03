@@ -1,5 +1,77 @@
 # Verification Log
 
+## 2026-06-03
+
+### M6-1 Forms And Files Shared Backend Foundation
+
+Scope:
+
+- Implemented the M6-1 backend foundation slice from `docs/rfc/m6-dynamic-forms-file-storage.md`.
+- Added shared backend modules `modules/forms/{contract,api}` and `modules/files/{contract,api}`.
+- Did not implement file upload provider logic, upload HTTP API, Forms definition HTTP API, or Forms record service/API.
+
+Change set:
+
+- Contracts:
+  - Added server-side manifests with `apiPrefix=/api/forms` and `/api/files`, no menus and no web entry.
+  - Registered active M6-1 permissions:
+    `forms:profile-definition:{view,manage}`, `forms:report-definition:{view,manage}`,
+    `forms:record:{submit,view}`, `files:object:{upload,view-own}`.
+  - Kept `forms:presence-definition:{view,manage}` reserved and unregistered.
+  - Exported events `forms.definition.updated`, `forms.record.created`, `files.object.uploaded`.
+  - Exported field types, DTO/schema types, §5.2.1 hard-limit constants, and public port tokens
+    `FORMS_SERVICE` / `FILE_STORAGE_SERVICE`.
+- Schema and migrations:
+  - Added independent forms migration runner and `forms.schema_migrations`.
+  - Added `forms.form_definitions`, `forms.form_fields`, `forms.form_records`, and
+    `forms.form_record_values` with `enterprise_id`, composite unique constraints, and composite FKs.
+  - Added independent files migration runner and `files.schema_migrations`.
+  - Added `files.file_objects` and `files.file_references` with `enterprise_id`, single-reference
+    uniqueness, `staged_expires_at NOT NULL`, status checks, and composite FK.
+- Repository:
+  - Added memory and PostgreSQL repositories for forms and files metadata/data-access skeletons.
+  - Repository reads take `enterpriseId`; cross-tenant reads return `undefined` / empty arrays.
+  - PostgreSQL integration tests cover empty-schema migration, idempotent rerun, tenant isolation, and
+    composite-FK rejection of cross-tenant child rows.
+- Platform / gateway:
+  - Registered forms/files manifests in platform seed, so seed-derived active permissions include forms/files.
+  - Added a PostgreSQL seed assertion that the seeded admin role receives all new forms/files permissions.
+  - Mounted `FormsModule` and `FilesModule` in `gateway-api`.
+  - Added public `/api/forms/health` and `/api/files/health` smoke routes to prove module-prefix mounting.
+- Scripts:
+  - Added `db:migrate:files` and `db:migrate:forms`.
+  - Changed `db:setup` order to platform -> presence -> files -> forms -> seed.
+  - Added forms/files repository integration specs to `test:db`.
+  - Restricted `test:e2e` to no-DB e2e files so `verify:full` does not duplicate Postgres e2e suites
+    when `RUN_POSTGRES_E2E=true`; DB e2e remains covered by `test:e2e:postgres`.
+
+Validation:
+
+- `pnpm install`: pass.
+- `pnpm verify`: pass.
+  - Unit/node: 19 files passed, 112 tests passed; Postgres-gated specs skipped without env.
+  - Web/jsdom: 4 files passed, 19 tests passed.
+  - E2E: 2 files passed, 27 tests passed; Postgres-gated e2e skipped without env.
+  - Lint still prints existing Nx ProjectGraph warnings and existing warning-only unused/non-null assertions;
+    no lint errors.
+- PostgreSQL local verification:
+  - Started local Docker PostgreSQL `postgres:15` on port 55432.
+  - `pnpm db:setup`: pass. Applied platform, presence, files, forms migrations in the required order;
+    seed result `permissionCount=20`.
+  - Validation exposed that `test:e2e` re-collected Postgres e2e suites under full-path env vars,
+    which intermittently produced Vitest worker `ERR_IPC_CHANNEL_CLOSED`. The script was narrowed to
+    no-DB e2e files; `test:e2e:postgres` remains the DB e2e gate.
+  - Final `pnpm verify:full`: pass.
+    - `test:db`: 4 files passed, 23 tests passed, including forms/files empty-schema + idempotent
+      migration + repository isolation.
+    - `test:e2e:postgres`: 2 files passed, 13 tests passed.
+  - Temporary PostgreSQL container was removed after verification.
+
+Follow-up:
+
+- M6-2: implement local disk Files provider, upload API, staged / attached lifecycle, cleanup, quotas,
+  rate limits, disk threshold checks, Docker volume/deployment docs, and required security-reviewer pass.
+
 ## 2026-06-02
 
 ### M6-0 Dynamic Forms Mini And File Storage Proposed RFC
@@ -48,8 +120,8 @@ Independent security review:
 - Made `staged_expires_at` mandatory for every staged object; quota accounting now includes `deleting`
   objects until disk release is confirmed. Cleanup treats an already-missing disk file as idempotent success
   so a prior database update failure can converge to `deleted`.
-- Final pass: `LGTM / PASS`. The reviewer confirmed no remaining High or Medium findings. M6-0 remains
-  `Proposed` until product / architecture review accepts the RFC.
+- Final pass: `LGTM / PASS`. The reviewer confirmed no remaining High or Medium findings. M6-0 was
+  accepted on 2026-06-03 before M6-1 implementation started.
 
 Validation:
 
@@ -61,7 +133,7 @@ Validation:
 
 Follow-up:
 
-- Review and accept the RFC, then create the self-contained M6-1 backend task package.
+- Proceed with M6-1 backend foundation implementation.
 
 ## 2026-06-01
 

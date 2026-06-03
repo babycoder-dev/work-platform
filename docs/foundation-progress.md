@@ -20,7 +20,7 @@
 | M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done        | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                        |
 | M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done        | M4-4 交付验证已完成；presence 模块进入维护态                                           |
 | M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done        | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                       |
-| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | In Progress | M6-0 Proposed RFC 已起草；后端优先，前端等待产品原型                                   |
+| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | In Progress | M6-1 共享后端基建骨架已交付；下一步 M6-2 本地磁盘 Files provider + 上传 API            |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Pending     | 不引入 IM/重型实时                                                                     |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending     | 依赖 M5/M6/M7                                                                          |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending     | 在 M4 presence 基础上扩展                                                              |
@@ -185,13 +185,13 @@
 当前建议执行：
 
 ```text
-M6-0: 审查动态表单 mini + 文件存储 Proposed RFC
+M6-2: 本地磁盘 Files provider + 上传 API
 ```
 
-M6-0 Proposed RFC 已起草：`docs/rfc/m6-dynamic-forms-file-storage.md`（固定槽位、类型化字段、
-记录值快照、`forms.*` / `files.*` 边界、本地磁盘 provider、私有文件访问模型、Platform employee
-lookup port、权限 / 审计 / 测试与后端切片计划）。先审 RFC，再启动 M6-1；前端配置页与填报页等待
-产品原型，以独立任务包进入审查。
+M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
+schema 迁移、repository 双实现、manifest / seed、gateway 装配和根脚本。下一步进入 M6-2：本地磁盘
+Files provider、上传 API、staged 生命周期、TTL 清理、配额 / 限流 / 磁盘阈值治理；该切片必须通过
+security-reviewer。前端配置页与填报页继续等待产品原型，以独立任务包进入审查。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -204,8 +204,8 @@ M4-4 完成结果：
 - M4 整段 Done；presence 模块进入维护态（后续优化进 M5+ 切片的 follow-up 或独立小切片）。
 - verification-log 锚点：`M4-4 Presence MVP Delivery Verification`。
 
-M5 已退出：M5-1 至 M5-4 全部完成。下一步审查 M6 动态表单 mini + 文件存储 Proposed RFC，
-通过后启动后端切片。注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
+M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享后端基建骨架已完成。
+下一步执行 M6-2 本地磁盘 Files provider + 上传 API。注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
 `docs/adr/0005-product-replan-roadmap.md`。
 
 ### 6.1 M3.5 收口切片
@@ -235,8 +235,8 @@ M5 已退出：M5-1 至 M5-4 全部完成。下一步审查 M6 动态表单 mini
 
 | 切片 | 能力 | 状态 | 说明 |
 | ---- | ---- | ---- | ---- |
-| M6-0 | RFC | In Progress | 2026-06-02 起草 Proposed RFC；独立 security-reviewer 终审 LGTM，待产品 / 架构确认 Accepted |
-| M6-1 | contract + schema + repository | Pending | RFC Accepted 后启动 |
+| M6-0 | RFC | Done | 2026-06-03 Accepted；详见 verification-log `M6-0 Dynamic Forms Mini And File Storage Proposed RFC` |
+| M6-1 | contract + schema + repository | Done | 2026-06-03 完成；详见 verification-log `M6-1 Forms And Files Shared Backend Foundation` |
 | M6-2 | 本地磁盘 Files provider + 上传 API | Pending | M6-1 完成后启动；必过 security-reviewer |
 | M6-3 | Forms API + 快照记录 + 文件 / 人员字段 | Pending | M6-2 完成后启动；必过 security-reviewer |
 | M6-4 | 后端交付验证 | Pending | verify / verify:full / Docker build / API smoke |

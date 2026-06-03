@@ -1,4 +1,6 @@
 import { approvalPlatformManifest } from '@work/approval-contract';
+import { filesPlatformManifest } from '@work/files-contract';
+import { formsPlatformManifest } from '@work/forms-contract';
 import { presencePlatformManifest } from '@work/presence-contract';
 import { reportPlatformManifest } from '@work/report-contract';
 import { describe, expect, it } from 'vitest';
@@ -9,6 +11,8 @@ describe('platform seed data', () => {
   it('lists every module manifest including disabled ones', () => {
     expect(platformModuleManifests).toEqual([
       platformModuleManifest,
+      filesPlatformManifest,
+      formsPlatformManifest,
       presencePlatformManifest,
       approvalPlatformManifest,
       reportPlatformManifest,
@@ -23,6 +27,8 @@ describe('platform seed data', () => {
 
   it('sources business module manifests from contract packages', () => {
     const byName = new Map(platformModuleManifests.map((manifest) => [manifest.moduleName, manifest]));
+    expect(byName.get('files')).toBe(filesPlatformManifest);
+    expect(byName.get('forms')).toBe(formsPlatformManifest);
     expect(byName.get('presence')).toBe(presencePlatformManifest);
     expect(byName.get('approval')).toBe(approvalPlatformManifest);
     expect(byName.get('report')).toBe(reportPlatformManifest);
@@ -52,10 +58,24 @@ describe('platform seed data', () => {
   it('declares the presence management permission and registration menu', () => {
     expect(platformSeedPermissions.map((permission) => permission.code)).toEqual(
       expect.arrayContaining([
+        'files:object:upload',
+        'files:object:view-own',
+        'forms:profile-definition:view',
+        'forms:profile-definition:manage',
+        'forms:report-definition:view',
+        'forms:report-definition:manage',
+        'forms:record:submit',
+        'forms:record:view',
         'presence:board:view',
         'presence:status:create',
         'presence:status:manage',
       ]),
+    );
+    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
+      'forms:presence-definition:view',
+    );
+    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
+      'forms:presence-definition:manage',
     );
     expect(platformSeedMenus.map((menu) => menu.path)).toEqual(
       expect.arrayContaining(['/presence/board', '/presence/register']),

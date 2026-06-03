@@ -1,4 +1,6 @@
 import { approvalPlatformManifest } from '@work/approval-contract';
+import { filesPlatformManifest } from '@work/files-contract';
+import { formsPlatformManifest } from '@work/forms-contract';
 import type { MenuDto, ModuleManifestDto, PermissionDto } from '@work/platform-contract';
 import { presencePlatformManifest } from '@work/presence-contract';
 import { reportPlatformManifest } from '@work/report-contract';
@@ -11,6 +13,8 @@ export const DEFAULT_ADMIN_ROLE_ID = '00000000-0000-0000-0000-000000000004';
 
 export const platformModuleManifests: ModuleManifestDto[] = [
   platformModuleManifest,
+  filesPlatformManifest,
+  formsPlatformManifest,
   presencePlatformManifest,
   approvalPlatformManifest,
   reportPlatformManifest,

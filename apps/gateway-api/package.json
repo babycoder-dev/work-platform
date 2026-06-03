@@ -14,6 +14,8 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@work/files-api": "workspace:*",
+    "@work/forms-api": "workspace:*",
     "@work/nest-common": "workspace:*",
     "@work/platform-api": "workspace:*",
     "@work/platform-contract": "workspace:*",

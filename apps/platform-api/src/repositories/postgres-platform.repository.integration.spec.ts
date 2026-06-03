@@ -37,6 +37,30 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     await pool?.end();
   });
 
+  it('grants active forms and files manifest permissions to the seeded admin role', async () => {
+    const expectedPermissions = [
+      'files:object:upload',
+      'files:object:view-own',
+      'forms:profile-definition:view',
+      'forms:profile-definition:manage',
+      'forms:report-definition:view',
+      'forms:report-definition:manage',
+      'forms:record:submit',
+      'forms:record:view',
+    ];
+    const result = await pool.query<{ permission_code: string }>(
+      `
+        SELECT permission_code
+        FROM platform.role_permissions
+        WHERE role_id = $1 AND permission_code = ANY($2::text[])
+        ORDER BY permission_code
+      `,
+      [DEFAULT_ADMIN_ROLE_ID, expectedPermissions],
+    );
+
+    expect(result.rows.map((row) => row.permission_code)).toEqual([...expectedPermissions].sort());
+  });
+
   it('creates employees, roles, assignments, and sessions transactionally', async () => {
     const suffix = Date.now().toString();
     const role = await repository.createRole({

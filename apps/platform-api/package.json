@@ -17,6 +17,8 @@
     "@nestjs/platform-express": "^11.0.0",
     "@work/approval-contract": "workspace:*",
     "@work/event-bus": "workspace:*",
+    "@work/files-contract": "workspace:*",
+    "@work/forms-contract": "workspace:*",
     "@work/nest-common": "workspace:*",
     "@work/platform-contract": "workspace:*",
     "@work/presence-contract": "workspace:*",
