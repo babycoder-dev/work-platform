@@ -96,7 +96,14 @@ export interface FileStoragePort {
     input: AttachFilesInput,
     uow: UnitOfWork,
   ): Promise<FileObjectDto[]>;
-  openFile(actor: FileActorContext, fileId: string): Promise<ReadableFileObject>;
+  openFile(actor: FileActorContext, input: OpenFileInput): Promise<ReadableFileObject>;
+}
+
+export interface OpenFileInput {
+  fileId: string;
+  ownerModule: string;
+  referenceType: string;
+  referenceId: string;
 }
 
 export const FORMS_SERVICE = Symbol('FORMS_SERVICE');

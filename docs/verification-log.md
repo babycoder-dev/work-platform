@@ -1,5 +1,150 @@
 # Verification Log
 
+## 2026-06-05
+
+### M6-2 Local Disk Files Provider Upload API Lifecycle Abuse Controls
+
+Scope:
+
+- Implemented the M6-2 backend slice from `docs/rfc/m6-dynamic-forms-file-storage.md`.
+- Added real local-disk file storage, upload metadata APIs, staged lifecycle handling, abuse controls,
+  deployment volume changes, and operator cleanup command.
+- Did not implement Forms definition / record APIs, Forms file-field integration, or a generic file-content
+  download route. Content remains private and is exposed only through `FILE_STORAGE_SERVICE.openFile` for
+  later authorization-aware domain services.
+
+Change set:
+
+- Contract / port:
+  - Added upload input and file-storage constants for max bytes, original-name bounds, staged TTL, tenant /
+    user quotas, rate limits, disk thresholds, and cleanup interval.
+  - Kept the allowlist conservative: jpeg, png, webp, pdf, plain text, and csv. OOXML is intentionally not
+    allowed in M6-2 because ZIP container validation is not strong enough for this security surface.
+  - Extended `FILE_STORAGE_SERVICE` with `withUnitOfWork(...)` so callers can wrap file attachment in their
+    own transaction boundary.
+- Local provider:
+  - Added `LocalFileStorageProvider` with `FILE_STORAGE_LOCAL_ROOT`, production startup validation,
+    server-generated storage keys `<enterpriseId>/<yyyy>/<mm>/<uuid>`, temp-write then atomic rename, root
+    containment checks for open/delete, original-name sanitization, max-size enforcement, allowlist checks,
+    and magic-byte detection.
+  - Added injectable clock and disk-space probe for deterministic TTL and low-disk tests.
+- Repository and lifecycle:
+  - Added memory and PostgreSQL repository support for staged object creation with quota enforcement,
+    owner-bound metadata lookup, unit-of-work-backed attachment, expired staged claims, deletion marking, and
+    stored-byte accounting.
+  - PostgreSQL serializes tenant/user quota checks with transaction-scoped advisory locks before inserting
+    staged objects, so concurrent uploads cannot overshoot quota. Memory mirrors the same behavior with an
+    in-process quota lock and rollback snapshot.
+  - `attachFiles` now performs `staged -> attached` inside the caller-provided unit of work and writes
+    `files.file_references` atomically. Exact same-reference retries are idempotent; different references,
+    other-uploaded staged files, deleting, deleted, or cross-tenant objects are rejected as missing.
+  - Staged cleanup claims expired objects to `deleting`, removes disk content, then marks `deleted`; disk
+    deletion failure leaves `deleting` for retry and writes bounded failure audit metadata.
+- HTTP API and gateway:
+  - Added `POST /api/files` multipart single-file upload protected by `files:object:upload`.
+  - Added `GET /api/files/:id` owner-only metadata lookup protected by `files:object:view-own`.
+  - Added a dynamic Multer interceptor so the multipart limit follows `FILE_STORAGE_MAX_BYTES`.
+  - Cross-tenant, unknown, malformed, deleted, and non-owner metadata reads return 404.
+  - No generic content-download endpoint was added.
+- Abuse controls:
+  - Added per-process upload rate limiting: count per minute and bytes per hour return 429 on exceed.
+  - Added tenant quota, user quota, staged TTL, low-disk rejection, and periodic `FilesCleanupService`.
+  - Added `pnpm files:cleanup-staged` for one-shot operations.
+- Deployment and security docs:
+  - Added `files-data` persistent Docker volume and gateway file-storage environment variables.
+  - Updated deployment/backup docs to treat the files volume as a sensitive backup object alongside
+    PostgreSQL, including ACL, retention/deletion, coordinated backup, restore, and metadata-volume
+    integrity checks.
+  - Updated `docs/security-baseline.md` with the private file-upload and local-storage baseline.
+
+Validation:
+
+- `pnpm install`: pass; lockfile updated by pnpm for the new Files API dependency.
+- `pnpm nx graph --file=tmp-nx-graph.json` + `pnpm nx run @work/files-api:lint` + `pnpm nx run
+  @work/gateway-api:lint`: pass with warmed Nx graph; temporary graph output removed.
+- `pnpm verify`: pass.
+  - Unit/node: 23 files passed, 132 tests passed. Without Postgres env, 4 env-gated integration specs are
+    skipped.
+  - Web/jsdom: 4 files passed, 19 tests passed.
+  - Memory e2e: 3 files passed, 30 tests passed.
+  - Build: pass.
+  - Existing warning-only lint output remains: unused placeholder args in `im-adapter-api`, non-null
+    assertions in existing platform controllers, and one workbench-shell unused placeholder.
+- Local PostgreSQL full path:
+  - Started Docker PostgreSQL `postgres:15` on port 55433.
+  - Set `DATABASE_URL`, `RUN_POSTGRES_INTEGRATION=true`, `RUN_POSTGRES_E2E=true`,
+    `PLATFORM_REPOSITORY_DRIVER=postgres`, `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD=admin123`,
+    `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true`, and Files storage env vars for a temp local root.
+  - `pnpm db:setup`: pass. Applied platform, presence, files, and forms migrations; seed reported
+    `permissionCount=20`.
+  - One long-chain `pnpm verify:full` attempt after the upload-audit fix exposed transient Vitest worker
+    `ERR_IPC_CHANNEL_CLOSED` during `test:e2e:postgres` after two postgres e2e suites had already passed.
+    Re-running `pnpm test:e2e:postgres` passed, and the final full-chain retry passed.
+  - Final `pnpm verify:full`: pass.
+    - Unit/node: 27 files passed, 158 tests passed with Postgres integration enabled.
+    - Web/jsdom: 4 files passed, 19 tests passed.
+    - Memory e2e: 3 files passed, 30 tests passed.
+    - `test:db`: 4 files passed, 26 tests passed.
+    - `test:e2e:postgres`: 3 files passed, 14 tests passed.
+- `pnpm docker:build`: pass. Registry fetch emitted transient `ECONNRESET` retries, then all production
+  images built successfully.
+
+Security review:
+
+- `security-reviewer` first pass found blocking issues during implementation: `attachFiles` ignored caller
+  unit-of-work, OOXML ZIP validation was insufficient, upload failure audit included raw error messages, the
+  Multer interceptor used a static default max size, and disk threshold checks used pre-write free space.
+- Fixes applied before final verification: attachment now requires `withUnitOfWork`, OOXML is not in the M6-2
+  allowlist, failure audits use bounded reason codes, Multer file size is config-driven, and disk threshold
+  checks use projected post-write free space under a write lock.
+- Independent final pass found one remaining Medium: `FILE_STORAGE_SERVICE.openFile(actor, fileId)` still
+  accepted a same-tenant bare `fileId`, so later business proxies could accidentally expose another user's
+  attached content or staged/deleting content if they did not duplicate reference checks.
+- Fixed the Medium by changing the port to `openFile(actor, OpenFileInput)` where `OpenFileInput` includes
+  `fileId`, `ownerModule`, `referenceType`, and `referenceId`. Both memory and PostgreSQL repositories now
+  resolve content only through a matching `files.file_references` row and require the object to be
+  `status='attached'`; no-reference, wrong-reference, staged, deleting, deleted, cross-tenant, or unknown
+  objects return 404 through the service.
+- Added service coverage for staged-denied, matching-reference success, wrong-reference 404, and cross-tenant
+  404. Synchronized `docs/security-baseline.md` and the M6 RFC port example to make the reference-bound
+  `openFile` contract explicit.
+- Security-reviewer follow-up pass on this Medium: LGTM / 可合入. The reviewer confirmed no new High or
+  Medium findings, no public content-download route, no legacy `openFile(actor, fileId)` call sites, and
+  reference-bound `openFile` behavior matching `docs/security-baseline.md` §8.1. The reviewer only skipped
+  Postgres integration locally due env gate; this branch's own Docker-backed `pnpm verify:full` above executed
+  the Postgres integration and e2e gates with env enabled.
+- Post-review security audit fixes:
+  - A later security review found the upload failure audit path was still incomplete: rate-limit 429 was
+    outside the service `try`, and controller-level missing-file / extra-field 400s could return before
+    `files.object.upload` failure audit. The service now audits 429 from inside the upload `catch`, and the
+    controller records bounded failure audit before rejecting missing files or unexpected body fields.
+  - The real HTTP multipart path also needed interceptor-level coverage because Multer rejects extra fields
+    and oversized files before controller execution. `FilesUploadInterceptor` now catches Multer/Nest upload
+    rejection errors, records bounded `files.object.upload` failure audit, and then returns normalized 400/413.
+    Non-env-gated interceptor tests cover `.field(...)` and oversized-file requests through a real Nest
+    interceptor.
+  - The rate limiter was split into per-minute attempts and hourly successful bytes. Rejected MIME/quota/storage
+    failures no longer consume the hourly byte budget; successful bytes are recorded only after staged metadata
+    is persisted.
+  - Added non-env-gated service/controller/interceptor/provider tests for 429 failure audit, missing-file and
+    extra-field 400 failure audit, real Multer 400/413 failure audit, rejected-byte accounting, and low-disk 503
+    upload failure audit. The low-disk test exercises `FilesService.uploadFile`, asserts
+    `ServiceUnavailableException`, and asserts bounded failure metadata without path or file content.
+  - Final `security-reviewer` pass after these fixes: PASS. The reviewer confirmed no remaining High/Medium
+    findings for the upload failure audit blocker and checked the changes against RFC §8.2/§9 and
+    `docs/security-baseline.md` §6/§8.1.
+
+Follow-up:
+
+- M6-3: implement Forms definition / record APIs, snapshot record values, file fields, and people fields
+  against the M6-1/M6-2 ports and security invariants.
+- Future hardening: if office documents become required, add a dedicated OOXML parser/validator instead of
+  relying on ZIP filename heuristics.
+- Future hardening: move per-process upload rate limiting and cleanup scheduling to shared coordination before
+  horizontally scaling gateway instances; remove `storageKey` from public metadata DTOs; force attachment and
+  `nosniff` on any future content proxy for text/csv; keep memory repository idempotency parity and injected
+  clock refinements on the M6 hardening list.
+
 ## 2026-06-03
 
 ### M6-1 Forms And Files Shared Backend Foundation

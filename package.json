@@ -19,8 +19,8 @@
     "test:web": "vitest run --config vitest.web.config.mts",
     "test:db": "vitest run --config vitest.config.mts apps/platform-api/src/repositories/postgres-platform.repository.integration.spec.ts modules/presence/api/src/db/postgres-presence.repository.integration.spec.ts modules/files/api/src/db/postgres-files.repository.integration.spec.ts modules/forms/api/src/db/postgres-forms.repository.integration.spec.ts",
     "test:watch": "vitest --config vitest.config.mts",
-    "test:e2e": "vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.e2e-spec.ts apps/gateway-api/src/forms-files-gateway.e2e-spec.ts",
-    "test:e2e:postgres": "vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.postgres.e2e-spec.ts apps/gateway-api/src/presence.e2e-spec.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.e2e-spec.ts apps/gateway-api/src/forms-files-gateway.e2e-spec.ts apps/gateway-api/src/files-upload.e2e-spec.ts",
+    "test:e2e:postgres": "vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.postgres.e2e-spec.ts apps/gateway-api/src/presence.e2e-spec.ts apps/gateway-api/src/files-upload.postgres.e2e-spec.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build",
     "verify:full": "pnpm verify && pnpm test:db && pnpm test:e2e:postgres",
     "build": "pnpm -r --if-present build",
@@ -34,6 +34,7 @@
     "db:migrate:forms": "tsx modules/forms/api/src/db/migrate.ts",
     "db:seed": "tsx apps/platform-api/src/seeds/seed-platform.ts",
     "db:setup": "pnpm db:migrate && pnpm db:migrate:presence && pnpm db:migrate:files && pnpm db:migrate:forms && pnpm db:seed",
+    "files:cleanup-staged": "tsx modules/files/api/src/files/cleanup-staged.ts",
     "release:bundle:win": "powershell -ExecutionPolicy Bypass -File scripts/release/create-release-bundle.ps1",
     "release:bundle:linux": "bash scripts/release/create-release-bundle.sh"
   },

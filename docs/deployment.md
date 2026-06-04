@@ -36,6 +36,25 @@ REDIS_HOST_PORT=56379
 PLATFORM_API_HOST_PORT=3001
 ```
 
+M6-2 起，`gateway-api` 内嵌 FilesModule 并使用本地磁盘 provider。生产环境必须配置并挂载文件
+volume，Compose 默认挂载 `files-data:/var/lib/work-platform/files`，关键环境变量如下：
+
+```env
+FILE_STORAGE_LOCAL_ROOT=/var/lib/work-platform/files
+FILE_STORAGE_MAX_BYTES=20971520
+FILE_STORAGE_TENANT_QUOTA_BYTES=10737418240
+FILE_STORAGE_USER_QUOTA_BYTES=1073741824
+FILE_STORAGE_UPLOADS_PER_MINUTE=20
+FILE_STORAGE_UPLOAD_BYTES_PER_HOUR=209715200
+FILE_STORAGE_MIN_FREE_BYTES=2147483648
+FILE_STORAGE_MIN_FREE_RATIO=0.1
+FILES_REPOSITORY_DRIVER=postgres
+FILES_DATABASE_POOL_MAX=5
+```
+
+这些值可下调但不得关闭；生产环境缺少 `FILE_STORAGE_LOCAL_ROOT` 时服务启动失败。文件 volume
+必须使用受限 ACL，不能挂到公开共享目录。
+
 如果构建环境访问默认 npm registry 不稳定，可在有网构建机指定内部镜像或可信镜像：
 
 ```bash
@@ -212,24 +231,30 @@ pnpm docker:build
 - `.env.prod` 已替换默认密码。
 - 已执行 `pnpm db:setup`，并确认生产环境没有使用 `admin123`。
 - OpenIM 地址与密钥已配置。
-- PostgreSQL 数据卷已规划备份。
+- PostgreSQL 数据卷和 Files 本地文件 volume 已规划协调备份。
 - 管理员初始密码交付方式已确认。
 - 内网服务器时间同步正常。
 
 ## 6. 备份与恢复
 
-生产部署必须在上线前确认 PostgreSQL 备份策略。
+生产部署必须在上线前确认 PostgreSQL 与 Files 文件 volume 的协调备份策略。文件 volume 与
+PostgreSQL metadata 同属敏感数据：数据库记录 `files.file_objects.storage_key`，文件内容保存在
+本地 volume；只备份其中一侧都会导致恢复后 metadata-volume 不一致。
 
 最低要求：
 
 - 每日一次逻辑备份或等效企业备份任务。
 - 每次版本升级、迁移前手动触发一次备份。
 - 备份文件按敏感数据处理，不得放入公开共享目录。
+- 文件 volume 备份目录必须使用受限 ACL，并执行与数据库备份一致的保留 / 删除策略。
+- 版本升级前必须先停止上传入口或进入维护窗口，协调备份 PostgreSQL 与文件 volume。
 - 每季度至少做一次恢复演练，记录恢复耗时、恢复点和验证结果。
 - 发布文档中必须写明 RPO/RTO 目标；未定义前默认目标为 RPO 24 小时、RTO 4 小时。
 
 恢复演练至少验证：
 
 - PostgreSQL 可从备份恢复到新实例。
+- Files volume 可恢复到新挂载点，且应用进程只能在配置的 root 内读写。
+- 抽样校验 `files.file_objects` 中未删除对象的 `storage_key` 在恢复后的 volume 中存在。
 - `pnpm db:setup` 对已恢复实例保持幂等。
 - 管理员登录、权限菜单和一个核心业务读路径可用。

@@ -12,6 +12,7 @@ export const filesDbPoolProvider = {
     return new Pool({
       connectionString: config.databaseUrl,
       ssl: config.ssl ? { rejectUnauthorized: false } : undefined,
+      max: config.poolMax,
     });
   },
 };

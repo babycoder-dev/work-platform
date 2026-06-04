@@ -333,6 +333,23 @@ metadata
 - 业务模块不得跨 schema 随意 join。
 - 数据库唯一约束必须与业务唯一规则一致。
 
+### 8.1 文件上传与私有读取基线
+
+M6 Files 本地磁盘 provider 属安全敏感面，必须满足：
+
+- 租户边界只从认证 actor context 派生；repository 所有文件对象和引用读写必须带 `enterprise_id`。
+- 跨租户 fileId、未知 fileId、已删除 fileId 一律按不存在处理，不返回 403 泄露存在性。
+- 文件名只用于展示，不参与物理路径；storage key 由服务端生成，读写前必须解析绝对路径并确认仍在配置 root 下。
+- 文件大小、MIME、扩展名、magic-byte、原始文件名长度全部在 service/provider 层做硬上限和白名单校验。
+- staged 文件必须有 `staged_expires_at`，绑定时 owner-bound，只允许当前上传者同租户 staged fileId。
+- attach 与 cleanup 必须用原子 claim 状态迁移；M6 单引用模型不允许同一文件复用到不同业务记录。
+- staged TTL 清理、租户 / 用户配额、上传限流、磁盘阈值拒绝和告警不得延后；`staged | attached | deleting` 均计入配额。
+- 不开放匿名下载或通用 UUID 内容下载；内容读取只能经 `FILE_STORAGE_SERVICE.openFile` 交给有业务授权语义的模块代理。
+  `openFile` 必须接收业务引用上下文（`ownerModule` / `referenceType` / `referenceId`）并只允许读取
+  已绑定到该引用的 `attached` 文件；不得按同租户裸 `fileId` 打开 staged、deleting 或他人业务引用的内容。
+- 错误、日志、审计不得输出磁盘绝对路径、文件内容、完整请求体或跨租户命中对象 metadata。
+- PostgreSQL metadata 与本地文件 volume 必须协调备份恢复，备份按敏感数据保护，并做 metadata-volume 完整性检查。
+
 ## 9. Redis 安全
 
 Redis 首期用于 session/cache/stream 时必须：

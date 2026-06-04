@@ -50,7 +50,12 @@ export default [
             },
             {
               sourceTag: 'scope:files',
-              onlyDependOnLibsWithTags: ['scope:files', 'scope:platform-sdk', 'scope:shared'],
+              onlyDependOnLibsWithTags: [
+                'scope:files',
+                'scope:platform',
+                'scope:platform-sdk',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'scope:approval',
