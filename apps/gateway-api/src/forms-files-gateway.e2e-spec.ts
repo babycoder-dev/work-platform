@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { configurePlatformHttp } from '@work/nest-common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { GatewayModule } from '../../../../apps/gateway-api/src/gateway.module';
+import { GatewayModule } from './gateway.module';
 
 describe('forms/files gateway mounting', () => {
   let app: INestApplication;

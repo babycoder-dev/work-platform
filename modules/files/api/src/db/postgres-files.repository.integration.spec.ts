@@ -59,9 +59,15 @@ describe.skipIf(!runPostgresIntegration)('PostgresFilesRepository integration', 
       attachedBy: userOne,
     });
 
-    await expect(repository.findFileObjectById(enterpriseOne, fileObject.id)).resolves.toEqual(fileObject);
-    await expect(repository.findFileObjectById(enterpriseTwo, fileObject.id)).resolves.toBeUndefined();
-    await expect(repository.listFileReferences(enterpriseOne, fileObject.id)).resolves.toHaveLength(1);
+    await expect(repository.findFileObjectById(enterpriseOne, fileObject.id)).resolves.toEqual(
+      fileObject,
+    );
+    await expect(
+      repository.findFileObjectById(enterpriseTwo, fileObject.id),
+    ).resolves.toBeUndefined();
+    await expect(repository.listFileReferences(enterpriseOne, fileObject.id)).resolves.toHaveLength(
+      1,
+    );
     await expect(repository.listFileReferences(enterpriseTwo, fileObject.id)).resolves.toEqual([]);
   });
 

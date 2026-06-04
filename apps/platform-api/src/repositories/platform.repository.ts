@@ -60,8 +60,15 @@ export interface PlatformRepository {
   createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto>;
   findEmployeeById(id: string): Promise<EmployeeDto | undefined>;
   findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined>;
-  updateLocalIdentitySecurityState(userId: string, input: UpdateLocalIdentitySecurityStateInput): Promise<void>;
-  updatePassword(userId: string, input: UpdatePasswordInput, enterpriseId?: string): Promise<boolean>;
+  updateLocalIdentitySecurityState(
+    userId: string,
+    input: UpdateLocalIdentitySecurityStateInput,
+  ): Promise<void>;
+  updatePassword(
+    userId: string,
+    input: UpdatePasswordInput,
+    enterpriseId?: string,
+  ): Promise<boolean>;
   updateEmployee(employee: EmployeeDto, enterpriseId?: string): Promise<EmployeeDto | undefined>;
   createAccessSession(input: CreateAccessSessionInput): Promise<AccessSession>;
   findAccessSession(accessToken: string): Promise<AccessSession | undefined>;
@@ -72,10 +79,18 @@ export interface PlatformRepository {
   listRoles(enterpriseId: string): Promise<RoleDto[]>;
   findRoleById(id: string): Promise<RoleDto | undefined>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;
-  updateRole(id: string, input: UpdateRoleInput, enterpriseId: string): Promise<RoleDto | undefined>;
+  updateRole(
+    id: string,
+    input: UpdateRoleInput,
+    enterpriseId: string,
+  ): Promise<RoleDto | undefined>;
   deleteRole(id: string, enterpriseId: string): Promise<boolean>;
   countUsersWithRole(roleId: string): Promise<number>;
-  setUserRoles(userId: string, roleIds: string[], enterpriseId: string): Promise<EmployeeDto | undefined>;
+  setUserRoles(
+    userId: string,
+    roleIds: string[],
+    enterpriseId: string,
+  ): Promise<EmployeeDto | undefined>;
   recordAuditLog(input: CreateAuditLogInput): Promise<void>;
 }
 

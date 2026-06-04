@@ -281,7 +281,11 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
         expect(response.body).toEqual(roleResponse.body);
       });
     for (const method of ['patch', 'delete'] as const) {
-      await request(app.getHttpServer())[method](`/api/platform/roles/${DEFAULT_ADMIN_ROLE_ID}`)
+      const roleRequest =
+        method === 'patch'
+          ? request(app.getHttpServer()).patch(`/api/platform/roles/${DEFAULT_ADMIN_ROLE_ID}`)
+          : request(app.getHttpServer()).delete(`/api/platform/roles/${DEFAULT_ADMIN_ROLE_ID}`);
+      await roleRequest
         .set('Authorization', `Bearer ${token}`)
         .send(method === 'patch' ? { name: 'Changed Admin' } : undefined)
         .expect(409)
@@ -369,10 +373,18 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
       .expect((response) => {
-        expect(response.body.items).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: foreignRoleId })]));
+        expect(response.body.items).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ id: foreignRoleId })]),
+        );
       });
     for (const method of ['get', 'patch', 'delete'] as const) {
-      await request(app.getHttpServer())[method](`/api/platform/roles/${foreignRoleId}`)
+      const roleRequest =
+        method === 'get'
+          ? request(app.getHttpServer()).get(`/api/platform/roles/${foreignRoleId}`)
+          : method === 'patch'
+            ? request(app.getHttpServer()).patch(`/api/platform/roles/${foreignRoleId}`)
+            : request(app.getHttpServer()).delete(`/api/platform/roles/${foreignRoleId}`);
+      await roleRequest
         .set('Authorization', `Bearer ${token}`)
         .set('X-Trace-Id', `trace-pg-security-role-${method}-${suffix}`)
         .send(method === 'patch' ? { name: 'Changed Foreign Role' } : undefined)
@@ -453,10 +465,16 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .send({ newPassword: 'Changed123' })
       .expect(404);
 
-    await expect(pool.query('SELECT role_id FROM platform.user_roles WHERE user_id = $1', [target.body.id])).resolves.toMatchObject({
+    await expect(
+      pool.query('SELECT role_id FROM platform.user_roles WHERE user_id = $1', [target.body.id]),
+    ).resolves.toMatchObject({
       rowCount: 0,
     });
-    await expect(pool.query('SELECT status, must_change_password FROM platform.employees WHERE id = $1', [foreignEmployeeId])).resolves.toMatchObject({
+    await expect(
+      pool.query('SELECT status, must_change_password FROM platform.employees WHERE id = $1', [
+        foreignEmployeeId,
+      ]),
+    ).resolves.toMatchObject({
       rows: [expect.objectContaining({ status: 'active', must_change_password: true })],
     });
     const foreignIdentity = await pool.query<{ password_hash: string }>(
@@ -465,7 +483,11 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     );
     expect(verifyPassword('Foreign123', foreignIdentity.rows[0].password_hash)).toBe(true);
     expect(verifyPassword('Changed123', foreignIdentity.rows[0].password_hash)).toBe(false);
-    await expect(pool.query('SELECT id FROM platform.employees WHERE account = $1', [`pg-security-department-${suffix}`])).resolves.toMatchObject({
+    await expect(
+      pool.query('SELECT id FROM platform.employees WHERE account = $1', [
+        `pg-security-department-${suffix}`,
+      ]),
+    ).resolves.toMatchObject({
       rowCount: 0,
     });
     await expect(fetchFailureAuditActionsByTraceSuffix(pool, suffix)).resolves.toEqual(
@@ -479,9 +501,7 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       ]),
     );
     await expect(fetchAuditResourceIdsByTraceSuffix(pool, suffix)).resolves.toEqual(
-      expect.arrayContaining([
-        'x'.repeat(128),
-      ]),
+      expect.arrayContaining(['x'.repeat(128)]),
     );
   });
 
@@ -617,8 +637,18 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
           .expect(200);
         expect(idsOf(adminList.body.items)).toEqual(expect.arrayContaining([adminVisible.body.id]));
 
-        const departmentRole = await createRole(adminToken, suffix, `pg-scope-dept-${suffix}`, 'department');
-        const department = await createDepartment(adminToken, suffix, `PSCD${suffix}`, 'PG Scope Department');
+        const departmentRole = await createRole(
+          adminToken,
+          suffix,
+          `pg-scope-dept-${suffix}`,
+          'department',
+        );
+        const department = await createDepartment(
+          adminToken,
+          suffix,
+          `PSCD${suffix}`,
+          'PG Scope Department',
+        );
         const departmentA = await createEmployee(adminToken, suffix, {
           departmentId: department.body.id,
           employeeNo: `PSCDA${suffix}`,
@@ -642,9 +672,13 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
           .get('/api/platform/employees')
           .set('Authorization', `Bearer ${departmentLogin.body.accessToken}`)
           .expect(200);
-        expect(idsOf(departmentList.body.items)).toEqual(expect.arrayContaining([departmentA.body.id, departmentB.body.id]));
+        expect(idsOf(departmentList.body.items)).toEqual(
+          expect.arrayContaining([departmentA.body.id, departmentB.body.id]),
+        );
         expect(idsOf(departmentList.body.items)).not.toContain(departmentOther.body.id);
-        expect(idsOf(departmentList.body.items)).not.toContain('00000000-0000-0000-0000-000000000001');
+        expect(idsOf(departmentList.body.items)).not.toContain(
+          '00000000-0000-0000-0000-000000000001',
+        );
 
         const selfRole = await createRole(adminToken, suffix, `pg-scope-self-${suffix}`, 'self');
         const selfEmployee = await createEmployee(adminToken, suffix, {
@@ -660,7 +694,12 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
           .expect(200);
         expect(idsOf(selfList.body.items)).toEqual([selfEmployee.body.id]);
 
-        const customRole = await createRole(adminToken, suffix, `pg-scope-custom-${suffix}`, 'custom');
+        const customRole = await createRole(
+          adminToken,
+          suffix,
+          `pg-scope-custom-${suffix}`,
+          'custom',
+        );
         const customEmployee = await createEmployee(adminToken, suffix, {
           employeeNo: `PSCC${suffix}`,
           account: `pg-scope-custom-${suffix}`,
@@ -674,9 +713,25 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
           .expect(200);
         expect(idsOf(customList.body.items)).toEqual([customEmployee.body.id]);
 
-        const treeParent = await createDepartment(adminToken, suffix, `PSCT${suffix}`, 'PG Scope Tree Parent');
-        const treeChild = await createDepartment(adminToken, suffix, `PSCTC${suffix}`, 'PG Scope Tree Child', treeParent.body.id);
-        const treeRole = await createRole(adminToken, suffix, `pg-scope-tree-${suffix}`, 'department_tree');
+        const treeParent = await createDepartment(
+          adminToken,
+          suffix,
+          `PSCT${suffix}`,
+          'PG Scope Tree Parent',
+        );
+        const treeChild = await createDepartment(
+          adminToken,
+          suffix,
+          `PSCTC${suffix}`,
+          'PG Scope Tree Child',
+          treeParent.body.id,
+        );
+        const treeRole = await createRole(
+          adminToken,
+          suffix,
+          `pg-scope-tree-${suffix}`,
+          'department_tree',
+        );
         const treeParentEmployee = await createEmployee(adminToken, suffix, {
           departmentId: treeParent.body.id,
           employeeNo: `PSCTP${suffix}`,
@@ -700,7 +755,9 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
           .get('/api/platform/employees')
           .set('Authorization', `Bearer ${treeLogin.body.accessToken}`)
           .expect(200);
-        expect(idsOf(treeList.body.items)).toEqual(expect.arrayContaining([treeParentEmployee.body.id, treeChildEmployee.body.id]));
+        expect(idsOf(treeList.body.items)).toEqual(
+          expect.arrayContaining([treeParentEmployee.body.id, treeChildEmployee.body.id]),
+        );
         expect(idsOf(treeList.body.items)).not.toContain(treeOutside.body.id);
         expect(idsOf(treeList.body.items)).not.toContain('00000000-0000-0000-0000-000000000001');
 
@@ -719,7 +776,12 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
             INSERT INTO platform.departments (id, enterprise_id, code, name, status)
             VALUES ($1, $2, $3, $4, 'active')
           `,
-          [department2Id, enterprise2Id, `pg-scope-dept-${suffix}`, 'PG Scope Enterprise 2 Department'],
+          [
+            department2Id,
+            enterprise2Id,
+            `pg-scope-dept-${suffix}`,
+            'PG Scope Enterprise 2 Department',
+          ],
         );
         await pool.query(
           `
@@ -735,7 +797,14 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
             )
             VALUES ($1, $2, $3, $4, $5, $6, 'active', true)
           `,
-          [employee2Id, enterprise2Id, department2Id, `PSE2${suffix}`, `pg-scope-ent2-${suffix}`, 'PG Scope Enterprise 2 User'],
+          [
+            employee2Id,
+            enterprise2Id,
+            department2Id,
+            `PSE2${suffix}`,
+            `pg-scope-ent2-${suffix}`,
+            'PG Scope Enterprise 2 User',
+          ],
         );
 
         const adminListAfterEnterprise2 = await request(app.getHttpServer())
@@ -856,7 +925,13 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
     expect(resetEmployeeLogin.body.user.mustChangePassword).toBe(true);
   });
 
-  function createDepartment(token: string, suffix: string, code: string, name: string, parentId?: string) {
+  function createDepartment(
+    token: string,
+    suffix: string,
+    code: string,
+    name: string,
+    parentId?: string,
+  ) {
     void suffix;
     return request(app.getHttpServer())
       .post('/api/platform/departments')
@@ -870,7 +945,12 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .expect(201);
   }
 
-  function createRole(token: string, suffix: string, code: string, dataScope: 'self' | 'department' | 'department_tree' | 'company' | 'custom') {
+  function createRole(
+    token: string,
+    suffix: string,
+    code: string,
+    dataScope: 'self' | 'department' | 'department_tree' | 'company' | 'custom',
+  ) {
     void suffix;
     return request(app.getHttpServer())
       .post('/api/platform/roles')
@@ -950,7 +1030,11 @@ async function countSuccessfulAdminLogins(pool: Pool): Promise<number> {
 }
 
 async function fetchLatestSuccessfulAdminLogin(pool: Pool) {
-  const auditResult = await pool.query<{ trace_id: string | null; ip: string | null; user_agent: string | null }>(
+  const auditResult = await pool.query<{
+    trace_id: string | null;
+    ip: string | null;
+    user_agent: string | null;
+  }>(
     `
       SELECT trace_id, ip, user_agent
       FROM platform.audit_logs
@@ -1072,8 +1156,12 @@ async function cleanupScopeRows(pool: Pool, suffix: string): Promise<void> {
     `,
     [`pg-scope-%-${suffix}`],
   );
-  await pool.query('DELETE FROM platform.local_identities WHERE account LIKE $1', [`pg-scope-%-${suffix}`]);
-  await pool.query('DELETE FROM platform.employees WHERE account LIKE $1', [`pg-scope-%-${suffix}`]);
+  await pool.query('DELETE FROM platform.local_identities WHERE account LIKE $1', [
+    `pg-scope-%-${suffix}`,
+  ]);
+  await pool.query('DELETE FROM platform.employees WHERE account LIKE $1', [
+    `pg-scope-%-${suffix}`,
+  ]);
   await pool.query(
     `
       DELETE FROM platform.role_permissions
@@ -1085,6 +1173,8 @@ async function cleanupScopeRows(pool: Pool, suffix: string): Promise<void> {
   );
   await pool.query('DELETE FROM platform.roles WHERE code LIKE $1', [`pg-scope-%-${suffix}`]);
   await pool.query('DELETE FROM platform.departments WHERE code LIKE $1', [`PSC%${suffix}`]);
-  await pool.query('DELETE FROM platform.departments WHERE code LIKE $1', [`pg-scope-dept-${suffix}`]);
+  await pool.query('DELETE FROM platform.departments WHERE code LIKE $1', [
+    `pg-scope-dept-${suffix}`,
+  ]);
   await pool.query('DELETE FROM platform.enterprises WHERE code = $1', [`pg-scope-ent-${suffix}`]);
 }

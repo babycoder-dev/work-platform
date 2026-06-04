@@ -12,9 +12,17 @@ export const formsPlatformManifest: ModuleManifestDto = {
   status: 'active',
   permissions: [
     { code: formsPermissions.profileDefinitionView, name: '查看档案表单定义', moduleName: 'forms' },
-    { code: formsPermissions.profileDefinitionManage, name: '管理档案表单定义', moduleName: 'forms' },
+    {
+      code: formsPermissions.profileDefinitionManage,
+      name: '管理档案表单定义',
+      moduleName: 'forms',
+    },
     { code: formsPermissions.reportDefinitionView, name: '查看汇报表单定义', moduleName: 'forms' },
-    { code: formsPermissions.reportDefinitionManage, name: '管理汇报表单定义', moduleName: 'forms' },
+    {
+      code: formsPermissions.reportDefinitionManage,
+      name: '管理汇报表单定义',
+      moduleName: 'forms',
+    },
     { code: formsPermissions.recordSubmit, name: '提交表单记录', moduleName: 'forms' },
     { code: formsPermissions.recordView, name: '查看表单记录', moduleName: 'forms' },
   ],

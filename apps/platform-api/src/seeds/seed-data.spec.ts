@@ -26,7 +26,9 @@ describe('platform seed data', () => {
   });
 
   it('sources business module manifests from contract packages', () => {
-    const byName = new Map(platformModuleManifests.map((manifest) => [manifest.moduleName, manifest]));
+    const byName = new Map(
+      platformModuleManifests.map((manifest) => [manifest.moduleName, manifest]),
+    );
     expect(byName.get('files')).toBe(filesPlatformManifest);
     expect(byName.get('forms')).toBe(formsPlatformManifest);
     expect(byName.get('presence')).toBe(presencePlatformManifest);
@@ -47,12 +49,16 @@ describe('platform seed data', () => {
       .filter((manifest) => manifest.status === 'active')
       .flatMap((manifest) => manifest.menus.map((menu) => menu.id));
 
-    expect(platformSeedPermissions.map((permission) => permission.code)).toEqual(expectedPermissionCodes);
+    expect(platformSeedPermissions.map((permission) => permission.code)).toEqual(
+      expectedPermissionCodes,
+    );
     expect(platformSeedMenus.map((menu) => menu.id)).toEqual(expectedMenuIds);
     expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
       'approval:task:approve',
     );
-    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain('report:weekly:view');
+    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
+      'report:weekly:view',
+    );
   });
 
   it('declares the presence management permission and registration menu', () => {
@@ -89,7 +95,9 @@ describe('platform seed data', () => {
 
   it('keeps every permission and menu scoped to its declaring module', () => {
     for (const manifest of platformModuleManifests) {
-      expect(manifest.permissions.every((permission) => permission.moduleName === manifest.moduleName)).toBe(true);
+      expect(
+        manifest.permissions.every((permission) => permission.moduleName === manifest.moduleName),
+      ).toBe(true);
       expect(manifest.menus.every((menu) => menu.moduleName === manifest.moduleName)).toBe(true);
     }
   });

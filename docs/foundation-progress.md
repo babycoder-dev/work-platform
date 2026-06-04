@@ -19,7 +19,7 @@
 | M3 Web Shell 可用基座       | 登录态、权限菜单、模块挂载                                                                              | Done        | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证     |
 | M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done        | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                        |
 | M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done        | M4-4 交付验证已完成；presence 模块进入维护态                                           |
-| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done        | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                       |
+| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done        | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                        |
 | M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | In Progress | M6-1 共享后端基建骨架已交付；下一步 M6-2 本地磁盘 Files provider + 上传 API            |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Pending     | 不引入 IM/重型实时                                                                     |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending     | 依赖 M5/M6/M7                                                                          |
@@ -210,37 +210,37 @@ M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享�
 
 ### 6.1 M3.5 收口切片
 
-| 切片    | 能力                                      | 状态 | 说明                                                                                                                                       |
-| ------- | ----------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| M3.5-A  | 让模块 manifest 由各 contract 包统一供给  | Done | 2026-05-21 完成；业务模块平台侧 manifest 已迁回各 contract 包；详见 verification-log `M3.5-A Manifest Single Source`                       |
+| 切片    | 能力                                      | 状态 | 说明                                                                                                                                                 |
+| ------- | ----------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M3.5-A  | 让模块 manifest 由各 contract 包统一供给  | Done | 2026-05-21 完成；业务模块平台侧 manifest 已迁回各 contract 包；详见 verification-log `M3.5-A Manifest Single Source`                                 |
 | M3.5-B  | ADR-0003 Gateway 边界                     | Done | 2026-05-22 完成；原 ADR-0003 固定 gateway M4–M6 内嵌、老 M7 拆分；ADR-0005 已把拆分推迟至 vNext；详见 verification-log `M3.5-B Gateway Boundary ADR` |
-| M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token）      | Done | 2026-05-23 完成；ADR-0004 确立 Phantom Token、introspection 复用 `/auth/me`；详见 verification-log `M3.5-B2 Phantom Token ADR`             |
-| M3.5-C  | 登录失败审计 + 锁定策略落地               | Done | 2026-05-23 完成；5 次失败锁定 15 分钟、登录失败审计闭合；详见 verification-log `M3.5-C Login Failure Audit and Lockout`                    |
-| M3.5-D  | 首次登录改密 + 管理员重置密码端点         | Done | 2026-05-23 完成；两个改密端点 + must_change_password 双表同步；详见 verification-log `M3.5-D Password Change and Reset`                    |
-| M3.5-E  | Platform 数据范围 resolver                | Done | 2026-05-24 完成；PlatformScopeService + employees 列表接入 scope；详见 verification-log `M3.5-E Platform Scope Service`                    |
-| M3.5-F  | Shell 引入 react-router-dom@6，路由拆组件 | Done | 2026-05-24 完成；BrowserRouter + 动态模块路由 + 拆 RequirePermission/UnknownPathView；详见 verification-log `M3.5-F Shell Router`          |
-| M3.5-G  | 跨 schema 数据访问规则文档化              | Done | 2026-05-25 完成；module-contract.md §7.1 + foundation-blueprint §5 末尾指向；详见 verification-log `M3.5-G Cross-schema Data Access Rules` |
+| M3.5-B2 | ADR-0004 跨进程鉴权（Phantom Token）      | Done | 2026-05-23 完成；ADR-0004 确立 Phantom Token、introspection 复用 `/auth/me`；详见 verification-log `M3.5-B2 Phantom Token ADR`                       |
+| M3.5-C  | 登录失败审计 + 锁定策略落地               | Done | 2026-05-23 完成；5 次失败锁定 15 分钟、登录失败审计闭合；详见 verification-log `M3.5-C Login Failure Audit and Lockout`                              |
+| M3.5-D  | 首次登录改密 + 管理员重置密码端点         | Done | 2026-05-23 完成；两个改密端点 + must_change_password 双表同步；详见 verification-log `M3.5-D Password Change and Reset`                              |
+| M3.5-E  | Platform 数据范围 resolver                | Done | 2026-05-24 完成；PlatformScopeService + employees 列表接入 scope；详见 verification-log `M3.5-E Platform Scope Service`                              |
+| M3.5-F  | Shell 引入 react-router-dom@6，路由拆组件 | Done | 2026-05-24 完成；BrowserRouter + 动态模块路由 + 拆 RequirePermission/UnknownPathView；详见 verification-log `M3.5-F Shell Router`                    |
+| M3.5-G  | 跨 schema 数据访问规则文档化              | Done | 2026-05-25 完成；module-contract.md §7.1 + foundation-blueprint §5 末尾指向；详见 verification-log `M3.5-G Cross-schema Data Access Rules`           |
 
 ### 6.2 M5 权限与角色管理切片
 
-| 切片 | 能力                                   | 状态    | 说明                                                                    |
-| ---- | -------------------------------------- | ------- | ----------------------------------------------------------------------- |
-| M5-0 | RFC                                    | Done    | 2026-05-31 完成；`docs/rfc/m5-roles-permissions-admin.md`               |
-| M5-1 | 数据模型 + 按类型数据范围 + Scope 改造 | Done    | 2026-05-31 完成；详见 verification-log `M5-1 RBAC Data Model and Scope` |
-| M5-2 | 角色管理 API（CRUD + 分配 + 审计）     | Done    | 2026-05-31 完成；详见 verification-log `M5-2 Role Management API`       |
-| M5-3 | Web 角色管理 UI                        | Done    | 2026-06-01 完成；详见 verification-log `M5-3 Role Management Web`      |
-| M5-4 | 交付验证                               | Done    | 2026-06-01 完成；详见 verification-log `M5-4 Roles & Permissions Delivery Verification` |
+| 切片 | 能力                                   | 状态 | 说明                                                                                    |
+| ---- | -------------------------------------- | ---- | --------------------------------------------------------------------------------------- |
+| M5-0 | RFC                                    | Done | 2026-05-31 完成；`docs/rfc/m5-roles-permissions-admin.md`                               |
+| M5-1 | 数据模型 + 按类型数据范围 + Scope 改造 | Done | 2026-05-31 完成；详见 verification-log `M5-1 RBAC Data Model and Scope`                 |
+| M5-2 | 角色管理 API（CRUD + 分配 + 审计）     | Done | 2026-05-31 完成；详见 verification-log `M5-2 Role Management API`                       |
+| M5-3 | Web 角色管理 UI                        | Done | 2026-06-01 完成；详见 verification-log `M5-3 Role Management Web`                       |
+| M5-4 | 交付验证                               | Done | 2026-06-01 完成；详见 verification-log `M5-4 Roles & Permissions Delivery Verification` |
 
 ### 6.3 M6 动态表单 mini + 文件存储切片
 
-| 切片 | 能力 | 状态 | 说明 |
-| ---- | ---- | ---- | ---- |
-| M6-0 | RFC | Done | 2026-06-03 Accepted；详见 verification-log `M6-0 Dynamic Forms Mini And File Storage Proposed RFC` |
-| M6-1 | contract + schema + repository | Done | 2026-06-03 完成；详见 verification-log `M6-1 Forms And Files Shared Backend Foundation` |
-| M6-2 | 本地磁盘 Files provider + 上传 API | Pending | M6-1 完成后启动；必过 security-reviewer |
-| M6-3 | Forms API + 快照记录 + 文件 / 人员字段 | Pending | M6-2 完成后启动；必过 security-reviewer |
-| M6-4 | 后端交付验证 | Pending | verify / verify:full / Docker build / API smoke |
-| M6-W | Web 配置与填报 UI | Pending | 等待产品原型，以独立任务包进入审查 |
+| 切片 | 能力                                   | 状态    | 说明                                                                                               |
+| ---- | -------------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| M6-0 | RFC                                    | Done    | 2026-06-03 Accepted；详见 verification-log `M6-0 Dynamic Forms Mini And File Storage Proposed RFC` |
+| M6-1 | contract + schema + repository         | Done    | 2026-06-03 完成；详见 verification-log `M6-1 Forms And Files Shared Backend Foundation`            |
+| M6-2 | 本地磁盘 Files provider + 上传 API     | Pending | M6-1 完成后启动；必过 security-reviewer                                                            |
+| M6-3 | Forms API + 快照记录 + 文件 / 人员字段 | Pending | M6-2 完成后启动；必过 security-reviewer                                                            |
+| M6-4 | 后端交付验证                           | Pending | verify / verify:full / Docker build / API smoke                                                    |
+| M6-W | Web 配置与填报 UI                      | Pending | 等待产品原型，以独立任务包进入审查                                                                 |
 
 ## 7. 当前阻塞项
 
@@ -250,8 +250,8 @@ M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享�
 
 ### 7.1 已知安全 Follow-up
 
-| 风险 | 状态 | 处理 |
-| ---- | ---- | ---- |
+| 风险                                                                                                        | 状态    | 处理                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------- |
 | [High follow-up] 员工 `updateStatus(:id/status)` / `resetPassword(:id/password)` 仍需按认证租户校验目标员工 | Pending | 单租户部署下暂无现实攻击面；启用多租户前必须修复。归入 M8 人员 / 组织 / 档案，或提前拆专门安全切片。 |
 
 ## 8. M4 在位管理 MVP

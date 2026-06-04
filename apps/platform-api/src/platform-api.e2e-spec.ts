@@ -50,7 +50,9 @@ describe('platform-api', () => {
   });
 
   it('rejects protected endpoints without access token', async () => {
-    const response = await request(app.getHttpServer()).get('/api/platform/departments').expect(401);
+    const response = await request(app.getHttpServer())
+      .get('/api/platform/departments')
+      .expect(401);
 
     expect(response.body).toEqual(
       expect.objectContaining({
@@ -188,7 +190,9 @@ describe('platform-api', () => {
         }),
       ]),
     );
-    const returnedModuleNames = (response.body.items as Array<{ moduleName: string }>).map((item) => item.moduleName);
+    const returnedModuleNames = (response.body.items as Array<{ moduleName: string }>).map(
+      (item) => item.moduleName,
+    );
     expect(returnedModuleNames).not.toContain('approval');
     expect(returnedModuleNames).not.toContain('report');
   });
@@ -503,7 +507,11 @@ describe('platform-api', () => {
         name: 'Foreign Role Employee',
         initialPassword: 'Scope1234',
       });
-      const foreignEmployee = await memoryStore.setUserRoles(createdForeignEmployee.id, [foreignRole.id], 'ent-other');
+      const foreignEmployee = await memoryStore.setUserRoles(
+        createdForeignEmployee.id,
+        [foreignRole.id],
+        'ent-other',
+      );
       const target = await createEmployee(token, {
         employeeNo: `FRT${suffix}`,
         account: `foreign-role-target-${suffix}`,
@@ -528,7 +536,13 @@ describe('platform-api', () => {
         });
 
       for (const method of ['get', 'patch', 'delete'] as const) {
-        await request(app.getHttpServer())[method](`/api/platform/roles/${foreignRole.id}`)
+        const roleRequest =
+          method === 'get'
+            ? request(app.getHttpServer()).get(`/api/platform/roles/${foreignRole.id}`)
+            : method === 'patch'
+              ? request(app.getHttpServer()).patch(`/api/platform/roles/${foreignRole.id}`)
+              : request(app.getHttpServer()).delete(`/api/platform/roles/${foreignRole.id}`);
+        await roleRequest
           .set('Authorization', `Bearer ${token}`)
           .send(method === 'patch' ? { name: 'Changed Foreign Role' } : undefined)
           .expect(404);
@@ -564,8 +578,12 @@ describe('platform-api', () => {
         .send({ newPassword: 'Changed123' })
         .expect(404);
 
-      await expect(memoryStore.findEmployeeById(createdForeignEmployee.id)).resolves.toEqual(foreignEmployee);
-      const foreignIdentity = await memoryStore.findLocalIdentityByAccount(createdForeignEmployee.account);
+      await expect(memoryStore.findEmployeeById(createdForeignEmployee.id)).resolves.toEqual(
+        foreignEmployee,
+      );
+      const foreignIdentity = await memoryStore.findLocalIdentityByAccount(
+        createdForeignEmployee.account,
+      );
       if (!foreignIdentity) {
         throw new Error('Foreign identity should remain present');
       }
@@ -574,7 +592,8 @@ describe('platform-api', () => {
       await expect(memoryStore.findRoleById(foreignRole.id)).resolves.toEqual(foreignRole);
       expect(
         memoryStore.auditLogs.filter(
-          (audit) => audit.action === 'platform.employee.roles.assign' && audit.result === 'success',
+          (audit) =>
+            audit.action === 'platform.employee.roles.assign' && audit.result === 'success',
         ),
       ).toHaveLength(assignmentAuditCount);
       expect(memoryStore.auditLogs).toEqual(
@@ -583,7 +602,10 @@ describe('platform-api', () => {
           expect.objectContaining({ action: 'platform.role.delete', result: 'failure' }),
           expect.objectContaining({ action: 'platform.employee.roles.assign', result: 'failure' }),
           expect.objectContaining({ action: 'platform.employee.status.update', result: 'failure' }),
-          expect.objectContaining({ action: 'platform.employee.password.reset', result: 'failure' }),
+          expect.objectContaining({
+            action: 'platform.employee.password.reset',
+            result: 'failure',
+          }),
         ]),
       );
     });
@@ -605,7 +627,8 @@ describe('platform-api', () => {
         initialPassword: 'Scope1234',
       });
       await memoryStore.setUserRoles(employeeCreator.id, [employeeCreatorRole.id], 'ent-default');
-      const employeeCreatorToken = (await login(employeeCreator.account)).body.accessToken as string;
+      const employeeCreatorToken = (await login(employeeCreator.account)).body
+        .accessToken as string;
 
       await request(app.getHttpServer())
         .post('/api/platform/employees')
@@ -620,7 +643,9 @@ describe('platform-api', () => {
         })
         .expect(400);
 
-      await expect(memoryStore.findLocalIdentityByAccount(`employee-injection-${suffix}`)).resolves.toBeUndefined();
+      await expect(
+        memoryStore.findLocalIdentityByAccount(`employee-injection-${suffix}`),
+      ).resolves.toBeUndefined();
 
       const created = await request(app.getHttpServer())
         .post('/api/platform/employees')
@@ -652,7 +677,9 @@ describe('platform-api', () => {
           initialPassword: 'Scope1234',
         })
         .expect(404);
-      await expect(memoryStore.findLocalIdentityByAccount(`employee-department-${suffix}`)).resolves.toBeUndefined();
+      await expect(
+        memoryStore.findLocalIdentityByAccount(`employee-department-${suffix}`),
+      ).resolves.toBeUndefined();
       expect(memoryStore.auditLogs).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -671,7 +698,11 @@ describe('platform-api', () => {
       const suffix = Date.now().toString();
 
       for (const method of ['patch', 'delete'] as const) {
-        const response = await request(app.getHttpServer())[method]('/api/platform/roles/role-admin')
+        const roleRequest =
+          method === 'patch'
+            ? request(app.getHttpServer()).patch('/api/platform/roles/role-admin')
+            : request(app.getHttpServer()).delete('/api/platform/roles/role-admin');
+        const response = await roleRequest
           .set('Authorization', `Bearer ${token}`)
           .send(method === 'patch' ? { name: 'Changed Admin' } : undefined)
           .expect(409);
@@ -789,9 +820,7 @@ describe('platform-api', () => {
       const assignToken = (await login(assigner.account)).body.accessToken as string;
       const manageToken = (await login(manager.account)).body.accessToken as string;
 
-      await request(app.getHttpServer())
-        .get('/api/platform/roles')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/platform/roles').expect(401);
       await request(app.getHttpServer())
         .get('/api/platform/roles')
         .set('Authorization', `Bearer ${manageToken}`)
@@ -948,7 +977,9 @@ describe('platform-api', () => {
         .expect(200);
       const ids = response.body.items.map((item: { id: string }) => item.id);
 
-      expect(ids).toEqual(expect.arrayContaining([sameDepartmentA.body.id, sameDepartmentB.body.id]));
+      expect(ids).toEqual(
+        expect.arrayContaining([sameDepartmentA.body.id, sameDepartmentB.body.id]),
+      );
       expect(ids).not.toContain(otherDepartment.body.id);
       expect(ids).not.toContain('user-admin');
     });
@@ -998,8 +1029,17 @@ describe('platform-api', () => {
     it('includes descendant departments for department_tree scoped employees', async () => {
       const adminToken = await loginAsAdmin();
       const suffix = Date.now().toString();
-      const parentDepartment = await createDepartment(adminToken, `SCT${suffix}`, 'Scope Tree Parent');
-      const childDepartment = await createDepartment(adminToken, `SCTC${suffix}`, 'Scope Tree Child', parentDepartment.body.id);
+      const parentDepartment = await createDepartment(
+        adminToken,
+        `SCT${suffix}`,
+        'Scope Tree Parent',
+      );
+      const childDepartment = await createDepartment(
+        adminToken,
+        `SCTC${suffix}`,
+        'Scope Tree Child',
+        parentDepartment.body.id,
+      );
       const role = await createRole(adminToken, `scope-tree-${suffix}`, 'department_tree');
       const parentEmployee = await createEmployee(adminToken, {
         departmentId: parentDepartment.body.id,
@@ -1172,7 +1212,11 @@ describe('platform-api', () => {
       .expect(201);
   }
 
-  function createRole(token: string, code: string, dataScope: 'self' | 'department' | 'department_tree' | 'company' | 'custom') {
+  function createRole(
+    token: string,
+    code: string,
+    dataScope: 'self' | 'department' | 'department_tree' | 'company' | 'custom',
+  ) {
     return request(app.getHttpServer())
       .post('/api/platform/roles')
       .set('Authorization', `Bearer ${token}`)

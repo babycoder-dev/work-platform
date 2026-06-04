@@ -1,5 +1,10 @@
 import { Pool } from 'pg';
-import type { FormDefinitionDto, FormFieldDto, FormRecordDto, FormRecordValueDto } from '@work/forms-contract';
+import type {
+  FormDefinitionDto,
+  FormFieldDto,
+  FormRecordDto,
+  FormRecordValueDto,
+} from '@work/forms-contract';
 import type {
   CreateFormDefinitionRecordInput,
   CreateFormFieldRecordInput,
@@ -146,7 +151,10 @@ export class PostgresFormsRepository implements FormsRepository {
     return mapDefinition(result.rows[0]);
   }
 
-  async findDefinitionById(enterpriseId: string, id: string): Promise<FormDefinitionDto | undefined> {
+  async findDefinitionById(
+    enterpriseId: string,
+    id: string,
+  ): Promise<FormDefinitionDto | undefined> {
     const result = await this.pool.query<FormDefinitionRow>(
       `
         SELECT ${FORM_DEFINITION_COLUMNS}
@@ -158,7 +166,10 @@ export class PostgresFormsRepository implements FormsRepository {
     return result.rows[0] ? mapDefinition(result.rows[0]) : undefined;
   }
 
-  async findDefinitionBySlotKey(enterpriseId: string, slotKey: string): Promise<FormDefinitionDto | undefined> {
+  async findDefinitionBySlotKey(
+    enterpriseId: string,
+    slotKey: string,
+  ): Promise<FormDefinitionDto | undefined> {
     const result = await this.pool.query<FormDefinitionRow>(
       `
         SELECT ${FORM_DEFINITION_COLUMNS}
@@ -206,7 +217,10 @@ export class PostgresFormsRepository implements FormsRepository {
     return mapField(result.rows[0]);
   }
 
-  async listFieldsByDefinitionId(enterpriseId: string, definitionId: string): Promise<FormFieldDto[]> {
+  async listFieldsByDefinitionId(
+    enterpriseId: string,
+    definitionId: string,
+  ): Promise<FormFieldDto[]> {
     const result = await this.pool.query<FormFieldRow>(
       `
         SELECT ${FORM_FIELD_COLUMNS}
@@ -293,7 +307,10 @@ export class PostgresFormsRepository implements FormsRepository {
     return mapValue(result.rows[0]);
   }
 
-  async listValuesByRecordId(enterpriseId: string, recordId: string): Promise<FormRecordValueDto[]> {
+  async listValuesByRecordId(
+    enterpriseId: string,
+    recordId: string,
+  ): Promise<FormRecordValueDto[]> {
     const result = await this.pool.query<FormRecordValueRow>(
       `
         SELECT ${FORM_RECORD_VALUE_COLUMNS}

@@ -94,9 +94,9 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       initialPassword: 'Passw0rd1',
     });
 
-    await expect(repository.setUserRoles(employee.id, [role.id], DEFAULT_ENTERPRISE_ID)).resolves.toEqual(
-      expect.objectContaining({ roleIds: [role.id] }),
-    );
+    await expect(
+      repository.setUserRoles(employee.id, [role.id], DEFAULT_ENTERPRISE_ID),
+    ).resolves.toEqual(expect.objectContaining({ roleIds: [role.id] }));
     const identity = await repository.findLocalIdentityByAccount(employee.account);
     expect(identity).toEqual(
       expect.objectContaining({
@@ -342,7 +342,10 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
         code: `TREE${suffix}D`,
         name: 'Tree Disabled',
       });
-      await pool.query('UPDATE platform.departments SET status = $2 WHERE id = $1', [disabled.id, 'disabled']);
+      await pool.query('UPDATE platform.departments SET status = $2 WHERE id = $1', [
+        disabled.id,
+        'disabled',
+      ]);
       const disabledChild = await repository.createDepartment({
         enterpriseId: DEFAULT_ENTERPRISE_ID,
         parentId: disabled.id,
@@ -366,7 +369,10 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
         [enterprise2.rows[0].id, root.id, `TREE${suffix}O`, 'Tree Other'],
       );
 
-      const descendantIds = await repository.listDescendantDepartmentIds(root.id, DEFAULT_ENTERPRISE_ID);
+      const descendantIds = await repository.listDescendantDepartmentIds(
+        root.id,
+        DEFAULT_ENTERPRISE_ID,
+      );
 
       expect(descendantIds).toEqual(expect.arrayContaining([child1.id, child2.id, grandchild1.id]));
       expect(descendantIds).toHaveLength(3);
@@ -374,7 +380,12 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       expect(descendantIds).not.toContain(disabled.id);
       expect(descendantIds).not.toContain(disabledChild.id);
       expect(descendantIds).not.toContain(otherDepartment.rows[0].id);
-      await expect(repository.listDescendantDepartmentIds('00000000-0000-0000-0000-00000000ffff', DEFAULT_ENTERPRISE_ID)).resolves.toEqual([]);
+      await expect(
+        repository.listDescendantDepartmentIds(
+          '00000000-0000-0000-0000-00000000ffff',
+          DEFAULT_ENTERPRISE_ID,
+        ),
+      ).resolves.toEqual([]);
     });
   });
 
@@ -413,7 +424,11 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
 
   it('maps invalid role assignments to platform reference errors', async () => {
     await expect(
-      repository.setUserRoles(DEFAULT_ADMIN_USER_ID, ['00000000-0000-0000-0000-00000000ffff'], DEFAULT_ENTERPRISE_ID),
+      repository.setUserRoles(
+        DEFAULT_ADMIN_USER_ID,
+        ['00000000-0000-0000-0000-00000000ffff'],
+        DEFAULT_ENTERPRISE_ID,
+      ),
     ).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
       status: 400,
@@ -452,22 +467,28 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       initialPassword: 'Passw0rd1',
     });
 
-    await expect(repository.createEmployee({
-      enterpriseId: DEFAULT_ENTERPRISE_ID,
-      departmentId: foreignDepartment.id,
-      employeeNo: `BAD${suffix}`,
-      account: `security-department-${suffix}`,
-      name: 'Cross Tenant Department',
-      initialPassword: 'Passw0rd1',
-    })).rejects.toMatchObject({
+    await expect(
+      repository.createEmployee({
+        enterpriseId: DEFAULT_ENTERPRISE_ID,
+        departmentId: foreignDepartment.id,
+        employeeNo: `BAD${suffix}`,
+        account: `security-department-${suffix}`,
+        name: 'Cross Tenant Department',
+        initialPassword: 'Passw0rd1',
+      }),
+    ).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
       status: 400,
     });
-    await expect(repository.setUserRoles(DEFAULT_ADMIN_USER_ID, [foreignRole.id], DEFAULT_ENTERPRISE_ID)).rejects.toMatchObject({
+    await expect(
+      repository.setUserRoles(DEFAULT_ADMIN_USER_ID, [foreignRole.id], DEFAULT_ENTERPRISE_ID),
+    ).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
       status: 400,
     });
-    await expect(repository.setUserRoles(foreignEmployee.id, [DEFAULT_ADMIN_ROLE_ID], DEFAULT_ENTERPRISE_ID)).resolves.toBeUndefined();
+    await expect(
+      repository.setUserRoles(foreignEmployee.id, [DEFAULT_ADMIN_ROLE_ID], DEFAULT_ENTERPRISE_ID),
+    ).resolves.toBeUndefined();
     await expect(repository.findEmployeeById(foreignEmployee.id)).resolves.toEqual(
       expect.objectContaining({ roleIds: [] }),
     );
@@ -493,18 +514,31 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     await repository.setUserRoles(employee.id, [role.id], DEFAULT_ENTERPRISE_ID);
 
     await expect(repository.countUsersWithRole(role.id)).resolves.toBe(1);
-    await expect(repository.listRoles('00000000-0000-0000-0000-00000000ffff')).resolves.not.toContainEqual(
-      expect.objectContaining({ id: role.id }),
-    );
-    await expect(repository.updateRole(role.id, { name: 'Cross Tenant Update' }, '00000000-0000-0000-0000-00000000ffff'))
-      .resolves.toBeUndefined();
-    await expect(repository.deleteRole(role.id, '00000000-0000-0000-0000-00000000ffff')).resolves.toBe(false);
-    await expect(repository.updateRole(role.id, {
-      name: 'Updated Mutable Role',
-      status: 'disabled',
-      permissionCodes: ['platform:employee:view'],
-      dataScopes: [{ dataType: 'presence', scope: 'department_tree' }],
-    }, DEFAULT_ENTERPRISE_ID)).resolves.toEqual(
+    await expect(
+      repository.listRoles('00000000-0000-0000-0000-00000000ffff'),
+    ).resolves.not.toContainEqual(expect.objectContaining({ id: role.id }));
+    await expect(
+      repository.updateRole(
+        role.id,
+        { name: 'Cross Tenant Update' },
+        '00000000-0000-0000-0000-00000000ffff',
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      repository.deleteRole(role.id, '00000000-0000-0000-0000-00000000ffff'),
+    ).resolves.toBe(false);
+    await expect(
+      repository.updateRole(
+        role.id,
+        {
+          name: 'Updated Mutable Role',
+          status: 'disabled',
+          permissionCodes: ['platform:employee:view'],
+          dataScopes: [{ dataType: 'presence', scope: 'department_tree' }],
+        },
+        DEFAULT_ENTERPRISE_ID,
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         id: role.id,
         name: 'Updated Mutable Role',
@@ -518,7 +552,9 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     await expect(repository.countUsersWithRole(role.id)).resolves.toBe(0);
     await expect(repository.deleteRole(role.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
     await expect(repository.findRoleById(role.id)).resolves.toBeUndefined();
-    await expect(pool.query('SELECT id FROM platform.roles WHERE id = $1', [role.id])).resolves.toMatchObject({
+    await expect(
+      pool.query('SELECT id FROM platform.roles WHERE id = $1', [role.id]),
+    ).resolves.toMatchObject({
       rowCount: 0,
     });
   });

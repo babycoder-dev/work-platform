@@ -47,9 +47,13 @@ describe('InMemoryFormsRepository', () => {
       sortOrderSnapshot: 1,
     });
 
-    await expect(repository.findDefinitionById('ent-a', definition.id)).resolves.toEqual(definition);
+    await expect(repository.findDefinitionById('ent-a', definition.id)).resolves.toEqual(
+      definition,
+    );
     await expect(repository.findDefinitionById('ent-b', definition.id)).resolves.toBeUndefined();
-    await expect(repository.findDefinitionBySlotKey('ent-a', 'profile.employee')).resolves.toEqual(definition);
+    await expect(repository.findDefinitionBySlotKey('ent-a', 'profile.employee')).resolves.toEqual(
+      definition,
+    );
     await expect(repository.listFieldsByDefinitionId('ent-b', definition.id)).resolves.toEqual([]);
     await expect(repository.findRecordById('ent-b', record.id)).resolves.toBeUndefined();
     await expect(repository.listValuesByRecordId('ent-b', record.id)).resolves.toEqual([]);

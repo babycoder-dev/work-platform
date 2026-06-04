@@ -210,7 +210,9 @@ export class PostgresPlatformRepository implements PlatformRepository {
   }
 
   async listEmployees(): Promise<EmployeeDto[]> {
-    const result = await this.pool.query<EmployeeRow>(employeeSelectSql('WHERE e.deleted_at IS NULL ORDER BY e.employee_no'));
+    const result = await this.pool.query<EmployeeRow>(
+      employeeSelectSql('WHERE e.deleted_at IS NULL ORDER BY e.employee_no'),
+    );
 
     return result.rows.map(mapEmployee);
   }
@@ -293,7 +295,9 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return findEmployeeById(this.pool, id);
   }
 
-  async findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined> {
+  async findLocalIdentityByAccount(
+    account: string,
+  ): Promise<LocalIdentitySecurityState | undefined> {
     const result = await this.pool.query<LocalIdentitySecurityRow>(
       `
         SELECT
@@ -335,7 +339,11 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
-  async updatePassword(userId: string, input: UpdatePasswordInput, enterpriseId?: string): Promise<boolean> {
+  async updatePassword(
+    userId: string,
+    input: UpdatePasswordInput,
+    enterpriseId?: string,
+  ): Promise<boolean> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -378,7 +386,10 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
-  async updateEmployee(employee: EmployeeDto, enterpriseId?: string): Promise<EmployeeDto | undefined> {
+  async updateEmployee(
+    employee: EmployeeDto,
+    enterpriseId?: string,
+  ): Promise<EmployeeDto | undefined> {
     try {
       const result = await this.pool.query<EmployeeRow>(
         `
@@ -592,7 +603,11 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
-  async updateRole(id: string, input: UpdateRoleInput, enterpriseId: string): Promise<RoleDto | undefined> {
+  async updateRole(
+    id: string,
+    input: UpdateRoleInput,
+    enterpriseId: string,
+  ): Promise<RoleDto | undefined> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -612,7 +627,14 @@ export class PostgresPlatformRepository implements PlatformRepository {
             updated_at = now()
           WHERE id = $1 AND enterprise_id = $6 AND deleted_at IS NULL
         `,
-        [id, input.name ?? null, input.description !== undefined, input.description ?? null, input.status ?? null, enterpriseId],
+        [
+          id,
+          input.name ?? null,
+          input.description !== undefined,
+          input.description ?? null,
+          input.status ?? null,
+          enterpriseId,
+        ],
       );
       if (input.permissionCodes !== undefined) {
         await replaceRolePermissions(client, id, input.permissionCodes);
@@ -633,7 +655,10 @@ export class PostgresPlatformRepository implements PlatformRepository {
 
   async deleteRole(id: string, enterpriseId: string): Promise<boolean> {
     try {
-      const result = await this.pool.query('DELETE FROM platform.roles WHERE id = $1 AND enterprise_id = $2', [id, enterpriseId]);
+      const result = await this.pool.query(
+        'DELETE FROM platform.roles WHERE id = $1 AND enterprise_id = $2',
+        [id, enterpriseId],
+      );
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
       mapPostgresError(error);
@@ -648,7 +673,11 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return Number(result.rows[0].count);
   }
 
-  async setUserRoles(userId: string, roleIds: string[], enterpriseId: string): Promise<EmployeeDto | undefined> {
+  async setUserRoles(
+    userId: string,
+    roleIds: string[],
+    enterpriseId: string,
+  ): Promise<EmployeeDto | undefined> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -657,7 +686,9 @@ export class PostgresPlatformRepository implements PlatformRepository {
         await client.query('ROLLBACK');
         return undefined;
       }
-      const visibleRoleIds = new Set((await listRolesByEnterpriseId(client, enterpriseId)).map((role) => role.id));
+      const visibleRoleIds = new Set(
+        (await listRolesByEnterpriseId(client, enterpriseId)).map((role) => role.id),
+      );
       if (roleIds.some((roleId) => !visibleRoleIds.has(roleId))) {
         throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
       }
@@ -734,11 +765,17 @@ function employeeSelectSql(suffix: string): string {
   `;
 }
 
-async function findEmployeeById(executor: QueryExecutor, id: string): Promise<EmployeeDto | undefined> {
+async function findEmployeeById(
+  executor: QueryExecutor,
+  id: string,
+): Promise<EmployeeDto | undefined> {
   if (!isUuid(id)) {
     return undefined;
   }
-  const result = await executor.query<EmployeeRow>(employeeSelectSql('WHERE e.id = $1 AND e.deleted_at IS NULL'), [id]);
+  const result = await executor.query<EmployeeRow>(
+    employeeSelectSql('WHERE e.id = $1 AND e.deleted_at IS NULL'),
+    [id],
+  );
 
   return mapFirst(result, mapEmployee);
 }
@@ -747,12 +784,18 @@ async function findRoleById(executor: QueryExecutor, id: string): Promise<RoleDt
   if (!isUuid(id)) {
     return undefined;
   }
-  const result = await executor.query<RoleRow>(roleSelectSql('WHERE r.id = $1 AND r.deleted_at IS NULL'), [id]);
+  const result = await executor.query<RoleRow>(
+    roleSelectSql('WHERE r.id = $1 AND r.deleted_at IS NULL'),
+    [id],
+  );
 
   return mapFirst(result, mapRole);
 }
 
-async function listRolesByEnterpriseId(executor: QueryExecutor, enterpriseId: string): Promise<RoleDto[]> {
+async function listRolesByEnterpriseId(
+  executor: QueryExecutor,
+  enterpriseId: string,
+): Promise<RoleDto[]> {
   const result = await executor.query<RoleRow>(
     roleSelectSql('WHERE r.enterprise_id = $1 AND r.deleted_at IS NULL ORDER BY r.code'),
     [enterpriseId],
@@ -786,7 +829,11 @@ function roleSelectSql(suffix: string): string {
   `;
 }
 
-async function replaceUserRoles(executor: QueryExecutor, userId: string, roleIds: string[]): Promise<void> {
+async function replaceUserRoles(
+  executor: QueryExecutor,
+  userId: string,
+  roleIds: string[],
+): Promise<void> {
   await executor.query('DELETE FROM platform.user_roles WHERE user_id = $1', [userId]);
   for (const roleId of roleIds) {
     await executor.query(
@@ -800,7 +847,11 @@ async function replaceUserRoles(executor: QueryExecutor, userId: string, roleIds
   }
 }
 
-async function replaceRolePermissions(executor: QueryExecutor, roleId: string, permissionCodes: string[]): Promise<void> {
+async function replaceRolePermissions(
+  executor: QueryExecutor,
+  roleId: string,
+  permissionCodes: string[],
+): Promise<void> {
   await executor.query('DELETE FROM platform.role_permissions WHERE role_id = $1', [roleId]);
   for (const permissionCode of permissionCodes) {
     await executor.query(
@@ -814,7 +865,11 @@ async function replaceRolePermissions(executor: QueryExecutor, roleId: string, p
   }
 }
 
-async function replaceRoleDataScopes(executor: QueryExecutor, roleId: string, dataScopes: RoleDataScope[]): Promise<void> {
+async function replaceRoleDataScopes(
+  executor: QueryExecutor,
+  roleId: string,
+  dataScopes: RoleDataScope[],
+): Promise<void> {
   await executor.query('DELETE FROM platform.role_data_scopes WHERE role_id = $1', [roleId]);
   for (const dataScope of dataScopes) {
     await executor.query(
@@ -827,7 +882,10 @@ async function replaceRoleDataScopes(executor: QueryExecutor, roleId: string, da
   }
 }
 
-function mapFirst<Row extends QueryResultRow, Dto>(result: QueryResult<Row>, mapper: (row: Row) => Dto): Dto | undefined {
+function mapFirst<Row extends QueryResultRow, Dto>(
+  result: QueryResult<Row>,
+  mapper: (row: Row) => Dto,
+): Dto | undefined {
   const row = result.rows[0];
   return row ? mapper(row) : undefined;
 }
@@ -927,16 +985,18 @@ function mapModuleManifest(row: ModuleManifestRow): ModuleManifestDto {
   };
 }
 
-function asModuleManifestPayload(value: unknown): Omit<ModuleManifestDto, 'id' | 'moduleName' | 'status'> {
-  const payload = value && typeof value === 'object' ? value as Partial<ModuleManifestDto> : {};
+function asModuleManifestPayload(
+  value: unknown,
+): Omit<ModuleManifestDto, 'id' | 'moduleName' | 'status'> {
+  const payload = value && typeof value === 'object' ? (value as Partial<ModuleManifestDto>) : {};
 
   return {
     displayName: typeof payload.displayName === 'string' ? payload.displayName : '',
     description: typeof payload.description === 'string' ? payload.description : undefined,
     apiPrefix: typeof payload.apiPrefix === 'string' ? payload.apiPrefix : '',
     webEntry: typeof payload.webEntry === 'string' ? payload.webEntry : undefined,
-    permissions: Array.isArray(payload.permissions) ? payload.permissions as PermissionDto[] : [],
-    menus: Array.isArray(payload.menus) ? payload.menus as MenuDto[] : [],
+    permissions: Array.isArray(payload.permissions) ? (payload.permissions as PermissionDto[]) : [],
+    menus: Array.isArray(payload.menus) ? (payload.menus as MenuDto[]) : [],
   };
 }
 

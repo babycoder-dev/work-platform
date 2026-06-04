@@ -91,7 +91,11 @@ files.*
 export const FILE_STORAGE_SERVICE = Symbol('FILE_STORAGE_SERVICE');
 
 export interface FileStoragePort {
-  attachFiles(actor: FileActorContext, input: AttachFilesInput, uow: UnitOfWork): Promise<FileObjectDto[]>;
+  attachFiles(
+    actor: FileActorContext,
+    input: AttachFilesInput,
+    uow: UnitOfWork,
+  ): Promise<FileObjectDto[]>;
   openFile(actor: FileActorContext, fileId: string): Promise<ReadableFileObject>;
 }
 
@@ -112,12 +116,12 @@ export interface FormsPort {
 
 表单定义不是用户可自由创建的资源。定义只能绑定到 contract 注册的槽位：
 
-| 槽位 | owner | M6 状态 | 用途 |
-| ---- | ----- | ------- | ---- |
-| `profile.employee` | `profile` | active | 员工档案自定义字段 |
+| 槽位                               | owner      | M6 状态          | 用途                       |
+| ---------------------------------- | ---------- | ---------------- | -------------------------- |
+| `profile.employee`                 | `profile`  | active           | 员工档案自定义字段         |
 | `presence.status.<statusTypeCode>` | `presence` | reserved pattern | 每种在位状态的补充填报字段 |
-| `report.daily` | `report` | active | 日报字段 / 板块 |
-| `report.weekly` | `report` | reserved | 周报预留，不开放配置入口 |
+| `report.daily`                     | `report`   | active           | 日报字段 / 板块            |
+| `report.weekly`                    | `report`   | reserved         | 周报预留，不开放配置入口   |
 
 约束：
 
@@ -169,21 +173,21 @@ options?        // single_select / multi_select only
 
 实现不得只依赖数据库列宽。DTO 与 service 必须在解析和持久化前应用以下默认硬上限：
 
-| 项 | 上限 |
-| -- | ---- |
-| 每个 definition 字段数 | 100 |
-| `fieldKey` 长度 | 64 characters |
-| `label` 长度 | 128 characters |
-| `description` 长度 | 512 characters |
-| 单选 / 多选 options 数 | 100 |
-| option key 长度 | 64 characters |
-| option label 长度 | 128 characters |
-| `text` 长度 | 512 characters |
-| `textarea` 长度 | 10,000 characters |
-| `multi_select` 选中项 | 100 |
-| 单个 `file` / `image` 字段文件数 | 10 |
-| 单个 `employee` 字段人员数 | 100 |
-| 单条记录全部 values JSON 序列化后大小 | 256 KiB |
+| 项                                    | 上限              |
+| ------------------------------------- | ----------------- |
+| 每个 definition 字段数                | 100               |
+| `fieldKey` 长度                       | 64 characters     |
+| `label` 长度                          | 128 characters    |
+| `description` 长度                    | 512 characters    |
+| 单选 / 多选 options 数                | 100               |
+| option key 长度                       | 64 characters     |
+| option label 长度                     | 128 characters    |
+| `text` 长度                           | 512 characters    |
+| `textarea` 长度                       | 10,000 characters |
+| `multi_select` 选中项                 | 100               |
+| 单个 `file` / `image` 字段文件数      | 10                |
+| 单个 `employee` 字段人员数            | 100               |
+| 单条记录全部 values JSON 序列化后大小 | 256 KiB           |
 
 `number` 必须是有限 JSON number；`date` 必须是 ISO 8601 日期字符串。未知 DTO 字段、multipart
 额外字段、重复 value key 和超过上限的输入统一返回 400。
@@ -293,17 +297,17 @@ M6 不提前引入分布式事务。
 M6 提供 definition 管理 API，用于后续管理 UI。controller 先通过 slot registry 解析 `slotKey`，
 再按槽位族执行动态权限检查；不得只挂一个跨槽位的 manage 权限：
 
-| 方法 + 路径 | 权限点 | 说明 |
-| ----------- | ------ | ---- |
-| `GET /api/forms/definitions/:slotKey` | 对应槽位族 `*:view` | 获取当前租户槽位定义 |
+| 方法 + 路径                           | 权限点                | 说明                            |
+| ------------------------------------- | --------------------- | ------------------------------- |
+| `GET /api/forms/definitions/:slotKey` | 对应槽位族 `*:view`   | 获取当前租户槽位定义            |
 | `PUT /api/forms/definitions/:slotKey` | 对应槽位族 `*:manage` | 整组替换字段，revision 乐观并发 |
 
 槽位族权限映射：
 
-| 槽位族 | view | manage |
-| ------ | ---- | ------ |
-| `profile.employee` | `forms:profile-definition:view` | `forms:profile-definition:manage` |
-| `report.daily` | `forms:report-definition:view` | `forms:report-definition:manage` |
+| 槽位族                           | view                             | manage                             |
+| -------------------------------- | -------------------------------- | ---------------------------------- |
+| `profile.employee`               | `forms:profile-definition:view`  | `forms:profile-definition:manage`  |
+| `report.daily`                   | `forms:report-definition:view`   | `forms:report-definition:manage`   |
 | `presence.status.*`（M9 才启用） | `forms:presence-definition:view` | `forms:presence-definition:manage` |
 
 未知或 reserved 槽位在权限判断前返回 404；持有另一槽位族 manage 权限不能读写当前槽位。
@@ -447,9 +451,9 @@ M6 不提供最终用户通用文件浏览器，不提供匿名链接。业务�
 
 ### 6.5 上传 API
 
-| 方法 + 路径 | 权限点 | 说明 |
-| ----------- | ------ | ---- |
-| `POST /api/files` | `files:object:upload` | multipart 上传单文件，返回 metadata |
+| 方法 + 路径          | 权限点                  | 说明                                            |
+| -------------------- | ----------------------- | ----------------------------------------------- |
+| `POST /api/files`    | `files:object:upload`   | multipart 上传单文件，返回 metadata             |
 | `GET /api/files/:id` | `files:object:view-own` | 仅上传者读取本人上传的 metadata，便于提交前预览 |
 
 内容读取不从 controller 暴露通用路由；只经 `FILE_STORAGE_SERVICE` 给授权业务 service 使用。
@@ -503,11 +507,11 @@ files:object:view-own
 
 必须记录：
 
-| action | 触发 | metadata 最小集 |
-| ------ | ---- | --------------- |
-| `forms.definition.update` | 替换槽位字段 | `slotKey, revision, fieldKeys` |
-| `forms.record.create` | 写表单记录 | `slotKey, recordId, subjectType, subjectId` |
-| `files.object.upload` | 上传文件成功 / 失败 | `fileId?, mediaType, sizeBytes, result` |
+| action                    | 触发                | metadata 最小集                             |
+| ------------------------- | ------------------- | ------------------------------------------- |
+| `forms.definition.update` | 替换槽位字段        | `slotKey, revision, fieldKeys`              |
+| `forms.record.create`     | 写表单记录          | `slotKey, recordId, subjectType, subjectId` |
+| `files.object.upload`     | 上传文件成功 / 失败 | `fileId?, mediaType, sizeBytes, result`     |
 
 不得在审计写入：
 
@@ -624,14 +628,14 @@ M6 后端完成必须满足：
 
 ## 13. 切片计划
 
-| 切片 | 范围 | 安全审查 |
-| ---- | ---- | -------- |
-| **M6-0** | 本 RFC：冻结模块边界、slot、schema、文件 provider、安全边界和后端切片 | 文档审查 |
-| **M6-1** | `forms` / `files` contract、manifest、权限 seed、schema、迁移、repository 双实现、gateway 装配、根脚本 | 建议 |
+| 切片     | 范围                                                                                                                                                          | 安全审查                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **M6-0** | 本 RFC：冻结模块边界、slot、schema、文件 provider、安全边界和后端切片                                                                                         | 文档审查                     |
+| **M6-1** | `forms` / `files` contract、manifest、权限 seed、schema、迁移、repository 双实现、gateway 装配、根脚本                                                        | 建议                         |
 | **M6-2** | 本地磁盘 Files provider + staged / attached 引用生命周期 + TTL 清理 + 配额 / 限流 / 磁盘阈值 + 上传 API + Docker volume / 环境变量 / 协调备份恢复文档 + tests | **必过 `security-reviewer`** |
-| **M6-3** | Forms definition API、记录 service / port、快照值、文件 / 人员字段校验、Platform employee lookup port、审计、事件、tests | **必过 `security-reviewer`** |
-| **M6-4** | 后端交付验证：`verify` / `verify:full` / Docker build / API smoke / verification-log 收口 | — |
-| **M6-W** | 前端配置页、填报控件、上传交互；等待产品原型后另发任务包 | 待原型 |
+| **M6-3** | Forms definition API、记录 service / port、快照值、文件 / 人员字段校验、Platform employee lookup port、审计、事件、tests                                      | **必过 `security-reviewer`** |
+| **M6-4** | 后端交付验证：`verify` / `verify:full` / Docker build / API smoke / verification-log 收口                                                                     | —                            |
+| **M6-W** | 前端配置页、填报控件、上传交互；等待产品原型后另发任务包                                                                                                      | 待原型                       |
 
 ## 14. 已决定事项
 

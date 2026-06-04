@@ -25,7 +25,9 @@ describe('InMemoryFilesRepository', () => {
       attachedBy: 'user-a',
     });
 
-    await expect(repository.findFileObjectById('ent-a', fileObject.id)).resolves.toEqual(fileObject);
+    await expect(repository.findFileObjectById('ent-a', fileObject.id)).resolves.toEqual(
+      fileObject,
+    );
     await expect(repository.findFileObjectById('ent-b', fileObject.id)).resolves.toBeUndefined();
     await expect(repository.listFileReferences('ent-a', fileObject.id)).resolves.toHaveLength(1);
     await expect(repository.listFileReferences('ent-b', fileObject.id)).resolves.toEqual([]);

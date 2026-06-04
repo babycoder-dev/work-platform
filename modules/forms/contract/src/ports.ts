@@ -1,4 +1,9 @@
-import type { FormActorContext, FormDefinitionDto, FormRecordDto, CreateFormRecordInput } from './forms.dto';
+import type {
+  FormActorContext,
+  FormDefinitionDto,
+  FormRecordDto,
+  CreateFormRecordInput,
+} from './forms.dto';
 import type { FormSlotKey } from './events';
 
 export const FORMS_SERVICE = Symbol('FORMS_SERVICE');

@@ -81,10 +81,16 @@ describe.skipIf(!runPostgresIntegration)('PostgresFormsRepository integration', 
       sortOrderSnapshot: 1,
     });
 
-    await expect(repository.findDefinitionById(enterpriseOne, definition.id)).resolves.toEqual(definition);
-    await expect(repository.findDefinitionById(enterpriseTwo, definition.id)).resolves.toBeUndefined();
+    await expect(repository.findDefinitionById(enterpriseOne, definition.id)).resolves.toEqual(
+      definition,
+    );
+    await expect(
+      repository.findDefinitionById(enterpriseTwo, definition.id),
+    ).resolves.toBeUndefined();
     await expect(repository.findRecordById(enterpriseTwo, record.id)).resolves.toBeUndefined();
-    await expect(repository.listFieldsByDefinitionId(enterpriseTwo, definition.id)).resolves.toEqual([]);
+    await expect(
+      repository.listFieldsByDefinitionId(enterpriseTwo, definition.id),
+    ).resolves.toEqual([]);
     await expect(repository.listValuesByRecordId(enterpriseTwo, record.id)).resolves.toEqual([]);
   });
 

@@ -41,7 +41,9 @@ export class EmployeeService {
         return employee.id === scope.userId;
       case 'department':
       case 'department_tree':
-        return employee.departmentId !== undefined && scope.departmentIds.includes(employee.departmentId);
+        return (
+          employee.departmentId !== undefined && scope.departmentIds.includes(employee.departmentId)
+        );
     }
   }
 
@@ -116,10 +118,16 @@ export class EmployeeService {
     return saved;
   }
 
-  async assignRoles(input: AssignUserRolesInput, enterpriseId: string, auditContext: PlatformAuditContext = {}) {
+  async assignRoles(
+    input: AssignUserRolesInput,
+    enterpriseId: string,
+    auditContext: PlatformAuditContext = {},
+  ) {
     let employee: EmployeeDto | undefined;
     try {
-      const availableRoleIds = new Set((await this.repository.listRoles(enterpriseId)).map((role) => role.id));
+      const availableRoleIds = new Set(
+        (await this.repository.listRoles(enterpriseId)).map((role) => role.id),
+      );
       if (input.roleIds.some((roleId) => !availableRoleIds.has(roleId))) {
         throw new NotFoundException('角色不存在');
       }
@@ -162,10 +170,14 @@ export class EmployeeService {
       throw new NotFoundException('员工不存在');
     }
 
-    const updated = await this.repository.updatePassword(employeeId, {
-      passwordHash: hashPassword(input.newPassword),
-      mustChangePassword: true,
-    }, enterpriseId);
+    const updated = await this.repository.updatePassword(
+      employeeId,
+      {
+        passwordHash: hashPassword(input.newPassword),
+        mustChangePassword: true,
+      },
+      enterpriseId,
+    );
     if (!updated) {
       await this.recordFailureAudit('platform.employee.password.reset', employeeId, auditContext);
       throw new NotFoundException('员工不存在');

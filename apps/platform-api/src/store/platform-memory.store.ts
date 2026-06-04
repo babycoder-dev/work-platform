@@ -163,7 +163,9 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.employees.get(identity.userId);
   }
 
-  async findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined> {
+  async findLocalIdentityByAccount(
+    account: string,
+  ): Promise<LocalIdentitySecurityState | undefined> {
     const identity = this.identities.get(account);
     return identity ? { ...identity } : undefined;
   }
@@ -184,10 +186,18 @@ export class PlatformMemoryStore implements PlatformRepository {
     }
   }
 
-  async updatePassword(userId: string, input: UpdatePasswordInput, enterpriseId?: string): Promise<boolean> {
+  async updatePassword(
+    userId: string,
+    input: UpdatePasswordInput,
+    enterpriseId?: string,
+  ): Promise<boolean> {
     const identity = Array.from(this.identities.values()).find((item) => item.userId === userId);
     const employee = this.employees.get(userId);
-    if (!identity || !employee || (enterpriseId !== undefined && employee.enterpriseId !== enterpriseId)) {
+    if (
+      !identity ||
+      !employee ||
+      (enterpriseId !== undefined && employee.enterpriseId !== enterpriseId)
+    ) {
       return false;
     }
 
@@ -216,7 +226,9 @@ export class PlatformMemoryStore implements PlatformRepository {
     return Array.from(this.menus.values())
       .filter((menu) => menu.status === 'active')
       .filter((menu) => !menu.permissionCode || granted.has(menu.permissionCode))
-      .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title));
+      .sort(
+        (left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title),
+      );
   }
 
   async listActiveModuleManifests(): Promise<ModuleManifestDto[]> {
@@ -239,7 +251,11 @@ export class PlatformMemoryStore implements PlatformRepository {
   }
 
   async createRole(input: CreateRoleInput): Promise<RoleDto> {
-    if (Array.from(this.roles.values()).some((role) => role.enterpriseId === input.enterpriseId && role.code === input.code)) {
+    if (
+      Array.from(this.roles.values()).some(
+        (role) => role.enterpriseId === input.enterpriseId && role.code === input.code,
+      )
+    ) {
       throw new ApiError('PLATFORM_DUPLICATE_RESOURCE', '资源已存在', { status: 409 });
     }
 
@@ -259,7 +275,11 @@ export class PlatformMemoryStore implements PlatformRepository {
     return role;
   }
 
-  async updateRole(id: string, input: UpdateRoleInput, enterpriseId: string): Promise<RoleDto | undefined> {
+  async updateRole(
+    id: string,
+    input: UpdateRoleInput,
+    enterpriseId: string,
+  ): Promise<RoleDto | undefined> {
     const role = this.roles.get(id);
     if (!role || role.enterpriseId !== enterpriseId) {
       return undefined;
@@ -286,10 +306,16 @@ export class PlatformMemoryStore implements PlatformRepository {
   }
 
   async countUsersWithRole(roleId: string): Promise<number> {
-    return Array.from(this.employees.values()).filter((employee) => employee.roleIds.includes(roleId)).length;
+    return Array.from(this.employees.values()).filter((employee) =>
+      employee.roleIds.includes(roleId),
+    ).length;
   }
 
-  async setUserRoles(userId: string, roleIds: string[], enterpriseId: string): Promise<EmployeeDto | undefined> {
+  async setUserRoles(
+    userId: string,
+    roleIds: string[],
+    enterpriseId: string,
+  ): Promise<EmployeeDto | undefined> {
     const employee = this.employees.get(userId);
     if (!employee || employee.enterpriseId !== enterpriseId) {
       return undefined;
@@ -307,7 +333,10 @@ export class PlatformMemoryStore implements PlatformRepository {
     return updated;
   }
 
-  async updateEmployee(employee: EmployeeDto, enterpriseId?: string): Promise<EmployeeDto | undefined> {
+  async updateEmployee(
+    employee: EmployeeDto,
+    enterpriseId?: string,
+  ): Promise<EmployeeDto | undefined> {
     const existing = this.employees.get(employee.id);
     if (!existing || (enterpriseId !== undefined && existing.enterpriseId !== enterpriseId)) {
       return undefined;

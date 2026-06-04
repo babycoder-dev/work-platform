@@ -34,7 +34,9 @@ export async function runFilesMigrations(): Promise<void> {
       await client.query('BEGIN');
       try {
         await client.query(sql);
-        await client.query('INSERT INTO files.schema_migrations (name) VALUES ($1)', [migration.name]);
+        await client.query('INSERT INTO files.schema_migrations (name) VALUES ($1)', [
+          migration.name,
+        ]);
         await client.query('COMMIT');
         console.log(`Applied files migration ${migration.name}`);
       } catch (error) {

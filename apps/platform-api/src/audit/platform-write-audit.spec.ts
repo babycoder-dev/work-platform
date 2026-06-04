@@ -31,11 +31,16 @@ describe('platform write audit coverage', () => {
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
 
-    await expect(new OrgService(repository).createDepartment({
-      enterpriseId: department.enterpriseId,
-      code: department.code,
-      name: department.name,
-    }, auditContext)).resolves.toEqual(department);
+    await expect(
+      new OrgService(repository).createDepartment(
+        {
+          enterpriseId: department.enterpriseId,
+          code: department.code,
+          name: department.name,
+        },
+        auditContext,
+      ),
+    ).resolves.toEqual(department);
 
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -73,15 +78,27 @@ describe('platform write audit coverage', () => {
     const scopeService = {} as unknown as PlatformScopeService;
     const service = new EmployeeService(repository, scopeService);
 
-    await service.createEmployee({
-      enterpriseId: employee.enterpriseId,
-      employeeNo: employee.employeeNo,
-      account: employee.account,
-      name: employee.name,
-      initialPassword: 'Passw0rd1',
-    }, auditContext);
-    await service.updateStatus(employee.id, { status: 'disabled' }, employee.enterpriseId, auditContext);
-    await service.assignRoles({ userId: employee.id, roleIds: ['role-audit'] }, employee.enterpriseId, auditContext);
+    await service.createEmployee(
+      {
+        enterpriseId: employee.enterpriseId,
+        employeeNo: employee.employeeNo,
+        account: employee.account,
+        name: employee.name,
+        initialPassword: 'Passw0rd1',
+      },
+      auditContext,
+    );
+    await service.updateStatus(
+      employee.id,
+      { status: 'disabled' },
+      employee.enterpriseId,
+      auditContext,
+    );
+    await service.assignRoles(
+      { userId: employee.id, roleIds: ['role-audit'] },
+      employee.enterpriseId,
+      auditContext,
+    );
 
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -134,10 +151,14 @@ describe('platform write audit coverage', () => {
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
 
-    await new AuthService(repository).changePassword(employee.id, {
-      oldPassword: 'Oldpass1',
-      newPassword: 'Newpass1',
-    }, auditContext);
+    await new AuthService(repository).changePassword(
+      employee.id,
+      {
+        oldPassword: 'Oldpass1',
+        newPassword: 'Newpass1',
+      },
+      auditContext,
+    );
 
     const updateInput = vi.mocked(repository.updatePassword).mock.calls[0][1];
     expect(verifyPassword('Newpass1', updateInput.passwordHash)).toBe(true);
@@ -176,9 +197,14 @@ describe('platform write audit coverage', () => {
     const result = await new EmployeeService(
       repository,
       {} as unknown as PlatformScopeService,
-    ).resetPassword(employee.id, {
-      newPassword: 'Resetpass1',
-    }, employee.enterpriseId, auditContext);
+    ).resetPassword(
+      employee.id,
+      {
+        newPassword: 'Resetpass1',
+      },
+      employee.enterpriseId,
+      auditContext,
+    );
 
     const updateInput = vi.mocked(repository.updatePassword).mock.calls[0][1];
     expect(verifyPassword('Resetpass1', updateInput.passwordHash)).toBe(true);
@@ -217,12 +243,17 @@ describe('platform write audit coverage', () => {
       recordAuditLog: vi.fn().mockRejectedValue(new Error('audit unavailable')),
     } as unknown as PlatformRepository;
 
-    await expect(new RbacService(repository).createRole({
-      enterpriseId: role.enterpriseId,
-      code: role.code,
-      name: role.name,
-      permissionCodes: [],
-      dataScopes: [{ dataType: 'profile', scope: 'self' }],
-    }, auditContext)).rejects.toThrow('audit unavailable');
+    await expect(
+      new RbacService(repository).createRole(
+        {
+          enterpriseId: role.enterpriseId,
+          code: role.code,
+          name: role.name,
+          permissionCodes: [],
+          dataScopes: [{ dataType: 'profile', scope: 'self' }],
+        },
+        auditContext,
+      ),
+    ).rejects.toThrow('audit unavailable');
   });
 });

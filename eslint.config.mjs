@@ -24,18 +24,41 @@ export default [
                 'scope:platform',
                 'scope:platform-sdk',
                 'scope:presence',
+                'scope:forms',
+                'scope:files',
                 'scope:approval',
                 'scope:report',
-                'scope:shared'
+                'scope:shared',
               ],
             },
             {
               sourceTag: 'scope:platform',
-              onlyDependOnLibsWithTags: ['scope:platform', 'scope:shared'],
+              onlyDependOnLibsWithTags: [
+                'scope:platform',
+                'scope:presence',
+                'scope:forms',
+                'scope:files',
+                'scope:approval',
+                'scope:report',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'scope:presence',
-              onlyDependOnLibsWithTags: ['scope:presence', 'scope:platform-sdk', 'scope:shared'],
+              onlyDependOnLibsWithTags: [
+                'scope:presence',
+                'scope:platform',
+                'scope:platform-sdk',
+                'scope:shared',
+              ],
+            },
+            {
+              sourceTag: 'scope:forms',
+              onlyDependOnLibsWithTags: ['scope:forms', 'scope:platform-sdk', 'scope:shared'],
+            },
+            {
+              sourceTag: 'scope:files',
+              onlyDependOnLibsWithTags: ['scope:files', 'scope:platform-sdk', 'scope:shared'],
             },
             {
               sourceTag: 'scope:approval',
@@ -48,10 +71,10 @@ export default [
             {
               sourceTag: 'scope:shared',
               onlyDependOnLibsWithTags: ['scope:shared'],
-            }
-          ]
-        }
-      ]
-    }
-  }
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

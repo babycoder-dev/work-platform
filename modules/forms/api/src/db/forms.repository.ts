@@ -60,7 +60,10 @@ export interface CreateFormRecordValueRecordInput {
 export interface FormsRepository {
   createDefinition(input: CreateFormDefinitionRecordInput): Promise<FormDefinitionDto>;
   findDefinitionById(enterpriseId: string, id: string): Promise<FormDefinitionDto | undefined>;
-  findDefinitionBySlotKey(enterpriseId: string, slotKey: FormSlotKey): Promise<FormDefinitionDto | undefined>;
+  findDefinitionBySlotKey(
+    enterpriseId: string,
+    slotKey: FormSlotKey,
+  ): Promise<FormDefinitionDto | undefined>;
   createField(input: CreateFormFieldRecordInput): Promise<FormFieldDto>;
   listFieldsByDefinitionId(enterpriseId: string, definitionId: string): Promise<FormFieldDto[]>;
   createRecord(input: CreateFormRecordRecordInput): Promise<FormRecordDto>;

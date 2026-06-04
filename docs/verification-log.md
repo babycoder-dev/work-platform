@@ -59,6 +59,14 @@ Independent review follow-up:
 - Second security-reviewer pass confirmed the High finding is closed with no blocking findings. A low-severity
   regression-test suggestion was also covered: memory and PostgreSQL e2e now assert the foreign employee password
   hash still matches the original password and not the rejected reset password.
+- Independent quality/boundary review found one merge blocker: with a warmed Nx project graph,
+  `nx run @work/gateway-api:lint` failed because `eslint.config.mjs` did not include `scope:forms` /
+  `scope:files` in the composition allowlist and did not define dep constraints for the new module scopes.
+- Fixed the boundary gate by adding forms/files dep constraints, allowing composition to depend on them, and
+  documenting the already-existing shared-backend exception for `presence-api -> platform-api` and
+  `platform-api` seed manifest reads in the same lint config. Moved gateway-level e2e specs under
+  `apps/gateway-api/src` so feature modules no longer create test-only reverse dependencies on gateway.
+- Ran targeted Prettier formatting on the M6-1 change set after the review finding.
 
 Validation:
 
@@ -82,6 +90,11 @@ Validation:
     - `test:e2e:postgres`: 2 files passed, 13 tests passed.
   - Re-ran after the independent security-reviewer follow-up fix; final `pnpm verify` and Docker-backed
     `pnpm db:setup && pnpm verify:full` remained pass.
+  - Re-ran after the lint-boundary fix and Prettier pass:
+    - `pnpm nx run @work/gateway-api:lint`: pass with warmed Nx graph.
+    - `pnpm lint`: pass.
+    - `pnpm verify`: pass.
+    - Docker-backed `pnpm db:setup && pnpm verify:full`: pass.
   - Temporary PostgreSQL container was removed after verification.
 
 Follow-up:
@@ -233,15 +246,15 @@ Exit checklist:
 
 - [x] UI configures per-data-type scopes and persists `role_data_scopes`.
 - [x] `CurrentUserDto.dataScopes` applies by type: employees use `profile`; presence board
-  uses `presence`.
+      uses `presence`.
 - [x] `isSystem` roles reject update/delete with `PLATFORM_ROLE_PROTECTED`.
 - [x] Assigned roles reject deletion with `PLATFORM_ROLE_IN_USE`.
 - [x] `platform:role:assign` exists in manifest, seed permissions, and the seeded admin role.
 - [x] Security baseline §4.4 / §5 is synchronized; prior security review has no unresolved
-  M5 blocking item. Security second-pass High finding for cross-tenant role access is closed;
-  employee-side bare-id mutation follow-up is recorded above.
+      M5 blocking item. Security second-pass High finding for cross-tenant role access is closed;
+      employee-side bare-id mutation follow-up is recorded above.
 - [x] Local `pnpm verify`, PostgreSQL `pnpm verify:full`, Docker build, and browser smoke pass.
-  Latest pushed `main` CI is green; this branch CI follows after push.
+      Latest pushed `main` CI is green; this branch CI follows after push.
 
 Follow-up:
 
@@ -771,6 +784,7 @@ Verification:
 Follow-up:
 
 - M3.5-B2 ADR-0004 跨进程鉴权（Phantom Token）。
+
 ### M3.5-A Manifest Single Source
 
 Change set:

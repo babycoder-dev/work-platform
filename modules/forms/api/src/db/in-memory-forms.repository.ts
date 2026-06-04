@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { FormDefinitionDto, FormFieldDto, FormRecordDto, FormRecordValueDto } from '@work/forms-contract';
+import type {
+  FormDefinitionDto,
+  FormFieldDto,
+  FormRecordDto,
+  FormRecordValueDto,
+} from '@work/forms-contract';
 import type {
   CreateFormDefinitionRecordInput,
   CreateFormFieldRecordInput,
@@ -31,11 +36,19 @@ export class InMemoryFormsRepository implements FormsRepository {
     return definition;
   }
 
-  async findDefinitionById(enterpriseId: string, id: string): Promise<FormDefinitionDto | undefined> {
-    return this.definitions.find((definition) => definition.enterpriseId === enterpriseId && definition.id === id);
+  async findDefinitionById(
+    enterpriseId: string,
+    id: string,
+  ): Promise<FormDefinitionDto | undefined> {
+    return this.definitions.find(
+      (definition) => definition.enterpriseId === enterpriseId && definition.id === id,
+    );
   }
 
-  async findDefinitionBySlotKey(enterpriseId: string, slotKey: string): Promise<FormDefinitionDto | undefined> {
+  async findDefinitionBySlotKey(
+    enterpriseId: string,
+    slotKey: string,
+  ): Promise<FormDefinitionDto | undefined> {
     return this.definitions.find(
       (definition) => definition.enterpriseId === enterpriseId && definition.slotKey === slotKey,
     );
@@ -66,7 +79,10 @@ export class InMemoryFormsRepository implements FormsRepository {
     return field;
   }
 
-  async listFieldsByDefinitionId(enterpriseId: string, definitionId: string): Promise<FormFieldDto[]> {
+  async listFieldsByDefinitionId(
+    enterpriseId: string,
+    definitionId: string,
+  ): Promise<FormFieldDto[]> {
     return this.fields
       .filter((field) => field.enterpriseId === enterpriseId && field.definitionId === definitionId)
       .sort((left, right) => left.sortOrder - right.sortOrder);
@@ -118,7 +134,10 @@ export class InMemoryFormsRepository implements FormsRepository {
     return value;
   }
 
-  async listValuesByRecordId(enterpriseId: string, recordId: string): Promise<FormRecordValueDto[]> {
+  async listValuesByRecordId(
+    enterpriseId: string,
+    recordId: string,
+  ): Promise<FormRecordValueDto[]> {
     return this.values
       .filter((value) => value.enterpriseId === enterpriseId && value.recordId === recordId)
       .sort((left, right) => left.sortOrderSnapshot - right.sortOrderSnapshot);

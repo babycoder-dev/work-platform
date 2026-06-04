@@ -20,10 +20,14 @@ export const platformModuleManifests: ModuleManifestDto[] = [
   reportPlatformManifest,
 ];
 
-const activeModuleManifests = platformModuleManifests.filter((manifest) => manifest.status === 'active');
+const activeModuleManifests = platformModuleManifests.filter(
+  (manifest) => manifest.status === 'active',
+);
 
 export const platformSeedPermissions: PermissionDto[] = activeModuleManifests.flatMap(
   (manifest) => manifest.permissions,
 );
 
-export const platformSeedMenus: MenuDto[] = activeModuleManifests.flatMap((manifest) => manifest.menus);
+export const platformSeedMenus: MenuDto[] = activeModuleManifests.flatMap(
+  (manifest) => manifest.menus,
+);

@@ -3,7 +3,12 @@ import { dtoValidationPipe, PermissionGuard, RequirePermissions } from '@work/ne
 import { PlatformAuthGuard } from '../auth/platform-auth.guard';
 import type { PlatformRequest } from '../auth/request-user';
 import { buildPlatformAuditContext } from '../auth/request-user';
-import { AssignEmployeeRolesDto, CreateEmployeeDto, ResetEmployeePasswordDto, UpdateEmployeeStatusDto } from './employee.dto';
+import {
+  AssignEmployeeRolesDto,
+  CreateEmployeeDto,
+  ResetEmployeePasswordDto,
+  UpdateEmployeeStatusDto,
+} from './employee.dto';
 import { EmployeeService } from './employee.service';
 
 @Controller('employees')

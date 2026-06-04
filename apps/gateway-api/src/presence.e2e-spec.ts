@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { GatewayModule } from '../../../../apps/gateway-api/src/gateway.module';
+import { GatewayModule } from './gateway.module';
 
 const runE2E = process.env.RUN_POSTGRES_E2E === 'true';
 const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123';
@@ -31,13 +31,14 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
       process.platform === 'win32' ? 'cmd.exe' : 'pnpm',
       process.platform === 'win32' ? ['/d', '/s', '/c', 'pnpm db:setup'] : ['db:setup'],
       {
-      cwd: process.cwd(),
-      env: process.env,
+        cwd: process.cwd(),
+        env: process.env,
       },
     );
 
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL ?? 'postgresql://work:work@localhost:5432/work_platform',
+      connectionString:
+        process.env.DATABASE_URL ?? 'postgresql://work:work@localhost:5432/work_platform',
       ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
     });
 
@@ -227,7 +228,10 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     return loginResponse.body.accessToken;
   }
 
-  function createPayload(startAt = '2026-05-25T01:00:00.000Z', endAt: string | null = '2026-05-25T09:00:00.000Z') {
+  function createPayload(
+    startAt = '2026-05-25T01:00:00.000Z',
+    endAt: string | null = '2026-05-25T09:00:00.000Z',
+  ) {
     return {
       status: 'business_trip',
       startAt,
@@ -240,8 +244,12 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     if (!pool) {
       return;
     }
-    await pool.query('DELETE FROM presence.status_records WHERE employee_no LIKE $1', [`P_${suffix}`]);
-    await pool.query('DELETE FROM platform.audit_logs WHERE actor_account LIKE $1', [`presence-%-${suffix}`]);
+    await pool.query('DELETE FROM presence.status_records WHERE employee_no LIKE $1', [
+      `P_${suffix}`,
+    ]);
+    await pool.query('DELETE FROM platform.audit_logs WHERE actor_account LIKE $1', [
+      `presence-%-${suffix}`,
+    ]);
     await pool.query(
       `
         DELETE FROM platform.user_roles
@@ -250,8 +258,12 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
       `,
       [`presence-%-${suffix}`],
     );
-    await pool.query('DELETE FROM platform.local_identities WHERE account LIKE $1', [`presence-%-${suffix}`]);
-    await pool.query('DELETE FROM platform.employees WHERE account LIKE $1', [`presence-%-${suffix}`]);
+    await pool.query('DELETE FROM platform.local_identities WHERE account LIKE $1', [
+      `presence-%-${suffix}`,
+    ]);
+    await pool.query('DELETE FROM platform.employees WHERE account LIKE $1', [
+      `presence-%-${suffix}`,
+    ]);
     await pool.query(
       `
         DELETE FROM platform.role_permissions
