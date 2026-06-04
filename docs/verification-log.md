@@ -67,6 +67,9 @@ Independent review follow-up:
   `platform-api` seed manifest reads in the same lint config. Moved gateway-level e2e specs under
   `apps/gateway-api/src` so feature modules no longer create test-only reverse dependencies on gateway.
 - Ran targeted Prettier formatting on the M6-1 change set after the review finding.
+- A follow-up independent review noted the `scope:platform` allowlist was wider than the seed manifest use case.
+  Tightened it to `scope:platform`, `scope:shared`, and `type:contract`, so platform can read module contracts
+  for manifests without allowing future dependencies on business API or web packages.
 
 Validation:
 
@@ -92,6 +95,12 @@ Validation:
     `pnpm db:setup && pnpm verify:full` remained pass.
   - Re-ran after the lint-boundary fix and Prettier pass:
     - `pnpm nx run @work/gateway-api:lint`: pass with warmed Nx graph.
+    - `pnpm lint`: pass.
+    - `pnpm verify`: pass.
+    - Docker-backed `pnpm db:setup && pnpm verify:full`: pass.
+  - Re-ran after tightening `scope:platform` to contract-only access:
+    - `pnpm nx run @work/gateway-api:lint`: pass.
+    - `pnpm --filter @work/platform-api lint`: pass, warning-only.
     - `pnpm lint`: pass.
     - `pnpm verify`: pass.
     - Docker-backed `pnpm db:setup && pnpm verify:full`: pass.

@@ -33,15 +33,7 @@ export default [
             },
             {
               sourceTag: 'scope:platform',
-              onlyDependOnLibsWithTags: [
-                'scope:platform',
-                'scope:presence',
-                'scope:forms',
-                'scope:files',
-                'scope:approval',
-                'scope:report',
-                'scope:shared',
-              ],
+              onlyDependOnLibsWithTags: ['scope:platform', 'scope:shared', 'type:contract'],
             },
             {
               sourceTag: 'scope:presence',
