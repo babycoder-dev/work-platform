@@ -441,7 +441,25 @@ function expectStringArray(value: unknown, maxItems: number): string[] {
 
 function expectIsoDate(value: unknown): string {
   const text = expectString(value, 64);
-  if (Number.isNaN(Date.parse(text))) {
+  const match = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/,
+  );
+  if (!match) {
+    throw new BadRequestException('date 字段必须是 ISO 8601 日期字符串');
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    utcDate.getUTCFullYear() !== year ||
+    utcDate.getUTCMonth() !== month - 1 ||
+    utcDate.getUTCDate() !== day
+  ) {
+    throw new BadRequestException('date 字段必须是 ISO 8601 日期字符串');
+  }
+  const parsed = Date.parse(text);
+  if (Number.isNaN(parsed)) {
     throw new BadRequestException('date 字段必须是 ISO 8601 日期字符串');
   }
   return text;

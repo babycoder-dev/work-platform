@@ -1,5 +1,120 @@
 # Verification Log
 
+## 2026-06-06
+
+### M6-4 Forms & Files Backend Delivery Verification
+
+Scope:
+
+- Closed the M6 backend delivery gate for `docs/rfc/m6-dynamic-forms-file-storage.md`.
+- No new feature API was added. Record submit/read remains a `FORMS_SERVICE` port surface by design; M6
+  still does not expose a generic Forms record HTTP route.
+
+Change set:
+
+- Validation-exposed fix: `vitest.e2e.config.mts` now sets `hookTimeout: 30000` to match the existing
+  `testTimeout`. The first full-chain Postgres run exposed 10s `beforeAll` hook timeouts in gateway
+  Postgres e2e suites after the long verify chain; the same suites passed on focused rerun, and the final
+  `verify:full` passed after aligning hook timeout.
+- Low #1 closed: Forms `date` values now require strict ISO-8601 date / date-time shape and valid calendar
+  date before `Date.parse` validation. Added service spec assertions that `2026/06/06` and `2026-02-30`
+  are rejected.
+- Low #2 closed: `FormsPort.getRecord` documents that missing record permission returns 404 intentionally
+  to prevent record-id enumeration.
+- Reviewed Docker/deployment docs for Files local storage: production compose has `files-data` mounted at
+  `/var/lib/work-platform/files`, storage env vars are present, and deployment docs cover coordinated
+  PostgreSQL + Files volume backup/restore.
+
+Command matrix:
+
+- `pnpm install`: pass; lockfile unchanged.
+- Targeted Low test:
+  - `pnpm vitest run --config vitest.config.mts modules/forms/api/src/forms/forms.service.spec.ts`: pass,
+    1 file / 6 tests.
+- Fast path:
+  - `pnpm verify`: pass.
+  - Unit/node without Postgres env: 25 files passed / 140 tests passed, 4 env-gated integration files
+    skipped.
+  - Web/jsdom: 4 files / 19 tests.
+  - Memory e2e: 4 files / 34 tests.
+  - Build: pass.
+  - Existing warning-only lint output remains in `im-adapter-api`, Platform controllers, and
+    `workbench-shell`; no errors.
+- Primed-graph module-boundary lint:
+  - `pnpm exec nx graph --file=tmp-graph.json`: pass; temporary graph output removed.
+  - `pnpm exec nx run @work/forms-api:lint`: pass.
+  - `pnpm exec nx run @work/files-api:lint`: pass.
+  - `pnpm exec nx run @work/gateway-api:lint`: pass.
+- Local PostgreSQL:
+  - `docker compose -f infra/docker-compose.yml up -d postgres`: pass; compose reported existing orphan
+    containers, left untouched.
+  - Env set: `DATABASE_URL`, `RUN_POSTGRES_INTEGRATION=true`, `RUN_POSTGRES_E2E=true`,
+    `PLATFORM_REPOSITORY_DRIVER=postgres`, `FILES_REPOSITORY_DRIVER=postgres`,
+    `FORMS_REPOSITORY_DRIVER=postgres`, `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD=admin123`,
+    `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true`, and local Files storage low-threshold env.
+  - `pnpm db:setup`: pass; order was platform -> presence -> files -> forms -> seed; seed reported
+    `permissionCount=20`.
+  - Migration idempotency re-run: `pnpm db:migrate:files` and `pnpm db:migrate:forms` both passed with no
+    duplicate object errors and no extra migration output.
+  - First `pnpm verify:full` attempt: failed only in `test:e2e:postgres` because two gateway suites exceeded
+    Vitest's default 10s hook timeout; focused `pnpm test:e2e:postgres` immediately passed, confirming a
+    verification stability issue rather than a failed business assertion. Fixed by setting e2e
+    `hookTimeout=30000`.
+  - Final `pnpm verify:full`: pass.
+    - Unit/node with Postgres env: 29 files / 168 tests.
+    - Web/jsdom: 4 files / 19 tests.
+    - Memory e2e: 4 files / 34 tests.
+    - `test:db`: 4 files / 28 tests.
+    - `test:e2e:postgres`: 3 files / 14 tests.
+- Docker:
+  - First `pnpm docker:build` attempt reached image export, then Docker Desktop failed with
+    `parent snapshot ... does not exist`, a local builder cache/snapshot failure.
+  - `docker builder prune -f` removed stale build cache.
+  - Final `pnpm docker:build`: pass; production images built for `platform-api`, `gateway-api`,
+    `notification-api`, `im-adapter-api`, `realtime-gateway`, and `workbench-shell`.
+
+API smoke:
+
+- Ran a temporary e2e smoke against real PostgreSQL + `GatewayModule`; the temporary spec was removed after
+  execution.
+- HTTP steps:
+  - `POST /api/platform/auth/login`: 201, admin token returned.
+  - `GET /api/platform/employees`: 200, selected seeded admin employee id.
+  - `GET /api/forms/definitions/profile.employee`: 200, current revision read.
+  - `PUT /api/forms/definitions/profile.employee`: 200, ownerModule stayed server-derived as `profile`;
+    fields configured: `nickname`, `joinedAt`, `owner`, `attachment`.
+  - `POST /api/files`: 201, returned staged `text/plain` file metadata with opaque file id.
+  - `GET /api/forms/definitions/profile.employee` without token: 401.
+  - Same GET as an authenticated user without slot permission: 403.
+  - `GET /api/forms/definitions/report.weekly` and `missing.slot`: 404 before permission.
+- Record path:
+  - Production has no generic record HTTP route by RFC §5.5. The smoke used `FORMS_SERVICE.createRecord` and
+    `FORMS_SERVICE.getRecord` in the same gateway process after the HTTP definition/upload steps.
+  - Created and read a `profile.employee` singleton record containing `file` and `employee` values.
+  - Readback preserved `fieldLabelSnapshot` / `fieldTypeSnapshot`; employee field had display snapshot; file
+    field stored only opaque file id.
+  - Binding another user's staged file id returned 404; binding an unknown file id returned 404.
+
+Exit checklist:
+
+- [x] Authorized API caller can configure registered slot fields; no arbitrary form creation route exists.
+- [x] Records can be stored/read through the Forms port; historical label/type/display snapshots are stored.
+- [x] File and employee fields enforce same-tenant validation; file values store only opaque file ids.
+- [x] Local disk provider persists files; Docker volume and backup/restore documentation are present.
+- [x] Staged TTL cleanup, references, tenant/user quota, upload rate limits, low-disk rejection, and warning
+  observability were implemented in M6-2 and re-covered by tests / verification.
+- [x] No generic content download route exists for bare file ids.
+- [x] Forms/files schema, contract, repository, migrations, manifest, audit, events, and tests are present.
+- [x] Security baseline is synchronized; M6-2 and M6-3 security-reviewer passes have no unresolved High /
+  Medium blockers.
+- [x] `pnpm verify`, Postgres `verify:full`, Docker build, primed-graph boundary lint, migration idempotency,
+  and API/port smoke all passed after the validation-exposed hook-timeout fix.
+
+Follow-up:
+
+- M6-W: forms/files configuration page + fill-in controls, product prototype available, separate task package.
+- M7 remains next backend infrastructure milestone after M6-W.
+
 ## 2026-06-05
 
 ### M6-3 Forms Definition And Record API

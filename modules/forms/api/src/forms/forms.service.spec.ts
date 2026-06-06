@@ -302,20 +302,21 @@ describe('FormsService', () => {
       fields: [
         { fieldKey: 'text', label: '短文本', fieldType: 'text', required: false, sortOrder: 1 },
         { fieldKey: 'textarea', label: '长文本', fieldType: 'textarea', required: false, sortOrder: 2 },
+        { fieldKey: 'date', label: '日期', fieldType: 'date', required: false, sortOrder: 3 },
         {
           fieldKey: 'multi',
           label: '多选',
           fieldType: 'multi_select',
           required: false,
-          sortOrder: 3,
+          sortOrder: 4,
           options: Array.from({ length: FORM_FIELD_LIMITS.maxOptionsPerField }, (_, index) => ({
             key: `option_${index}`,
             label: `选项 ${index}`,
           })),
         },
-        { fieldKey: 'file', label: '文件', fieldType: 'file', required: false, sortOrder: 4 },
-        { fieldKey: 'image', label: '图片', fieldType: 'image', required: false, sortOrder: 5 },
-        { fieldKey: 'employee', label: '人员', fieldType: 'employee', required: false, sortOrder: 6 },
+        { fieldKey: 'file', label: '文件', fieldType: 'file', required: false, sortOrder: 5 },
+        { fieldKey: 'image', label: '图片', fieldType: 'image', required: false, sortOrder: 6 },
+        { fieldKey: 'employee', label: '人员', fieldType: 'employee', required: false, sortOrder: 7 },
       ],
     });
 
@@ -354,6 +355,25 @@ describe('FormsService', () => {
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
     }
+
+    await expect(
+      service.createRecord(actor(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'date', value: '2026/06/06' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.createRecord(actor(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'date', value: '2026-02-30' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
 
     await expect(
       service.createRecord(actor(), {

@@ -16,5 +16,9 @@ export interface FormsPort {
     input: CreateFormRecordInput,
     auditContext?: FormAuditContext,
   ): Promise<FormRecordDto>;
+  /**
+   * Missing permission returns 404 intentionally so callers cannot enumerate
+   * whether a form record exists.
+   */
   getRecord(actor: FormActorContext, recordId: string): Promise<FormRecordDto>;
 }
