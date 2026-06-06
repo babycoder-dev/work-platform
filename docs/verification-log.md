@@ -125,9 +125,14 @@ Security review:
     subject index. Fixed with `0001_singleton_record_unique.sql`, a partial unique index for
     `profile.employee`, and a savepoint-backed concurrent conflict path in `reserveRecord`. Added a Postgres
     integration test with 8 concurrent first submissions asserting one record id and one DB row.
-- Final `security-reviewer` retry after the singleton concurrency fix was attempted but could not complete in
-  this local run because the subagent call hit the Codex usage limit. This branch still requires either a
-  successful security-reviewer rerun or an equivalent human security sign-off before merge.
+- Final `security-reviewer` pass after the singleton concurrency fix: PASS / 可合入. The reviewer found no
+  blocking High or Medium issues, confirmed unknown / reserved Forms slots return 404 before permission checks,
+  dynamic slot permissions are enforced, `createRecord` is tenant-scoped and uses same-tenant active employee
+  lookup, file/image attachments bind to the actual singleton record id inside the Files UnitOfWork, the
+  PostgreSQL singleton race is closed by the partial unique index plus savepoint conflict path, write audits
+  include actor/request context, and no generic content-download route was added. Non-blocking observation:
+  `UNIT_OF_WORK_CONTEXT` is exported from the Files contract, but repository-side `WeakMap` validation prevents
+  callers from forging a usable UnitOfWork.
 
 Follow-up:
 
