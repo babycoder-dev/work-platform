@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { EventBus } from '@work/event-bus';
 import type { FileStoragePort } from '@work/files-contract';
-import { formsPermissions, type FormActorContext } from '@work/forms-contract';
+import { FORM_FIELD_LIMITS, formsPermissions, type FormActorContext } from '@work/forms-contract';
 import type { PlatformAuditPort, PlatformEmployeeLookupPort } from '@work/platform-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryFormsRepository } from '../db/in-memory-forms.repository';
@@ -262,6 +262,108 @@ describe('FormsService', () => {
         ],
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('enforces definition and record input hard limits', async () => {
+    await expect(
+      service.updateDefinition(actor(), 'profile.employee', {
+        revision: 0,
+        fields: Array.from({ length: FORM_FIELD_LIMITS.maxFieldsPerDefinition + 1 }, (_, index) => ({
+          fieldKey: `field_${index}`,
+          label: `字段 ${index}`,
+          fieldType: 'text',
+          required: false,
+          sortOrder: index,
+        })),
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.updateDefinition(actor(), 'profile.employee', {
+        revision: 0,
+        fields: [
+          {
+            fieldKey: 'choice',
+            label: '选择',
+            fieldType: 'single_select',
+            required: false,
+            sortOrder: 1,
+            options: Array.from({ length: FORM_FIELD_LIMITS.maxOptionsPerField + 1 }, (_, index) => ({
+              key: `option_${index}`,
+              label: `选项 ${index}`,
+            })),
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [
+        { fieldKey: 'text', label: '短文本', fieldType: 'text', required: false, sortOrder: 1 },
+        { fieldKey: 'textarea', label: '长文本', fieldType: 'textarea', required: false, sortOrder: 2 },
+        {
+          fieldKey: 'multi',
+          label: '多选',
+          fieldType: 'multi_select',
+          required: false,
+          sortOrder: 3,
+          options: Array.from({ length: FORM_FIELD_LIMITS.maxOptionsPerField }, (_, index) => ({
+            key: `option_${index}`,
+            label: `选项 ${index}`,
+          })),
+        },
+        { fieldKey: 'file', label: '文件', fieldType: 'file', required: false, sortOrder: 4 },
+        { fieldKey: 'image', label: '图片', fieldType: 'image', required: false, sortOrder: 5 },
+        { fieldKey: 'employee', label: '人员', fieldType: 'employee', required: false, sortOrder: 6 },
+      ],
+    });
+
+    const oversizedCases = [
+      { fieldKey: 'text', value: 'x'.repeat(FORM_FIELD_LIMITS.textMaxLength + 1) },
+      { fieldKey: 'textarea', value: 'x'.repeat(FORM_FIELD_LIMITS.textareaMaxLength + 1) },
+      {
+        fieldKey: 'multi',
+        value: Array.from({ length: FORM_FIELD_LIMITS.maxMultiSelectValues + 1 }, (_, index) => `option_${index}`),
+      },
+      {
+        fieldKey: 'file',
+        value: Array.from({ length: FORM_FIELD_LIMITS.maxFilesPerFileField + 1 }, (_, index) => `file_${index}`),
+      },
+      {
+        fieldKey: 'image',
+        value: Array.from({ length: FORM_FIELD_LIMITS.maxFilesPerFileField + 1 }, (_, index) => `image_${index}`),
+      },
+      {
+        fieldKey: 'employee',
+        value: Array.from(
+          { length: FORM_FIELD_LIMITS.maxEmployeesPerEmployeeField + 1 },
+          (_, index) => `employee_${index}`,
+        ),
+      },
+    ];
+
+    for (const item of oversizedCases) {
+      await expect(
+        service.createRecord(actor(), {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          definitionRevision: 1,
+          values: [item],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    }
+
+    await expect(
+      service.createRecord(actor(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'text', value: 'x'.repeat(FORM_FIELD_LIMITS.maxRecordValuesJsonBytes) }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 

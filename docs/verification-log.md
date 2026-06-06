@@ -73,6 +73,13 @@ Validation:
   - `pnpm --filter @work/platform-api typecheck`: pass.
   - `pnpm vitest run --config vitest.config.mts apps/platform-api/src/users/employee-lookup.service.spec.ts modules/forms/api/src/forms/forms.service.spec.ts`: pass, 2 files / 7 tests.
   - `pnpm vitest run --config vitest.e2e.config.mts apps/gateway-api/src/forms-definition.e2e-spec.ts`: pass, 1 file / 4 tests.
+  - Post-review hard-limit coverage:
+    - `pnpm install`: pass after removing an unused `@work/errors` dependency from `@work/forms-api`.
+    - `pnpm vitest run --config vitest.config.mts modules/forms/api/src/forms/forms.service.spec.ts`: pass,
+      1 file / 6 tests. Added assertions for definition field count, option count, record values JSON size,
+      text / textarea length, multi-select, file, image, and employee array hard limits from RFC §11.1.
+    - `pnpm --filter @work/forms-api typecheck`: pass.
+    - `pnpm nx run @work/forms-api:lint`: pass with warmed Nx graph.
 - Fast path:
   - `pnpm lint`: pass with existing warning-only output in `im-adapter-api`, `platform-api` controllers, and
     `workbench-shell`.
@@ -133,6 +140,11 @@ Security review:
   include actor/request context, and no generic content-download route was added. Non-blocking observation:
   `UNIT_OF_WORK_CONTEXT` is exported from the Files contract, but repository-side `WeakMap` validation prevents
   callers from forging a usable UnitOfWork.
+- Independent human review after the security pass accepted the slice for merge and identified one Medium test
+  gap: RFC §11.1 hard input limits were implemented but not individually asserted. Fixed in this branch with
+  focused `FormsService` unit coverage for those limits. Follow-up notes from the review remain non-blocking:
+  document the port-level record permission 404 semantics when exposing future HTTP record routes, consider
+  strict ISO date validation, and keep the RFC port examples aligned with `Symbol.for(...)`.
 
 Follow-up:
 

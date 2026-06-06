@@ -88,7 +88,7 @@ files.*
 跨模块只允许依赖 contract 暴露的 port：
 
 ```ts
-export const FILE_STORAGE_SERVICE = Symbol('FILE_STORAGE_SERVICE');
+export const FILE_STORAGE_SERVICE = Symbol.for('FILE_STORAGE_SERVICE');
 
 export interface FileStoragePort {
   attachFiles(
@@ -106,7 +106,7 @@ export interface OpenFileInput {
   referenceId: string;
 }
 
-export const FORMS_SERVICE = Symbol('FORMS_SERVICE');
+export const FORMS_SERVICE = Symbol.for('FORMS_SERVICE');
 
 export interface FormsPort {
   getDefinition(actor: FormActorContext, slotKey: FormSlotKey): Promise<FormDefinitionDto>;
@@ -480,7 +480,7 @@ M6 不提供最终用户通用文件浏览器，不提供匿名链接。业务�
 人员选择器需要 Platform Core 公开 lookup port。M6 新增：
 
 ```ts
-export const PLATFORM_EMPLOYEE_LOOKUP_SERVICE = Symbol('PLATFORM_EMPLOYEE_LOOKUP_SERVICE');
+export const PLATFORM_EMPLOYEE_LOOKUP_SERVICE = Symbol.for('PLATFORM_EMPLOYEE_LOOKUP_SERVICE');
 
 export interface PlatformEmployeeLookupPort {
   listEmployeesByIds(enterpriseId: string, ids: string[]): Promise<EmployeeLookupDto[]>;
