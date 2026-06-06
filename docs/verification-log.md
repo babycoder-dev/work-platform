@@ -2,6 +2,140 @@
 
 ## 2026-06-05
 
+### M6-3 Forms Definition And Record API
+
+Scope:
+
+- Implemented the M6-3 backend slice from `docs/rfc/m6-dynamic-forms-file-storage.md`.
+- Added fixed-slot Forms definition HTTP API, Forms record service / port, snapshot record values,
+  file-field attachment through the Files port, employee-field validation through a Platform lookup port,
+  audit/events, and memory/PostgreSQL repository support.
+- Did not add Web configuration / fill-in UI and did not expose generic Forms record HTTP list/read routes.
+  Records remain available through `FORMS_SERVICE` for authorized domain services.
+
+Change set:
+
+- Contract / slots:
+  - Added the fixed Forms slot registry with active `profile.employee` and `report.daily` slots plus
+    reserved `report.weekly` and `presence.status.<code>` handling.
+  - Slot metadata declares owner module, cardinality (`profile.employee` singleton, `report.daily` append),
+    and dynamic definition permissions.
+  - Exported slot helpers from `@work/forms-contract` and kept `ownerModule` server-derived.
+- Definition API:
+  - Added `GET /api/forms/definitions/:slotKey` and `PUT /api/forms/definitions/:slotKey` under the gateway
+    `/api/forms` prefix.
+  - Added `FormsDefinitionPermissionGuard`: unknown/reserved slots return 404 before permission checks;
+    active profile/report slots require their own `forms:*:definition:{view,manage}` permissions.
+  - Definition updates use optimistic revision checks. First persisted update from the virtual revision `0`
+    creates revision `1`; stale updates return 409.
+- Record service / port:
+  - Implemented `FORMS_SERVICE` with `createRecord` / `getRecord`, required `forms:record:{submit,view}`
+    permissions, snapshot field labels/types/sort orders, definition revision checks, singleton replacement,
+    append semantics, and `forms.record.created` events.
+  - File/image values are validated as file-id arrays and attached through `FILE_STORAGE_SERVICE.attachFiles`
+    inside the caller's opaque `UnitOfWork`; stored record values contain only file IDs.
+  - Employee values are validated via `PLATFORM_EMPLOYEE_LOOKUP_SERVICE`, only same-tenant active employees are
+    accepted, and minimal display snapshots are stored with record values.
+- Platform lookup and boundaries:
+  - Added `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` / `PlatformEmployeeLookupPort` in `@work/platform-contract` and
+    implemented it in Platform API with same-tenant active employee filtering and minimal department snapshots.
+  - Updated `docs/module-contract.md §7.1.6` to mark employee lookup as an available Platform outlet and kept
+    department-tree lookup as a future outlet.
+  - Extended Nx module-boundary constraints so Forms can depend on the Files and Platform contract/provider
+    surfaces needed for M6-3 while still preserving schema ownership and no cross-schema SQL.
+- Repository:
+  - Added memory and PostgreSQL `replaceDefinitionFields`, `findDefinitionWithFields`,
+    `saveRecordWithValues`, and `findRecordWithValues`.
+  - PostgreSQL reuses the Files opaque UnitOfWork context without exposing `files.*` table definitions; Forms
+    repository only writes `forms.*`.
+  - Validation exposed a PostgreSQL-only revision mismatch bug in the first PUT path; fixed by creating the
+    initial persisted definition at revision `1` instead of attempting to insert revision `0`.
+- Tests:
+  - Added Forms service unit coverage for definition revision conflicts, file attach invocation, employee
+    display snapshots, immutable historical snapshots, singleton records, singleton file-reference binding to
+    the actual record id, invalid required values, and missing employee IDs.
+  - Added Platform employee lookup unit coverage for tenant/status filtering and empty lookups.
+  - Added gateway Forms definition e2e coverage for 401, 403, unknown/reserved 404-before-permission,
+    dynamic report/profile permissions, ownerModule derivation, stale revision 409, and invalid payload 400.
+  - Extended PostgreSQL Forms repository integration to cover idempotent migration, tenant isolation,
+    composite FK rejection, unit-of-work definition replacement, singleton save, revision conflict, and
+    concurrent first submissions for the same singleton subject.
+
+Validation:
+
+- `pnpm install`: pass; lockfile updated by pnpm for new Forms API dependencies.
+- Warmed Nx graph:
+  - `pnpm nx graph --file=tmp-nx-graph.json`: pass.
+  - `pnpm nx run @work/forms-api:lint`: pass.
+  - `pnpm nx run @work/gateway-api:lint`: pass.
+- Targeted checks:
+  - `pnpm --filter @work/forms-api typecheck`: pass.
+  - `pnpm --filter @work/platform-api typecheck`: pass.
+  - `pnpm vitest run --config vitest.config.mts apps/platform-api/src/users/employee-lookup.service.spec.ts modules/forms/api/src/forms/forms.service.spec.ts`: pass, 2 files / 7 tests.
+  - `pnpm vitest run --config vitest.e2e.config.mts apps/gateway-api/src/forms-definition.e2e-spec.ts`: pass, 1 file / 4 tests.
+- Fast path:
+  - `pnpm lint`: pass with existing warning-only output in `im-adapter-api`, `platform-api` controllers, and
+    `workbench-shell`.
+  - `pnpm typecheck`: pass.
+  - `pnpm test:unit`: pass without Postgres env, 25 files / 139 tests, 4 env-gated integration files skipped.
+  - `pnpm test:web`: pass, 4 files / 19 tests.
+  - `pnpm test:e2e`: pass, 4 files / 34 tests.
+  - `pnpm build`: pass.
+- Local PostgreSQL full path:
+  - Started Docker PostgreSQL through `docker compose -f infra/docker-compose.yml up -d postgres`.
+  - Set `DATABASE_URL`, `RUN_POSTGRES_INTEGRATION=true`, `RUN_POSTGRES_E2E=true`,
+    `PLATFORM_REPOSITORY_DRIVER=postgres`, `FILES_REPOSITORY_DRIVER=postgres`,
+    `FORMS_REPOSITORY_DRIVER=postgres`, `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD=admin123`,
+    `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true`, and local Files storage env vars.
+  - `pnpm db:setup`: pass; seed reported `permissionCount=20`.
+  - Re-ran `pnpm db:setup` after adding `0001_singleton_record_unique.sql`: pass; migrations were
+    idempotent and seed still reported `permissionCount=20`.
+  - First `pnpm verify:full` attempt failed in `postgres-forms.repository.integration.spec.ts`: initial
+    `replaceDefinitionFields` tried to insert `revision=0`, violating `forms.form_definitions` check
+    constraint. Fixed in this slice and reran.
+  - `pnpm vitest run --config vitest.config.mts modules/forms/api/src/db/postgres-forms.repository.integration.spec.ts`: pass, 1 file / 4 tests.
+  - Final `pnpm verify:full`: pass.
+    - Unit/node with Postgres env: 29 files / 167 tests.
+    - Web/jsdom: 4 files / 19 tests.
+    - Memory e2e: 4 files / 34 tests.
+    - `test:db`: 4 files / 28 tests.
+    - `test:e2e:postgres`: 3 files / 14 tests.
+- `pnpm docker:build`:
+  - Earlier M6-3 run before the security-review fixes passed; registry fetch emitted transient `ECONNRESET`
+    retries, then production images built successfully.
+  - Re-run after the final security-review fixes reached image export, then Docker Desktop failed preparing
+    extraction snapshots with `parent snapshot ... does not exist`. This is a local Docker builder/cache
+    failure after package install and app build stages, not a TypeScript or application build failure.
+  - After `docker builder prune -f`, a retry hit transient registry/network failures. Final retry with
+    `NPM_REGISTRY=https://registry.npmmirror.com` passed and built all production images.
+
+Security review:
+
+- First `security-reviewer` pass found 2 Medium issues:
+  - Singleton `profile.employee` replacement could attach files to a newly generated record id while the
+    repository reused an existing singleton record id. Fixed by splitting repository record persistence into
+    `reserveRecord` and `replaceRecordValues`; Forms service now reserves the final record id in the opaque
+    UnitOfWork, attaches files to `forms/form_record/<reserved.id>`, then writes values. Added a unit test for
+    second singleton file submission binding to the actual record id.
+  - Forms write audits lacked complete actor/request context. Fixed by adding `account` to `FormActorContext`,
+    optional `FormAuditContext` to `FormsPort.createRecord`, and writing `actorAccount`, `traceId`, `ip`, and
+    `userAgent` for definition and record writes.
+- Follow-up security pass found 1 Medium:
+  - PostgreSQL singleton first submissions were still race-prone because the schema had only a non-unique
+    subject index. Fixed with `0001_singleton_record_unique.sql`, a partial unique index for
+    `profile.employee`, and a savepoint-backed concurrent conflict path in `reserveRecord`. Added a Postgres
+    integration test with 8 concurrent first submissions asserting one record id and one DB row.
+- Final `security-reviewer` retry after the singleton concurrency fix was attempted but could not complete in
+  this local run because the subagent call hit the Codex usage limit. This branch still requires either a
+  successful security-reviewer rerun or an equivalent human security sign-off before merge.
+
+Follow-up:
+
+- M6-4: backend delivery verification and API smoke.
+- M6-W: Web configuration / fill-in UI after product prototype is ready.
+- M10 follow-up: `report.daily` append records still need business-day subject-key semantics when Daily Report
+  is implemented.
+
 ### M6-2 Local Disk Files Provider Upload API Lifecycle Abuse Controls
 
 Scope:

@@ -90,6 +90,9 @@ export interface ReadableFileObject {
   content: AsyncIterable<Uint8Array>;
 }
 
+export const UNIT_OF_WORK_CONTEXT = Symbol.for('WORK_PLATFORM_UNIT_OF_WORK_CONTEXT');
+
 export interface UnitOfWork {
   readonly kind: 'unit-of-work';
+  readonly [UNIT_OF_WORK_CONTEXT]?: unknown;
 }

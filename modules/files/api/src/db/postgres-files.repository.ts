@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
-import type { FileObjectDto, FileReferenceDto, UnitOfWork } from '@work/files-contract';
+import { UNIT_OF_WORK_CONTEXT, type FileObjectDto, type FileReferenceDto, type UnitOfWork } from '@work/files-contract';
 import type {
   AttachStagedFileInput,
   AttachStagedFileResult,
@@ -261,7 +261,7 @@ export class PostgresFilesRepository implements FilesRepository {
 
   async withUnitOfWork<T>(operation: (uow: UnitOfWork) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
-    const uow: UnitOfWork = { kind: 'unit-of-work' };
+    const uow: UnitOfWork = { kind: 'unit-of-work', [UNIT_OF_WORK_CONTEXT]: client };
     try {
       await client.query('BEGIN');
       this.unitOfWorkClients.set(uow, client);

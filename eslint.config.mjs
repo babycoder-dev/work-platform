@@ -46,7 +46,13 @@ export default [
             },
             {
               sourceTag: 'scope:forms',
-              onlyDependOnLibsWithTags: ['scope:forms', 'scope:platform-sdk', 'scope:shared'],
+              onlyDependOnLibsWithTags: [
+                'scope:forms',
+                'scope:files',
+                'scope:platform',
+                'scope:platform-sdk',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'scope:files',

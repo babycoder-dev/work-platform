@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { PermissionGuard } from '@work/nest-common';
-import { PLATFORM_AUDIT_SERVICE, PLATFORM_SCOPE_SERVICE } from '@work/platform-contract';
+import {
+  PLATFORM_AUDIT_SERVICE,
+  PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
+  PLATFORM_SCOPE_SERVICE,
+} from '@work/platform-contract';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { PlatformAuthGuard } from './auth/platform-auth.guard';
@@ -21,6 +25,7 @@ import { PlatformScopeService } from './scope/platform-scope.service';
 import { PlatformMemoryStore } from './store/platform-memory.store';
 import { HealthController } from './system/health.controller';
 import { EmployeeController } from './users/employee.controller';
+import { EmployeeLookupService } from './users/employee-lookup.service';
 import { EmployeeService } from './users/employee.service';
 
 @Module({
@@ -53,6 +58,7 @@ import { EmployeeService } from './users/employee.service';
     PlatformAuthGuard,
     OrgService,
     EmployeeService,
+    EmployeeLookupService,
     PlatformScopeService,
     {
       provide: PLATFORM_SCOPE_SERVICE,
@@ -63,6 +69,10 @@ import { EmployeeService } from './users/employee.service';
       provide: PLATFORM_AUDIT_SERVICE,
       useExisting: PlatformAuditService,
     },
+    {
+      provide: PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
+      useExisting: EmployeeLookupService,
+    },
     PermissionGuard,
     RbacService,
   ],
@@ -72,6 +82,7 @@ import { EmployeeService } from './users/employee.service';
     AuthService,
     PLATFORM_SCOPE_SERVICE,
     PLATFORM_AUDIT_SERVICE,
+    PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
   ],
 })
 export class PlatformModule {}

@@ -1,5 +1,5 @@
-import type { FormSlotKey } from './events';
 import type { FormFieldDto, FormFieldType } from './fields';
+import type { FormSlotKey } from './slots';
 
 export type FormDefinitionStatus = 'active' | 'disabled';
 
@@ -58,5 +58,12 @@ export interface CreateFormRecordValueInput {
 export interface FormActorContext {
   enterpriseId: string;
   userId: string;
+  account: string;
   permissionCodes: string[];
+}
+
+export interface FormAuditContext {
+  traceId?: string;
+  ip?: string;
+  userAgent?: string;
 }

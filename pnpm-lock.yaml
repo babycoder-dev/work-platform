@@ -390,12 +390,36 @@ importers:
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.21(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@work/errors':
+        specifier: workspace:*
+        version: link:../../../packages/errors
+      '@work/event-bus':
+        specifier: workspace:*
+        version: link:../../../packages/event-bus
+      '@work/files-api':
+        specifier: workspace:*
+        version: link:../../files/api
+      '@work/files-contract':
+        specifier: workspace:*
+        version: link:../../files/contract
       '@work/forms-contract':
         specifier: workspace:*
         version: link:../contract
       '@work/nest-common':
         specifier: workspace:*
         version: link:../../../packages/nest-common
+      '@work/platform-api':
+        specifier: workspace:*
+        version: link:../../../apps/platform-api
+      '@work/platform-contract':
+        specifier: workspace:*
+        version: link:../../../packages/platform-contract
+      class-transformer:
+        specifier: ^0.5.1
+        version: 0.5.1
+      class-validator:
+        specifier: ^0.14.1
+        version: 0.14.4
       pg:
         specifier: ^8.13.1
         version: 8.20.0

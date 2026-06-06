@@ -110,12 +110,19 @@ export const FORMS_SERVICE = Symbol('FORMS_SERVICE');
 
 export interface FormsPort {
   getDefinition(actor: FormActorContext, slotKey: FormSlotKey): Promise<FormDefinitionDto>;
-  createRecord(actor: FormActorContext, input: CreateFormRecordInput): Promise<FormRecordDto>;
+  createRecord(
+    actor: FormActorContext,
+    input: CreateFormRecordInput,
+    auditContext?: FormAuditContext,
+  ): Promise<FormRecordDto>;
   getRecord(actor: FormActorContext, recordId: string): Promise<FormRecordDto>;
 }
 ```
 
-业务模块不得注入其他模块 repository，不得读取 `forms.*` / `files.*` table 定义。
+`FormActorContext` 必须包含 `enterpriseId / userId / account / permissionCodes`。业务模块从已认证
+request 派生这些字段，不信任客户端 body。`FormAuditContext` 用于透传 `traceId / ip / userAgent`，
+确保 `forms.record.create` 审计可追溯请求链路。业务模块不得注入其他模块 repository，不得读取
+`forms.*` / `files.*` table 定义。
 
 ## 5. 动态表单 mini
 

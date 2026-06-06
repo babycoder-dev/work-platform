@@ -34,3 +34,17 @@ export interface UpdateEmployeeStatusInput {
 export interface ResetEmployeePasswordInput {
   newPassword: string;
 }
+
+export interface EmployeeLookupDto {
+  id: string;
+  employeeNo: string;
+  name: string;
+  departmentId?: string;
+  departmentName?: string;
+}
+
+export interface PlatformEmployeeLookupPort {
+  listEmployeesByIds(enterpriseId: string, ids: string[]): Promise<EmployeeLookupDto[]>;
+}
+
+export const PLATFORM_EMPLOYEE_LOOKUP_SERVICE = Symbol.for('PLATFORM_EMPLOYEE_LOOKUP_SERVICE');

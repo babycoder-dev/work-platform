@@ -22,8 +22,4 @@ export interface FormsRecordCreatedEvent {
   occurredAt: string;
 }
 
-export type FormSlotKey =
-  | 'profile.employee'
-  | 'report.daily'
-  | 'report.weekly'
-  | `presence.status.${string}`;
+import type { FormSlotKey } from './slots';

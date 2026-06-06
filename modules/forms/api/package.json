@@ -11,8 +11,16 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
+    "@work/errors": "workspace:*",
+    "@work/event-bus": "workspace:*",
+    "@work/files-api": "workspace:*",
+    "@work/files-contract": "workspace:*",
     "@work/forms-contract": "workspace:*",
     "@work/nest-common": "workspace:*",
+    "@work/platform-api": "workspace:*",
+    "@work/platform-contract": "workspace:*",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "pg": "^8.13.1"
   },
   "devDependencies": {
