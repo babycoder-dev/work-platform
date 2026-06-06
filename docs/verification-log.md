@@ -2,6 +2,99 @@
 
 ## 2026-06-06
 
+### M6-W Frontend Foundation & Workbench Home
+
+Change set:
+
+- Ported `docs/design/ui-handoff/design/tokens.css` into `@work/ui` as the shared token/style entry
+  `@work/ui/styles/tokens.css`, with component CSS split into `styles/components.css` and loaded through
+  the token entry. `packages/ui/package.json` exports preserve both `"."` and the style subpath.
+- Added the first `@work/ui` presentational component layer: Button, Input, Textarea, Select, Tag,
+  Avatar, Badge / Dot, EmptyState, Table, Dropdown / Menu, Drawer, Modal / ConfirmDialog, Tabs,
+  Segmented, Pager, Checkbox, Switch, and auto-dismissing Toast. Components depend only on React and
+  stay outside apps/modules.
+- Expanded `vitest.web.config.mts` from modules-only collection to
+  `modules/**/web/**/*.spec.tsx`, `packages/**/*.spec.tsx`, and `apps/**/*.spec.tsx`.
+- Reworked `workbench-shell` to consume `@work/ui`, import the token CSS once in `src/main.tsx`, render
+  the new collapsible app shell, grouped manifest navigation, topbar search / notification / avatar
+  shells, restyled login page, and menu-driven workbench home.
+- Added `buildNavigationGroups(menus)` while preserving the existing `buildNavigationItems(menus)`
+  output contract.
+- Kept all prototype-only business data empty/placeholder: approval, todo, message, feed, system
+  dynamics, and presence summary cards show "数据待接入" instead of hardcoded demo counts.
+
+Command matrix:
+
+- `pnpm install`: pass; lockfile updated by workspace dependency/devDependency declarations only.
+- `pnpm test:web` before include change: pass, 4 files / 19 tests.
+- `pnpm test:web` after include + initial specs: pass, 6 files / 28 tests. This confirmed
+  `packages/ui` and `apps/workbench-shell` `.spec.tsx` files are collected.
+- `pnpm test:web` after independent review fixes: pass, 27 files / 60 tests. Added component-level
+  coverage for the `@work/ui` primitives plus topbar outside-click / mutual-exclusion coverage.
+- `pnpm test:web` after pre-merge review cleanup: pass, 26 files / 55 tests. The decrease is expected:
+  the duplicate aggregate `packages/ui/src/components.spec.tsx` was removed after each primitive moved to
+  `packages/ui/src/components/<Name>/<Name>.tsx` with its co-located `<Name>.spec.tsx`.
+- `pnpm test`: pass, unit 25 files / 142 tests plus 4 env-gated Postgres integration files skipped
+  without `RUN_POSTGRES_INTEGRATION`; web 27 files / 60 tests.
+- `pnpm typecheck`: pass; rerun after pre-merge review cleanup also passed.
+- `pnpm verify`: pass (`lint && typecheck && test && test:e2e && build`). E2E passed 4 files / 34 tests;
+  workbench-shell Vite production build passed.
+- `pnpm --filter @work/workbench-shell build`: pass after pre-merge review cleanup.
+- Primed Nx boundary lint:
+  - `pnpm exec nx graph --file=tmp-graph.json`: pass; temp graph removed.
+  - `pnpm exec nx run @work/forms-api:lint`: pass.
+  - `pnpm exec nx run @work/files-api:lint`: pass.
+  - `pnpm exec nx run @work/gateway-api:lint`: pass.
+  - `pnpm exec nx run @work/workbench-shell:lint`: pass with one pre-existing unused `_descriptor`
+    warning in `load-remote-module.ts`.
+  - `pnpm exec nx run @work/ui:lint`: pass.
+
+Acceptance notes:
+
+- [x] `packages/ui` exports token style entry and the requested base primitives; no `apps/*` or
+  `modules/*` imports were introduced. Pre-merge review cleanup aligned the library structure with
+  `packages/ui/src/components/<Name>/<Name>.tsx` plus co-located specs and removed duplicate aggregate
+  component tests.
+- [x] `workbench-shell` renders the new shell using `@work/ui`; sidebar collapse persists in localStorage.
+- [x] Topbar search / notifications / avatar menus are interactive shells; data-backed search and
+  notifications remain M7 follow-up.
+- [x] Login page visual was rebuilt on shared components without changing auth behavior.
+- [x] Workbench home uses real `currentUser` and manifest menus for greeting and quick entries.
+- [x] Unavailable prototype data is empty/placeholder. Demo numbers (approval 12 / todo 9 / unread 5 /
+  presence 231) are not hardcoded into the home component.
+- [x] Menu grouping consumes `MenuDto.parentId`; icon mapping is frontend-only by `moduleName`; badge slot
+  exists but has no live count source.
+- [x] Existing module mount seam remains manifest/router driven; presence web specs still pass under the
+  new web test matrix.
+
+Independent review closure:
+
+- Sub-agent review #1 found a blocking topbar regression: search closed only on Esc and could remain open
+  while notification/avatar popovers opened. Fixed by using a single topbar popover state, adding search
+  outside-click close, and covering outside-click / mutual exclusion in `App.spec.tsx`.
+- Sub-agent review #2 found insufficient `@work/ui` style/test rigor: component CSS lived in the token file,
+  specs were too aggregated, and Toast did not own auto-dismiss behavior. Fixed by splitting
+  `styles/components.css`, moving component sizes/focus/shadow values to CSS variables, adding component-level
+  specs, and making `Toast` auto-dismiss when `onClose` is provided.
+- Pre-merge review cleanup moved component source from the aggregate `components.tsx` into per-component
+  directories, deleted the duplicate aggregate spec, and tokenized common shell font/control sizing while
+  keeping layout-specific dimensions as shell-local CSS variables.
+- Independent pre-merge cleanup review returned `PASS_WITH_NOTES`; the noted self-referential shell CSS
+  variables were corrected, and existing named form prop types were exported from `@work/ui`.
+
+This slice intentionally did not:
+
+- Implement forms config/fill UI. That moved to M8, where `profile.employee` becomes the real consumer.
+- Add a backend menu `icon` or badge contract. Icons remain frontend mapping and badge counts are reserved.
+- Add search or notification backends. Those remain M7 follow-up.
+- Change backend APIs, contracts, migrations, schema, permissions, or deployment.
+
+Follow-up:
+
+- M7: search / notification backend sources for topbar and home message blocks.
+- M8: forms UI for `profile.employee` configuration/fill controls and organization/personnel flows.
+- Reserved: backend menu icon / badge-count contract if product needs server-driven icons or live badges.
+
 ### M6-4 Forms & Files Backend Delivery Verification
 
 Scope:

@@ -20,7 +20,7 @@
 | M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done    | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                           |
 | M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done    | M4-4 交付验证已完成；presence 模块进入维护态                                              |
 | M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done    | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                           |
-| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done    | 后端已交付；产品原型已到位，下一步 M6-W 前端地基 + 工作台首页（forms 配置/填报 UI 迁 M8） |
+| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done    | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，下一步 M7 通知 + 调度       |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Pending | 不引入 IM/重型实时                                                                        |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending | 依赖 M5/M6/M7                                                                             |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | 在 M4 presence 基础上扩展                                                                 |
@@ -185,16 +185,15 @@
 当前建议执行：
 
 ```text
-M6-W: 前端地基 + 应用外壳 + 工作台首页（forms 配置/填报 UI 迁 M8，独立任务包）
+M7: 通知 + 定时任务调度
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
 schema 迁移、repository 双实现、manifest / seed、gateway 装配和根脚本。M6-2 已交付本地磁盘
 Files provider、上传 API、staged 生命周期、TTL 清理、配额 / 限流 / 磁盘阈值治理、Docker volume
 与部署备份文档。M6-3 已交付 Forms definition API、record service / port、快照记录、文件字段与
-人员字段。M6-4 后端交付验证已完成，M6 后端整段退出。下一步进入 M6-W：前端地基（token +
-`@work/ui` 组件库）+ 应用外壳 + 工作台首页，产品原型已到位，以独立任务包进入审查（原 forms
-配置/填报 UI 迁 M8）；其后顺位 M7 通知 + 定时任务调度。
+人员字段。M6-4 后端交付验证已完成。M6-W 已交付前端地基（token + `@work/ui` 组件库）、
+应用外壳、登录页重构和工作台首页。M6 整段退出；下一步进入 M7 通知 + 定时任务调度。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -209,7 +208,8 @@ M4-4 完成结果：
 
 M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享后端基建骨架、M6-2
 本地磁盘 Files provider + 上传 API、M6-3 Forms API + 快照记录 + 文件 / 人员字段、M6-4 后端
-交付验证均已完成。下一步执行 M6-W（前端地基 + 工作台首页，产品原型已到位；forms UI 迁 M8），其后顺位 M7。
+交付验证、M6-W 前端地基 + 工作台首页均已完成。下一步执行 M7 通知 + 定时任务调度；forms UI
+迁 M8。
 注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
 `docs/adr/0005-product-replan-roadmap.md`。
 
@@ -245,7 +245,7 @@ M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享�
 | M6-2 | 本地磁盘 Files provider + 上传 API     | Done    | 2026-06-05 完成；详见 verification-log `M6-2 Local Disk Files Provider Upload API Lifecycle Abuse Controls`                                                                  |
 | M6-3 | Forms API + 快照记录 + 文件 / 人员字段 | Done    | 2026-06-05 完成；详见 verification-log `M6-3 Forms Definition And Record API`                                                                                                |
 | M6-4 | 后端交付验证                           | Done    | 2026-06-06 完成；详见 verification-log `M6-4 Forms & Files Backend Delivery Verification`                                                                                    |
-| M6-W | 前端地基 + 应用外壳 + 工作台首页       | Pending | 2026-06-06 重定义（原"Web 配置/填报 UI"→前端地基 token+`@work/ui` 组件库+外壳+登录页+工作台首页；forms 配置/填报 UI 迁 M8）；任务包 `docs/tasks/m6-w-frontend-foundation.md` |
+| M6-W | 前端地基 + 应用外壳 + 工作台首页       | Done    | 2026-06-06 完成；详见 verification-log `M6-W Frontend Foundation & Workbench Home`；forms 配置/填报 UI 迁 M8                                                                 |
 
 ## 7. 当前阻塞项
 

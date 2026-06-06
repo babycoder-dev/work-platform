@@ -2,10 +2,20 @@ import type { MenuDto } from '@work/platform-contract';
 import type { WorkWebModule, WorkWebModuleRoute } from '@work/platform-sdk';
 
 export interface NavigationItem {
+  id?: string;
   title: string;
   path: string;
   moduleName: string;
   permissionCode?: string;
+  parentId?: string;
+  sortOrder?: number;
+}
+
+export interface NavigationGroup {
+  id: string;
+  title: string;
+  moduleName: string;
+  items: NavigationItem[];
 }
 
 export function buildNavigationItems(menus: MenuDto[]): NavigationItem[] {
@@ -18,6 +28,51 @@ export function buildNavigationItems(menus: MenuDto[]): NavigationItem[] {
       moduleName: menu.moduleName,
       permissionCode: menu.permissionCode,
     }));
+}
+
+export function buildNavigationGroups(menus: MenuDto[]): NavigationGroup[] {
+  const activeMenus = [...menus]
+    .filter((menu) => menu.status === 'active')
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title));
+
+  const menuById = new Map(activeMenus.map((menu) => [menu.id, menu]));
+  const childrenByParent = new Map<string, MenuDto[]>();
+  for (const menu of activeMenus) {
+    if (menu.parentId && menuById.has(menu.parentId)) {
+      const siblings = childrenByParent.get(menu.parentId) ?? [];
+      siblings.push(menu);
+      childrenByParent.set(menu.parentId, siblings);
+    }
+  }
+
+  const groupedChildIds = new Set(
+    Array.from(childrenByParent.values()).flatMap((children) => children.map((child) => child.id)),
+  );
+  const groups: NavigationGroup[] = [];
+
+  for (const menu of activeMenus) {
+    const children = childrenByParent.get(menu.id);
+    if (children?.length) {
+      groups.push({
+        id: menu.id,
+        title: menu.title,
+        moduleName: menu.moduleName,
+        items: children.map(toNavigationItem),
+      });
+      continue;
+    }
+
+    if (!groupedChildIds.has(menu.id) && (!menu.parentId || !menuById.has(menu.parentId))) {
+      groups.push({
+        id: `ungrouped-${menu.id}`,
+        title: menu.moduleName,
+        moduleName: menu.moduleName,
+        items: [toNavigationItem(menu)],
+      });
+    }
+  }
+
+  return groups;
 }
 
 export function buildModuleRouteTable(modules: WorkWebModule[]): WorkWebModuleRoute[] {
@@ -43,4 +98,16 @@ export function normalizePath(path: string): string {
   }
 
   return path.startsWith('/') ? path : `/${path}`;
+}
+
+function toNavigationItem(menu: MenuDto): NavigationItem {
+  return {
+    id: menu.id,
+    title: menu.title,
+    path: normalizePath(menu.path),
+    moduleName: menu.moduleName,
+    permissionCode: menu.permissionCode,
+    parentId: menu.parentId,
+    sortOrder: menu.sortOrder,
+  };
 }

@@ -1,7 +1,7 @@
 import type { MenuDto } from '@work/platform-contract';
 import type { WorkWebModule } from '@work/platform-sdk';
 import { describe, expect, it } from 'vitest';
-import { buildModuleRouteTable, buildNavigationItems } from './navigation';
+import { buildModuleRouteTable, buildNavigationGroups, buildNavigationItems } from './navigation';
 
 describe('workbench navigation', () => {
   it('builds navigation from active platform menus in platform order', () => {
@@ -46,6 +46,107 @@ describe('workbench navigation', () => {
         path: '/platform/employees',
         moduleName: 'platform',
         permissionCode: 'platform:employee:view',
+      },
+    ]);
+  });
+
+  it('builds grouped navigation from parentId while preserving ungrouped menus', () => {
+    const menus: MenuDto[] = [
+      {
+        id: 'group-platform',
+        moduleName: 'platform',
+        title: '平台管理',
+        path: '/platform',
+        sortOrder: 1,
+        status: 'active',
+      },
+      {
+        id: 'employee',
+        moduleName: 'platform',
+        parentId: 'group-platform',
+        title: '员工管理',
+        path: '/platform/employees',
+        permissionCode: 'platform:employee:view',
+        sortOrder: 2,
+        status: 'active',
+      },
+      {
+        id: 'presence',
+        moduleName: 'presence',
+        title: '在位看板',
+        path: '/presence/board',
+        permissionCode: 'presence:board:view',
+        sortOrder: 3,
+        status: 'active',
+      },
+    ];
+
+    expect(buildNavigationGroups(menus)).toEqual([
+      {
+        id: 'group-platform',
+        title: '平台管理',
+        moduleName: 'platform',
+        items: [
+          {
+            id: 'employee',
+            title: '员工管理',
+            path: '/platform/employees',
+            moduleName: 'platform',
+            permissionCode: 'platform:employee:view',
+            parentId: 'group-platform',
+            sortOrder: 2,
+          },
+        ],
+      },
+      {
+        id: 'ungrouped-presence',
+        title: 'presence',
+        moduleName: 'presence',
+        items: [
+          {
+            id: 'presence',
+            title: '在位看板',
+            path: '/presence/board',
+            moduleName: 'presence',
+            permissionCode: 'presence:board:view',
+            parentId: undefined,
+            sortOrder: 3,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps menus visible when their parent group is not present', () => {
+    const menus: MenuDto[] = [
+      {
+        id: 'presence',
+        moduleName: 'presence',
+        parentId: 'missing-parent',
+        title: '在位看板',
+        path: '/presence/board',
+        permissionCode: 'presence:board:view',
+        sortOrder: 3,
+        status: 'active',
+      },
+    ];
+
+    expect(buildNavigationGroups(menus)).toEqual([
+      {
+        id: 'ungrouped-presence',
+        title: 'presence',
+        moduleName: 'presence',
+        items: [
+          {
+            id: 'presence',
+            title: '在位看板',
+            path: '/presence/board',
+            moduleName: 'presence',
+            permissionCode: 'presence:board:view',
+            parentId: 'missing-parent',
+            sortOrder: 3,
+          },
+        ],
       },
     ]);
   });

@@ -17,14 +17,21 @@
     "@work/platform-web": "workspace:*",
     "@work/presence-contract": "workspace:*",
     "@work/presence-web": "workspace:*",
+    "@work/ui": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.28.0",
     "vite": "^6.0.5"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2"
+    "@types/react-dom": "^19.0.2",
+    "jsdom": "^25.0.1",
+    "vitest": "^3.2.4"
   },
   "nx": {
     "tags": ["scope:composition", "type:app"]
