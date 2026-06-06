@@ -102,13 +102,13 @@ Exit checklist:
 - [x] File and employee fields enforce same-tenant validation; file values store only opaque file ids.
 - [x] Local disk provider persists files; Docker volume and backup/restore documentation are present.
 - [x] Staged TTL cleanup, references, tenant/user quota, upload rate limits, low-disk rejection, and warning
-  observability were implemented in M6-2 and re-covered by tests / verification.
+      observability were implemented in M6-2 and re-covered by tests / verification.
 - [x] No generic content download route exists for bare file ids.
 - [x] Forms/files schema, contract, repository, migrations, manifest, audit, events, and tests are present.
 - [x] Security baseline is synchronized; M6-2 and M6-3 security-reviewer passes have no unresolved High /
-  Medium blockers.
+      Medium blockers.
 - [x] `pnpm verify`, Postgres `verify:full`, Docker build, primed-graph boundary lint, migration idempotency,
-  and API/port smoke all passed after the validation-exposed hook-timeout fix.
+      and API/port smoke all passed after the validation-exposed hook-timeout fix.
 
 Follow-up:
 
@@ -264,7 +264,7 @@ Security review:
 Follow-up:
 
 - M6-4: backend delivery verification and API smoke.
-- M6-W: Web configuration / fill-in UI after product prototype is ready.
+- M6-W: Frontend foundation (design tokens + @work/ui + app shell + workbench home); forms config/fill UI moved to M8. (Redefined 2026-06-06)
 - M10 follow-up: `report.daily` append records still need business-day subject-key semantics when Daily Report
   is implemented.
 
@@ -327,7 +327,7 @@ Validation:
 
 - `pnpm install`: pass; lockfile updated by pnpm for the new Files API dependency.
 - `pnpm nx graph --file=tmp-nx-graph.json` + `pnpm nx run @work/files-api:lint` + `pnpm nx run
-  @work/gateway-api:lint`: pass with warmed Nx graph; temporary graph output removed.
+@work/gateway-api:lint`: pass with warmed Nx graph; temporary graph output removed.
 - `pnpm verify`: pass.
   - Unit/node: 23 files passed, 132 tests passed. Without Postgres env, 4 env-gated integration specs are
     skipped.
@@ -371,8 +371,7 @@ Security review:
   resolve content only through a matching `files.file_references` row and require the object to be
   `status='attached'`; no-reference, wrong-reference, staged, deleting, deleted, cross-tenant, or unknown
   objects return 404 through the service.
-- Added service coverage for staged-denied, matching-reference success, wrong-reference 404, and cross-tenant
-  404. Synchronized `docs/security-baseline.md` and the M6 RFC port example to make the reference-bound
+- Added service coverage for staged-denied, matching-reference success, wrong-reference 404, and cross-tenant 404. Synchronized `docs/security-baseline.md` and the M6 RFC port example to make the reference-bound
   `openFile` contract explicit.
 - Security-reviewer follow-up pass on this Medium: LGTM / 可合入. The reviewer confirmed no new High or
   Medium findings, no public content-download route, no legacy `openFile(actor, fileId)` call sites, and

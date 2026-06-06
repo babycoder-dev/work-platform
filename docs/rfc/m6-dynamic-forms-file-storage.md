@@ -649,7 +649,13 @@ M6 后端完成必须满足：
 | **M6-2** | 本地磁盘 Files provider + staged / attached 引用生命周期 + TTL 清理 + 配额 / 限流 / 磁盘阈值 + 上传 API + Docker volume / 环境变量 / 协调备份恢复文档 + tests | **必过 `security-reviewer`** |
 | **M6-3** | Forms definition API、记录 service / port、快照值、文件 / 人员字段校验、Platform employee lookup port、审计、事件、tests                                      | **必过 `security-reviewer`** |
 | **M6-4** | 后端交付验证：`verify` / `verify:full` / Docker build / API smoke / verification-log 收口                                                                     | —                            |
-| **M6-W** | 前端配置页、填报控件、上传交互；等待产品原型后另发任务包                                                                                                      | 待原型                       |
+| **M6-W** | 前端地基（设计 token + `@work/ui` 组件库）+ 应用外壳（侧栏/顶栏）+ 登录页重构 + 工作台首页；任务包 `docs/tasks/m6-w-frontend-foundation.md`                   | —                            |
+
+> **2026-06-06 重定义。** 产品原型（`claude design` handoff）交付的是整套产品 UI 愿景（设计系统 +
+> 应用外壳 + 工作台首页 + 审批/组织/待办/消息），**不含** forms 配置/填报页面，且工作台等页面都依赖
+> 一套尚不存在的前端地基。故 M6-W 重定义为「前端地基 + 工作台首页」（里程碑无关的前端基座），
+> **原 forms 配置/填报 UI 迁移到 M8**——其真实消费方为组织成员 → `profile.employee` 槽位表单渲染。
+> 本期后端退出标准（§12）不变；前端地基不阻塞后端，亦不改本 RFC 后端结论。
 
 ## 14. 已决定事项
 
@@ -661,7 +667,9 @@ M6 后端完成必须满足：
 - staged 文件 owner-bound；M6-2 必须落引用表、TTL 清理、配额、限流和磁盘阈值治理。
 - 表单记录保存 label / type / display 快照；不建完整 definition 版本历史。
 - 人员选择器通过 Platform Core 公开 employee lookup port 校验与取快照，不跨 schema 查询。
-- Web 等待产品原型，以独立任务包实现；后端先行。
+- Web 以独立任务包实现，后端先行。**（2026-06-06 更新）** M6-W 已据产品原型重定义为「前端地基
+  （token + `@work/ui` 组件库）+ 应用外壳 + 工作台首页」；原 forms 配置/填报 UI 迁移到 **M8**
+  （消费方 = `profile.employee` 槽位渲染）。详见 §13 重定义注记与 `docs/tasks/m6-w-frontend-foundation.md`。
 
 ## 15. 待审查项
 
