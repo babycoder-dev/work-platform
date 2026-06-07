@@ -1,5 +1,90 @@
 # Verification Log
 
+## 2026-06-07
+
+### M7-1 Notification Module Skeleton
+
+Change set:
+
+- Removed the legacy standalone `apps/notification-api` app and `packages/notification-center` package after
+  migrating the notification DTOs into `modules/notification/contract`.
+- Added `@work/notification-contract` with server-side manifests, empty active platform permissions,
+  `notification:trigger-config:manage` as a constant only, notification DTOs/channels, events, and the
+  `NOTIFICATION_SERVICE` port.
+- Added `@work/notification-api` with `notification.*` migration runner, `notification.notification`
+  schema, Postgres + memory repositories, `NotificationService.create()` as an internal provider method,
+  and authenticated read-state APIs under `/api/notification`.
+- Mounted `NotificationModule` in `gateway-api`; no `RouterModule` entry was added and controllers carry
+  their own `notification/...` prefixes.
+- Registered the notification platform manifest before seed while keeping `permissions: []`; seed still
+  reports `permissionCount=20`, proving the reserved trigger-config permission is not granted to admin in
+  this slice.
+- Removed notification-api deployment-unit references from production compose, release bundle scripts,
+  CODEOWNERS, README, CLAUDE, architecture, deployment, security baseline, and the presence smoke runbook.
+
+HTTP / API coverage:
+
+- `GET /api/notification`: login required; returns only the current user's notifications with pagination
+  and unread filtering support.
+- `GET /api/notification/unread-count`: login required; returns current user's unread count.
+- `PUT /api/notification/:id/read`: login required; marks only current user's notification; other
+  recipient's notification returns 404.
+- `PUT /api/notification/read-all`: login required; marks current user's unread notifications.
+- `POST /api/notification`: intentionally not exposed; e2e asserts authenticated POST returns 404.
+
+Command matrix:
+
+- `pnpm install`: pass twice. First run after deleting the old app/package refreshed workspace state to 25
+  projects; second run after adding `modules/notification` registered 27 workspace projects. A final install
+  after explicit workspace dependency fixes passed and kept the lockfile consistent.
+- Focused notification checks: `@work/notification-contract` typecheck pass; `@work/notification-api`
+  typecheck pass; notification unit specs pass (2 files / 2 tests); notification gateway e2e pass (1 file /
+  2 tests).
+- `pnpm typecheck`: pass.
+- `pnpm test`: pass. Unit: 27 files / 144 tests, with 5 env-gated Postgres integration files skipped when
+  `RUN_POSTGRES_INTEGRATION` is unset. Web: 26 files / 55 tests.
+- `pnpm verify`: pass. E2E includes `apps/gateway-api/src/notification.e2e-spec.ts`; total e2e count 5
+  files / 36 tests.
+- Primed Nx module-boundary lint: `pnpm exec nx graph --file=tmp-graph.json`, then
+  `@work/notification-api:lint` and `@work/gateway-api:lint` both pass; temp graph removed.
+- `docker compose -f infra/docker-compose.prod.yml config`: pass. Output has no `notification-api` service,
+  no `NOTIFICATION_API_URL`, and `gateway-api` no longer depends on a notification service container.
+- `pnpm docker:build`: pass after the final package/lockfile state. Built local service images:
+  `infra-platform-api`, `infra-gateway-api`, `infra-im-adapter-api`, `infra-realtime-gateway`, and
+  `infra-workbench-shell`.
+
+Postgres / migration verification:
+
+- Local Docker Postgres was available (`work-platform-postgres`, port 5432).
+- `pnpm db:setup`: pass with order `platform -> presence -> files -> forms -> notification -> seed`.
+  Seed result: `permissionCount=20`.
+- `pnpm db:migrate:notification` repeated twice after `db:setup`: pass; no duplicate object output.
+- First attempted `db:setup` exposed a real wiring bug: `seed-data.ts` imported
+  `@work/notification-contract`, but `apps/platform-api/package.json` did not declare it. Fixed by adding
+  explicit workspace dependencies for platform seed and gateway runtime, then reran successfully.
+- `pnpm verify:full`: pass with env
+  `DATABASE_URL=postgresql://work:work@localhost:5432/work_platform`,
+  `RUN_POSTGRES_INTEGRATION=true`, `RUN_POSTGRES_E2E=true`, `PLATFORM_REPOSITORY_DRIVER=postgres`,
+  `PLATFORM_BOOTSTRAP_ADMIN_PASSWORD=admin123`.
+  - `test:db`: 5 files / 29 tests, including `postgres-notification.repository.integration.spec.ts`.
+  - `test:e2e:postgres`: 3 files / 14 tests.
+
+Cleanup assertions:
+
+- `rg @work/notification-center`: no code references remain.
+- `rg notification:trigger-config:manage`: appears only in task/RFC text and
+  `modules/notification/contract/src/permissions.ts`; it is not in the platform manifest permissions array.
+- `rg notification-api`: remaining matches are the new package alias/import, task/RFC text, historical ADR /
+  foundation-blueprint references, and older verification-log history. Current deployment/runtime docs no
+  longer list a standalone notification-api service.
+
+Follow-up:
+
+- M7-2: event subscription, `RecipientResolver`, and platform read ports; keep trigger-config write API and
+  UI out until their planned slice.
+- M7-3: scheduling with `@nestjs/schedule`.
+- M7-4: SSE / frontend notification UI and trigger-point configuration UI.
+
 ## 2026-06-06
 
 ### M6-W Frontend Foundation & Workbench Home
@@ -52,20 +137,20 @@ Command matrix:
 Acceptance notes:
 
 - [x] `packages/ui` exports token style entry and the requested base primitives; no `apps/*` or
-  `modules/*` imports were introduced. Pre-merge review cleanup aligned the library structure with
-  `packages/ui/src/components/<Name>/<Name>.tsx` plus co-located specs and removed duplicate aggregate
-  component tests.
+      `modules/*` imports were introduced. Pre-merge review cleanup aligned the library structure with
+      `packages/ui/src/components/<Name>/<Name>.tsx` plus co-located specs and removed duplicate aggregate
+      component tests.
 - [x] `workbench-shell` renders the new shell using `@work/ui`; sidebar collapse persists in localStorage.
 - [x] Topbar search / notifications / avatar menus are interactive shells; data-backed search and
-  notifications remain M7 follow-up.
+      notifications remain M7 follow-up.
 - [x] Login page visual was rebuilt on shared components without changing auth behavior.
 - [x] Workbench home uses real `currentUser` and manifest menus for greeting and quick entries.
 - [x] Unavailable prototype data is empty/placeholder. Demo numbers (approval 12 / todo 9 / unread 5 /
-  presence 231) are not hardcoded into the home component.
+      presence 231) are not hardcoded into the home component.
 - [x] Menu grouping consumes `MenuDto.parentId`; icon mapping is frontend-only by `moduleName`; badge slot
-  exists but has no live count source.
+      exists but has no live count source.
 - [x] Existing module mount seam remains manifest/router driven; presence web specs still pass under the
-  new web test matrix.
+      new web test matrix.
 
 Independent review closure:
 

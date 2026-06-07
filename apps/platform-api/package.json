@@ -20,6 +20,7 @@
     "@work/files-contract": "workspace:*",
     "@work/forms-contract": "workspace:*",
     "@work/nest-common": "workspace:*",
+    "@work/notification-contract": "workspace:*",
     "@work/platform-contract": "workspace:*",
     "@work/presence-contract": "workspace:*",
     "@work/report-contract": "workspace:*",

@@ -17,6 +17,7 @@
     "@work/files-api": "workspace:*",
     "@work/forms-api": "workspace:*",
     "@work/nest-common": "workspace:*",
+    "@work/notification-api": "workspace:*",
     "@work/platform-api": "workspace:*",
     "@work/platform-contract": "workspace:*",
     "@work/presence-api": "workspace:*",

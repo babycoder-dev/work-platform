@@ -1,6 +1,7 @@
 import { approvalPlatformManifest } from '@work/approval-contract';
 import { filesPlatformManifest } from '@work/files-contract';
 import { formsPlatformManifest } from '@work/forms-contract';
+import { notificationPlatformManifest } from '@work/notification-contract';
 import type { MenuDto, ModuleManifestDto, PermissionDto } from '@work/platform-contract';
 import { presencePlatformManifest } from '@work/presence-contract';
 import { reportPlatformManifest } from '@work/report-contract';
@@ -15,6 +16,7 @@ export const platformModuleManifests: ModuleManifestDto[] = [
   platformModuleManifest,
   filesPlatformManifest,
   formsPlatformManifest,
+  notificationPlatformManifest,
   presencePlatformManifest,
   approvalPlatformManifest,
   reportPlatformManifest,

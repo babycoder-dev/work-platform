@@ -26,6 +26,7 @@ export default [
                 'scope:presence',
                 'scope:forms',
                 'scope:files',
+                'scope:notification',
                 'scope:approval',
                 'scope:report',
                 'scope:shared',
@@ -58,6 +59,15 @@ export default [
               sourceTag: 'scope:files',
               onlyDependOnLibsWithTags: [
                 'scope:files',
+                'scope:platform',
+                'scope:platform-sdk',
+                'scope:shared',
+              ],
+            },
+            {
+              sourceTag: 'scope:notification',
+              onlyDependOnLibsWithTags: [
+                'scope:notification',
                 'scope:platform',
                 'scope:platform-sdk',
                 'scope:shared',

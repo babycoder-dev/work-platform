@@ -1,6 +1,7 @@
 import { approvalPlatformManifest } from '@work/approval-contract';
 import { filesPlatformManifest } from '@work/files-contract';
 import { formsPlatformManifest } from '@work/forms-contract';
+import { notificationPlatformManifest, notificationPermissions } from '@work/notification-contract';
 import { presencePlatformManifest } from '@work/presence-contract';
 import { reportPlatformManifest } from '@work/report-contract';
 import { describe, expect, it } from 'vitest';
@@ -13,6 +14,7 @@ describe('platform seed data', () => {
       platformModuleManifest,
       filesPlatformManifest,
       formsPlatformManifest,
+      notificationPlatformManifest,
       presencePlatformManifest,
       approvalPlatformManifest,
       reportPlatformManifest,
@@ -31,6 +33,7 @@ describe('platform seed data', () => {
     );
     expect(byName.get('files')).toBe(filesPlatformManifest);
     expect(byName.get('forms')).toBe(formsPlatformManifest);
+    expect(byName.get('notification')).toBe(notificationPlatformManifest);
     expect(byName.get('presence')).toBe(presencePlatformManifest);
     expect(byName.get('approval')).toBe(approvalPlatformManifest);
     expect(byName.get('report')).toBe(reportPlatformManifest);
@@ -58,6 +61,9 @@ describe('platform seed data', () => {
     );
     expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
       'report:weekly:view',
+    );
+    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
+      notificationPermissions.triggerConfigManage,
     );
   });
 

@@ -1,0 +1,22 @@
+{
+  "name": "@work/notification-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@work/platform-contract": "workspace:*",
+    "@work/platform-sdk": "workspace:*"
+  },
+  "nx": {
+    "tags": [
+      "scope:notification",
+      "type:contract"
+    ]
+  }
+}

@@ -5,6 +5,6 @@
 /apps/platform-api/ @platform-team
 /apps/gateway-api/ @platform-team
 /apps/im-adapter-api/ @platform-team
-/apps/notification-api/ @platform-team
 /apps/realtime-gateway/ @platform-team
+/modules/notification/ @platform-team
 /clients/desktop-qt/ @desktop-team

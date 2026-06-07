@@ -12,8 +12,8 @@ platform-api
 im-adapter-api
   OpenIM 适配 / 用户同步 / 系统通知 / Webhook
 
-notification-api
-  站内通知 / 未读 / 通知渠道编排
+modules/notification/api
+  站内通知 / 未读 / 通知渠道编排（经 gateway-api 装配）
 
 realtime-gateway
   平台实时通道 / 站内通知推送 / 状态刷新
@@ -24,7 +24,7 @@ gateway-api
   边界详见 docs/adr/0003-gateway-boundary.md
 
 business modules
-  presence / approval / report
+  presence / notification / approval / report
 
 desktop clients
   Windows / Linux C/S client
@@ -216,7 +216,7 @@ platform.user_roles
 platform.audit_logs
 platform.domain_events
 
-notification.notifications
+notification.notification
 
 presence.status_records
 presence.status_types

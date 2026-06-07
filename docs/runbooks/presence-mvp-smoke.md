@@ -57,9 +57,9 @@ pnpm verify:full
 pnpm docker:build
 ```
 
-期望：8 个 service 镜像（postgres / redis / platform-api / gateway-api / notification-api / im-adapter-api / realtime-gateway / workbench-shell）全部 build 完成无 error。
+期望：7 个 service 镜像（postgres / redis / platform-api / gateway-api / im-adapter-api / realtime-gateway / workbench-shell）全部 build 完成无 error。
 
-`postgres` / `redis` 是 pull 官方镜像，不构建；其余 6 个会触发本地 build。如果首次跑会比较慢（~10-20 分钟，pnpm install + 多服务并行）。
+`postgres` / `redis` 是 pull 官方镜像，不构建；其余 5 个会触发本地 build。如果首次跑会比较慢（~10-20 分钟，pnpm install + 多服务并行）。
 
 ## 6. PostgreSQL 28P01 故障树
 
@@ -122,14 +122,14 @@ Windows 上 docker CLI 能运行不代表引擎跑着。打开 Docker Desktop GU
 
 ### 步骤
 
-| # | 操作 | 期望 |
-| --- | --- | --- |
-| 1 | 终端 A：`pnpm --filter @work/gateway-api start:dev`；等到日志显示 `Nest application successfully started`，监听 3000 | gateway-api on http://127.0.0.1:3000 |
-| 2 | 终端 B：`pnpm --filter @work/workbench-shell dev`；等到 Vite 显示 `Local: http://localhost:5173/` | workbench-shell on http://127.0.0.1:5173；vite proxy `/api → 127.0.0.1:3000` |
-| 3 | 浏览器打开 http://127.0.0.1:5173/，用 `admin/admin123` 登录 | 登录成功，跳到 `/`，展示 `WorkbenchHome` 和 5 项菜单（组织架构 / 员工管理 / 角色权限 / 在位看板 / 状态登记） |
-| 4 | 点 `在位看板`（URL → `/presence/board`） | 看板页加载，loading 状态短暂出现后展示空记录（或之前 e2e 留的记录被清理过；只要不报错即可），看到"刷新"按钮 |
-| 5 | 点 `状态登记`（URL → `/presence/register`）。下拉框"状态"选 `出差`（select value 是 enum `business_trip`，显示文本走 `formatStatusLabel` 翻译）。开始时间填 `2026-05-28T10:00`，结束时间填 `2026-05-28T18:00`，备注填 `manual smoke`，点击 `提交登记` 按钮 | 按钮文本短暂变 `提交中…` 然后恢复；表单字段被清空；同页下方"我的最近记录" `<section>` 的 `<ul>` 顶部出现一条新记录，行内字段依次：`出差` / 开始时间本地化 / 结束时间本地化 / 行末出现 `取消` 按钮（因为 `cancelledAt` 为空、被 `activeRecords.some` 计算为 isActive） |
-| 6 | 点击新记录行末的 `取消` 按钮 | 按钮文本短暂变 `取消中…`；列表刷新后该行 `取消` 按钮消失，行内追加 `（已取消）`；点导航回 `/presence/board`，看板列表里这条记录不存在（看板只展示未取消的活跃状态） |
+| #   | 操作                                                                                                                                                                                                                                                       | 期望                                                                                                                                                                                                                                                                  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 终端 A：`pnpm --filter @work/gateway-api start:dev`；等到日志显示 `Nest application successfully started`，监听 3000                                                                                                                                       | gateway-api on http://127.0.0.1:3000                                                                                                                                                                                                                                  |
+| 2   | 终端 B：`pnpm --filter @work/workbench-shell dev`；等到 Vite 显示 `Local: http://localhost:5173/`                                                                                                                                                          | workbench-shell on http://127.0.0.1:5173；vite proxy `/api → 127.0.0.1:3000`                                                                                                                                                                                          |
+| 3   | 浏览器打开 http://127.0.0.1:5173/，用 `admin/admin123` 登录                                                                                                                                                                                                | 登录成功，跳到 `/`，展示 `WorkbenchHome` 和 5 项菜单（组织架构 / 员工管理 / 角色权限 / 在位看板 / 状态登记）                                                                                                                                                          |
+| 4   | 点 `在位看板`（URL → `/presence/board`）                                                                                                                                                                                                                   | 看板页加载，loading 状态短暂出现后展示空记录（或之前 e2e 留的记录被清理过；只要不报错即可），看到"刷新"按钮                                                                                                                                                           |
+| 5   | 点 `状态登记`（URL → `/presence/register`）。下拉框"状态"选 `出差`（select value 是 enum `business_trip`，显示文本走 `formatStatusLabel` 翻译）。开始时间填 `2026-05-28T10:00`，结束时间填 `2026-05-28T18:00`，备注填 `manual smoke`，点击 `提交登记` 按钮 | 按钮文本短暂变 `提交中…` 然后恢复；表单字段被清空；同页下方"我的最近记录" `<section>` 的 `<ul>` 顶部出现一条新记录，行内字段依次：`出差` / 开始时间本地化 / 结束时间本地化 / 行末出现 `取消` 按钮（因为 `cancelledAt` 为空、被 `activeRecords.some` 计算为 isActive） |
+| 6   | 点击新记录行末的 `取消` 按钮                                                                                                                                                                                                                               | 按钮文本短暂变 `取消中…`；列表刷新后该行 `取消` 按钮消失，行内追加 `（已取消）`；点导航回 `/presence/board`，看板列表里这条记录不存在（看板只展示未取消的活跃状态）                                                                                                   |
 
 ### 完成清理
 
@@ -146,10 +146,10 @@ docker compose -f infra/docker-compose.yml stop postgres
 
 ## 8. 故障定位
 
-| 现象 | 排查 |
-| --- | --- |
-| 步骤 3 登录返回 401 + 中文消息 `账号或密码错误` | seed 没跑 / 跑过但 admin password 不是 `admin123`。回到 §3 加 `$env:PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD='true'` 再跑 `pnpm db:seed` 一次重置。 |
+| 现象                                                  | 排查                                                                                                                                                                                                                       |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 步骤 3 登录返回 401 + 中文消息 `账号或密码错误`       | seed 没跑 / 跑过但 admin password 不是 `admin123`。回到 §3 加 `$env:PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD='true'` 再跑 `pnpm db:seed` 一次重置。                                                                         |
 | 步骤 3 登录后菜单只有 3 项（没有"在位看板/状态登记"） | seed 没把 presence 菜单写入 / 当前用户没 `presence:board:view` 或 `presence:status:create` 权限。检查 `SELECT permission_code FROM platform.menus WHERE module_name='presence';` 应有两行；检查 admin 角色应含 11 个权限。 |
-| 步骤 4 看板页报 401 / 网络错误 | vite proxy 没生效。检查 `apps/workbench-shell/vite.config.ts` 的 `server.proxy` 里 `/api -> http://127.0.0.1:3000`；检查 gateway-api 是否真在 3000 端口（不是 3001）。 |
-| 步骤 4 看板页报 `Presence runtime not initialised` | shell bootstrap 没调 `moduleRegistry.applyRuntime`。M4-3 已修复；如果回归，检查 `apps/workbench-shell/src/app/App.tsx` 登录成功分支是否调了 `moduleRegistry.applyRuntime({...})`。 |
-| 步骤 5 提交返回 409 | 时间区间和已有未取消记录重叠。换一个时间窗口（如 `2026-05-29`），或先在"我的最近记录"里取消旧记录。 |
+| 步骤 4 看板页报 401 / 网络错误                        | vite proxy 没生效。检查 `apps/workbench-shell/vite.config.ts` 的 `server.proxy` 里 `/api -> http://127.0.0.1:3000`；检查 gateway-api 是否真在 3000 端口（不是 3001）。                                                     |
+| 步骤 4 看板页报 `Presence runtime not initialised`    | shell bootstrap 没调 `moduleRegistry.applyRuntime`。M4-3 已修复；如果回归，检查 `apps/workbench-shell/src/app/App.tsx` 登录成功分支是否调了 `moduleRegistry.applyRuntime({...})`。                                         |
+| 步骤 5 提交返回 409                                   | 时间区间和已有未取消记录重叠。换一个时间窗口（如 `2026-05-29`），或先在"我的最近记录"里取消旧记录。                                                                                                                        |

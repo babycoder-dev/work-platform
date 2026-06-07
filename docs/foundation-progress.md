@@ -11,22 +11,22 @@
 
 ## 1. 总览
 
-| 阶段                        | 目标                                                                                                    | 状态    | 当前结论                                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| M0 架构基线                 | 统一架构、文档、CI、Docker 基线                                                                         | Done    | 可以支撑基建优先开发                                                                                 |
-| M1 平台核心持久化           | Platform Core 从内存实现升级为 PostgreSQL                                                               | Done    | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成               |
-| M2 权限、菜单、审计闭环     | 模块权限、菜单、审计统一接入                                                                            | Done    | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入                                  |
-| M3 Web Shell 可用基座       | 登录态、权限菜单、模块挂载                                                                              | Done    | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证                   |
-| M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done    | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                                      |
-| M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done    | M4-4 交付验证已完成；presence 模块进入维护态                                                         |
-| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done    | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                                      |
-| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done    | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，下一步 M7 通知 + 调度                  |
-| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Pending | RFC 已 Accepted（`docs/rfc/m7-notification-scheduler.md`）；下一步 M7-1 模块骨架；不引入 IM/重型实时 |
-| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending | 依赖 M5/M6/M7                                                                                        |
-| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | 在 M4 presence 基础上扩展                                                                            |
-| M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending | 依赖 M6/M7                                                                                           |
-| M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending | 简单串签流 + 节点通知 + 联动在位                                                                     |
-| vNext                       | 多维表格+自动化、周报、桌面端、外部 IM、内网交付强化                                                    | Pending | 远期愿景，含老 M8 交付内容                                                                           |
+| 阶段                        | 目标                                                                                                    | 状态        | 当前结论                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
+| M0 架构基线                 | 统一架构、文档、CI、Docker 基线                                                                         | Done        | 可以支撑基建优先开发                                                                                |
+| M1 平台核心持久化           | Platform Core 从内存实现升级为 PostgreSQL                                                               | Done        | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成              |
+| M2 权限、菜单、审计闭环     | 模块权限、菜单、审计统一接入                                                                            | Done        | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入                                 |
+| M3 Web Shell 可用基座       | 登录态、权限菜单、模块挂载                                                                              | Done        | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证                  |
+| M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done        | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                                     |
+| M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done        | M4-4 交付验证已完成；presence 模块进入维护态                                                        |
+| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done        | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                                     |
+| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done        | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，下一步 M7 通知 + 调度                 |
+| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | In Progress | M7-1 模块骨架已交付；下一步 M7-2 事件订阅 + RecipientResolver + platform 读端口；不引入 IM/重型实时 |
+| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending     | 依赖 M5/M6/M7                                                                                       |
+| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending     | 在 M4 presence 基础上扩展                                                                           |
+| M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                          |
+| M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending     | 简单串签流 + 节点通知 + 联动在位                                                                    |
+| vNext                       | 多维表格+自动化、周报、桌面端、外部 IM、内网交付强化                                                    | Pending     | 远期愿景，含老 M8 交付内容                                                                          |
 
 > M5 起为 2026-05 重规划后的里程碑，详见 `docs/adr/0005-product-replan-roadmap.md` 与
 > `docs/product-requirements.md`。老 M5–M8（审批优先/日报/通知-实时-IM/客户端交付）已作废。
@@ -185,7 +185,7 @@
 当前建议执行：
 
 ```text
-M7-1: 通知模块骨架（modules/notification contract+api、notification.* schema、删 notification-api app）
+M7-2: 事件订阅 + RecipientResolver + platform 读端口（只接 presence.status.changed live 链路）
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -197,7 +197,7 @@ Files provider、上传 API、staged 生命周期、TTL 清理、配额 / 限流
 （`docs/rfc/m7-notification-scheduler.md`，两轮独立评审通过）：通知做成 `modules/notification` 共享模块、
 事件驱动 + 接收人可配、SSE 单实例推送、`@nestjs/schedule` 调度、删除 `apps/notification-api`；
 本期只接通 `presence.status.changed`→部门负责人一条 live 链路，①②④触发点留预留接线。
-下一步进入 M7-1 模块骨架切片。
+M7-1 模块骨架已完成，下一步进入 M7-2 事件订阅 + RecipientResolver + platform 读端口切片。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -212,7 +212,7 @@ M4-4 完成结果：
 
 M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享后端基建骨架、M6-2
 本地磁盘 Files provider + 上传 API、M6-3 Forms API + 快照记录 + 文件 / 人员字段、M6-4 后端
-交付验证、M6-W 前端地基 + 工作台首页均已完成。M7-0 RFC 已 Accepted，下一步执行 M7-1 通知模块骨架；
+交付验证、M6-W 前端地基 + 工作台首页均已完成。M7-0 RFC 已 Accepted，M7-1 通知模块骨架已完成，下一步执行 M7-2 事件订阅 + RecipientResolver + platform 读端口；
 forms UI 迁 M8。
 注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
 `docs/adr/0005-product-replan-roadmap.md`。
@@ -250,6 +250,14 @@ forms UI 迁 M8。
 | M6-3 | Forms API + 快照记录 + 文件 / 人员字段 | Done | 2026-06-05 完成；详见 verification-log `M6-3 Forms Definition And Record API`                                |
 | M6-4 | 后端交付验证                           | Done | 2026-06-06 完成；详见 verification-log `M6-4 Forms & Files Backend Delivery Verification`                    |
 | M6-W | 前端地基 + 应用外壳 + 工作台首页       | Done | 2026-06-06 完成；详见 verification-log `M6-W Frontend Foundation & Workbench Home`；forms 配置/填报 UI 迁 M8 |
+
+### 6.4 M7 通知 + 定时任务调度切片
+
+| 切片 | 能力                                    | 状态    | 说明                                                                                      |
+| ---- | --------------------------------------- | ------- | ----------------------------------------------------------------------------------------- |
+| M7-0 | RFC                                     | Done    | 2026-06-07 Accepted；`docs/rfc/m7-notification-scheduler.md`                              |
+| M7-1 | 通知模块骨架 + 站内通知最小闭环         | Done    | 2026-06-07 完成；详见 verification-log `M7-1 Notification Module Skeleton`                |
+| M7-2 | 事件订阅 + 接收人解析 + platform 读端口 | Pending | 下一步；只接 `presence.status.changed` live 链路，触发点配置写接口 / SSE / 前端留后续切片 |
 
 ## 7. 当前阻塞项
 

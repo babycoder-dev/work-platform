@@ -94,14 +94,13 @@ PLATFORM_BOOTSTRAP_ADMIN_PASSWORD="<initial-admin-password>" \
 pnpm db:setup
 ```
 
-`db:setup` 会先执行迁移，再幂等写入默认企业、总部部门、平台权限、系统管理员角色和初始管理员身份。重复执行不会覆盖已有管理员密码，除非显式设置 `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true`。
+`db:setup` 会依次执行 platform、presence、files、forms、notification 迁移，再幂等写入默认企业、总部部门、平台权限、系统管理员角色和初始管理员身份。重复执行不会覆盖已有管理员密码，除非显式设置 `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true`。
 
 服务：
 
 - `workbench-shell`
 - `gateway-api`
 - `platform-api`
-- `notification-api`
 - `im-adapter-api`
 - `realtime-gateway`
 - `postgres`
@@ -162,7 +161,6 @@ docker save -o work-platform-images.tar \
   work-platform-workbench-shell \
   work-platform-gateway-api \
   work-platform-platform-api \
-  work-platform-notification-api \
   work-platform-im-adapter-api \
   work-platform-realtime-gateway \
   postgres:17 \

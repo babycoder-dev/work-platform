@@ -1,0 +1,32 @@
+{
+  "name": "@work/notification-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@work/nest-common": "workspace:*",
+    "@work/notification-contract": "workspace:*",
+    "@work/platform-api": "workspace:*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@types/pg": "^8.11.10",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0"
+  },
+  "nx": {
+    "tags": [
+      "scope:notification",
+      "type:feature"
+    ]
+  }
+}

@@ -57,7 +57,7 @@ pnpm vitest --config vitest.config.mts   # watch mode
 ### Database
 
 ```bash
-pnpm db:setup    # db:migrate + db:migrate:presence + db:seed (needs DATABASE_URL)
+pnpm db:setup    # platform + presence + files + forms + notification migrations + seed
 pnpm db:generate # drizzle-kit generate (after schema changes)
 ```
 
@@ -69,7 +69,7 @@ Dev seed admin defaults to `admin/admin123`; production must inject `PLATFORM_BO
 pnpm --filter @work/platform-api <script>   # scope any script to one workspace package
 pnpm dev:shell      # workbench-shell (Vite)
 pnpm dev:platform   # platform-api (nest start --watch)
-# also: dev:gateway, dev:im-adapter, dev:notification, dev:realtime
+# also: dev:gateway, dev:im-adapter, dev:realtime
 ```
 
 `pnpm lint` / `pnpm typecheck` run recursively across all packages (`pnpm -r --if-present`).
@@ -80,9 +80,9 @@ Single pnpm/Nx monorepo, **backend NestJS 11 + frontend React 19 + PostgreSQL 17
 
 ### Layout
 
-- `apps/` — the shell and platform services: `workbench-shell` (React/Vite host), `platform-api` (users/org/roles/permissions/auth/audit), `gateway-api`, `im-adapter-api`, `notification-api`, `realtime-gateway` (socket.io).
+- `apps/` — the shell and platform services: `workbench-shell` (React/Vite host), `platform-api` (users/org/roles/permissions/auth/audit), `gateway-api`, `im-adapter-api`, `realtime-gateway` (socket.io).
 - `modules/<module>/` — business modules, each split into `contract` / `web` / `api` (`presence`, `approval`, `report`). Currently only `presence` is implemented end-to-end.
-- `packages/` — shared libs consumed via `workspace:*` aliases (`platform-contract`, `http-client`, `event-bus`, `errors`, `logger`, `ui`, `im-provider`, `notification-center`, plus `platform-sdk`).
+- `packages/` — shared libs consumed via `workspace:*` aliases (`platform-contract`, `http-client`, `event-bus`, `errors`, `logger`, `ui`, `im-provider`, plus `platform-sdk`).
 - `clients/desktop-qt` — Qt 6.8 C++ client (talks to gateway-api only; never the DB).
 
 ### Module model (the core pattern)
@@ -97,7 +97,7 @@ A business module is self-contained and may **only** depend on its own `contract
 
 ### Data & events
 
-One Postgres instance, **schema-per-module isolation** (`platform.*`, `presence.*`, `approval.*`, `report.*`, `notification.*`). A module reads/writes **only its own schema**; it obtains org/people/permission data via `platform-api` or a read-only snapshot — never by reaching into another schema. Note `platform-api` and `presence/api` have **separate migration entrypoints** (`db:migrate` vs `db:migrate:presence`). Cross-module communication is limited to URL navigation, public APIs, and domain events (`@work/event-bus`, e.g. `presence.status.changed`).
+One Postgres instance, **schema-per-module isolation** (`platform.*`, `presence.*`, `files.*`, `forms.*`, `notification.*`, `approval.*`, `report.*`). A module reads/writes **only its own schema**; it obtains org/people/permission data via `platform-api` or a read-only snapshot — never by reaching into another schema. Platform and shared backend modules have separate migration entrypoints (`db:migrate`, `db:migrate:presence`, `db:migrate:files`, `db:migrate:forms`, `db:migrate:notification`). Cross-module communication is limited to URL navigation, public APIs, and domain events (`@work/event-bus`, e.g. `presence.status.changed`).
 
 ## Conventions worth knowing
 

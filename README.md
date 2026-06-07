@@ -37,7 +37,6 @@ apps/
   gateway-api/
   platform-api/
   im-adapter-api/
-  notification-api/
   realtime-gateway/
 
 clients/
@@ -45,6 +44,7 @@ clients/
 
 modules/
   presence/
+  notification/
   approval/
   report/
 
@@ -55,7 +55,6 @@ packages/
   logger/
   ui/
   event-bus/
-  notification-center/
   im-provider/
   platform-contract/
 

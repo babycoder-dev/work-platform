@@ -17,7 +17,6 @@ $images = @(
   "work-platform-workbench-shell",
   "work-platform-gateway-api",
   "work-platform-platform-api",
-  "work-platform-notification-api",
   "work-platform-im-adapter-api",
   "work-platform-realtime-gateway",
   "postgres:17",

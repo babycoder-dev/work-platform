@@ -3,6 +3,7 @@ import { APP_GUARD, RouterModule } from '@nestjs/core';
 import { FilesModule } from '@work/files-api';
 import { FormsModule } from '@work/forms-api';
 import { PermissionGuard } from '@work/nest-common';
+import { NotificationModule } from '@work/notification-api';
 import { PlatformAuthGuard, PlatformModule } from '@work/platform-api';
 import { PresenceModule } from '@work/presence-api';
 import { HealthController } from './system/health.controller';
@@ -12,6 +13,7 @@ import { HealthController } from './system/health.controller';
     PlatformModule,
     FilesModule,
     FormsModule,
+    NotificationModule,
     PresenceModule,
     RouterModule.register([
       {

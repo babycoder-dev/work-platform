@@ -12,7 +12,7 @@
 - platform-api。
 - business module API。
 - im-adapter-api。
-- notification-api。
+- modules/notification API（经 gateway-api 装配）。
 - realtime-gateway。
 - PostgreSQL。
 - Redis。
@@ -469,15 +469,15 @@ M1 之后新增：
 
 ## 15. 当前风险
 
-| 风险 | 当前状态 | 处理 |
-| --- | --- | --- |
-| 内存 store | 仍在使用 | M1 替换为 PostgreSQL |
-| 开发默认密码 | `admin/admin123` | M1 改为安装初始化 |
-| 明文密码 | M1 已引入 `scrypt` 强 hash，argon2id 为后续迁移目标 | M1 退出前确认生产路径无明文密码 |
-| session 内存存储 | PostgreSQL 模式已写入 `platform.sessions` | M1 退出前将内存 session 降级为测试专用 |
-| 审计日志未闭环 | 未完成 | M2 完成审计 service |
-| 菜单权限未闭环 | 未完成 | M2 完成菜单与权限注册 |
-| lockfile 缺失 | 已生成 `pnpm-lock.yaml`，CI 已切换 frozen lockfile | M1 退出前保持 lockfile 与依赖声明同步 |
+| 风险                    | 当前状态                                                  | 处理                                                                          |
+| ----------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 内存 store              | 仍在使用                                                  | M1 替换为 PostgreSQL                                                          |
+| 开发默认密码            | `admin/admin123`                                          | M1 改为安装初始化                                                             |
+| 明文密码                | M1 已引入 `scrypt` 强 hash，argon2id 为后续迁移目标       | M1 退出前确认生产路径无明文密码                                               |
+| session 内存存储        | PostgreSQL 模式已写入 `platform.sessions`                 | M1 退出前将内存 session 降级为测试专用                                        |
+| 审计日志未闭环          | 未完成                                                    | M2 完成审计 service                                                           |
+| 菜单权限未闭环          | 未完成                                                    | M2 完成菜单与权限注册                                                         |
+| lockfile 缺失           | 已生成 `pnpm-lock.yaml`，CI 已切换 frozen lockfile        | M1 退出前保持 lockfile 与依赖声明同步                                         |
 | 登录失败审计 + 锁定策略 | M3.5-C 已实装 5 次失败锁定 15 分钟、所有失败/锁定写入审计 | 完成于 M3.5-C，详见 verification-log `M3.5-C Login Failure Audit and Lockout` |
 
 ## 16. 变更门禁
