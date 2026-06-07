@@ -26,7 +26,7 @@
     "@types/react-dom": "^19.0.2",
     "jsdom": "^25.0.1",
     "react-dom": "^19.0.0",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.0"
   },
   "nx": {
     "tags": ["scope:shared", "type:lib"]
