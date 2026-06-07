@@ -193,6 +193,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - 产品重规划 ADR：`docs/adr/0005-product-replan-roadmap.md`（修正 ADR-0002 的 M5–M8 执行顺序）
 - M5 权限与角色管理 RFC：`docs/rfc/m5-roles-permissions-admin.md`（按类型数据范围模型 B、角色管理、Scope 改造）
 - M6 动态表单 mini + 文件存储 RFC：`docs/rfc/m6-dynamic-forms-file-storage.md`（固定槽位、快照值、本地磁盘 provider、私有文件访问边界）
+- M7 通知基建 + 定时任务调度 RFC：`docs/rfc/m7-notification-scheduler.md`（modules/notification 共享模块、事件驱动+接收人可配、SSE 单实例推送、@nestjs/schedule、删 notification-api app）
 
 后续建议补充：
 
