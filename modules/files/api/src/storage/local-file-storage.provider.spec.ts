@@ -90,6 +90,8 @@ describe('LocalFileStorageProvider', () => {
 
   it('sanitizes control characters and caps the display name', () => {
     expect(sanitizeOriginalName(`bad\u0000name.txt`)).toBe('badname.txt');
+    expect(sanitizeOriginalName('..\\avatar.png')).toBe('avatar.png');
+    expect(sanitizeOriginalName('../avatar.png')).toBe('avatar.png');
     expect(sanitizeOriginalName(`${'a'.repeat(300)}.txt`)).toHaveLength(255);
   });
 

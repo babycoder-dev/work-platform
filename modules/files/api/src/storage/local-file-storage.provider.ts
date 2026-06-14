@@ -147,7 +147,8 @@ export function sanitizeOriginalName(input: string): string {
     })
     .join('')
     .trim();
-  const basename = path.basename(withoutControls).replace(/[\\/]/g, '');
+  const normalizedSeparators = withoutControls.replace(/\\/g, '/');
+  const basename = path.posix.basename(normalizedSeparators).replace(/[\\/]/g, '');
   const normalized = basename || fallback;
   return normalized.length > FILE_STORAGE_MAX_ORIGINAL_NAME_LENGTH
     ? normalized.slice(0, FILE_STORAGE_MAX_ORIGINAL_NAME_LENGTH)
