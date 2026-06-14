@@ -11,9 +11,13 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
+    "@work/event-bus": "workspace:*",
     "@work/nest-common": "workspace:*",
     "@work/notification-contract": "workspace:*",
     "@work/platform-api": "workspace:*",
+    "@work/platform-contract": "workspace:*",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "pg": "^8.13.1"
   },
   "devDependencies": {

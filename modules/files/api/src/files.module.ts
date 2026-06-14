@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { EVENT_BUS, MemoryEventBus } from '@work/event-bus';
 import { FILE_STORAGE_SERVICE } from '@work/files-contract';
+import { EventBusModule } from '@work/nest-common';
 import { PlatformModule } from '@work/platform-api';
 import { Pool } from 'pg';
 import { FILES_STORAGE_CONFIG, readFilesStorageConfig, type FilesStorageConfig } from './config/files-storage.config';
@@ -18,7 +18,7 @@ import { LocalFileStorageProvider } from './storage/local-file-storage.provider'
 import { FilesHealthController } from './system/files-health.controller';
 
 @Module({
-  imports: [PlatformModule, FilesDbModule],
+  imports: [EventBusModule, PlatformModule, FilesDbModule],
   controllers: [FilesHealthController, FilesController],
   providers: [
     {
@@ -47,10 +47,6 @@ import { FilesHealthController } from './system/files-health.controller';
     {
       provide: DISK_SPACE_PROBE,
       useClass: NodeDiskSpaceProbe,
-    },
-    {
-      provide: EVENT_BUS,
-      useFactory: () => new MemoryEventBus(),
     },
     LocalFileStorageProvider,
     FilesService,

@@ -1,5 +1,72 @@
 # Verification Log
 
+## 2026-06-14
+
+### M7-2 Event Subscription + Recipient Resolver + Platform Org Port
+
+Change set:
+
+- Added a global `EventBusModule` in `@work/nest-common` so gateway-mounted presence / files / forms /
+  notification share one process-local `EVENT_BUS`.
+- Extended `presence.status.changed` with `recordId`, `enterpriseId`, and `changeKind`; presence create /
+  cancel now publish enough context for notification generation.
+- Added `PLATFORM_ORG_PORT` to `@work/platform-contract` and implemented it in platform-api as a
+  process-internal read-only org / role lookup returning only user ids.
+- Added notification trigger config contract, `notification.trigger_config` migration with default
+  `presence.status.changed` seed, memory / Postgres repositories, GET / PUT APIs, permission manifest entry,
+  and update audit.
+- Added `RecipientResolver` and a best-effort notification event subscriber; `presence.status.changed`
+  resolves department manager recipients, excludes the actor, and creates in-app notifications without
+  blocking presence on handler failure.
+- Switched presence e2e memory runs to `InMemoryPresenceRepository` when `PLATFORM_REPOSITORY_DRIVER=memory`,
+  matching notification live-link e2e requirements.
+
+Command matrix:
+
+- `pnpm install`: pass; lockfile updated after new workspace dependencies.
+- Focused unit specs: pass, 8 files / 32 tests (`PlatformOrgLookupService`, presence publish payload,
+  `RecipientResolver`, notification subscriber, trigger-config service / repository, seed permissions).
+- `pnpm --filter @work/notification-api typecheck`: pass.
+- `pnpm --filter @work/platform-api typecheck`: pass.
+- `pnpm --filter @work/presence-api typecheck`: pass.
+- `pnpm typecheck`: pass.
+- After security-reviewer Major fix, `pnpm exec vitest run --config vitest.config.mts apps/platform-api/src/org/platform-org-lookup.service.spec.ts`: pass, 1 file / 4 tests.
+- After security-reviewer Major fix, `pnpm --filter @work/platform-api typecheck`: pass.
+- After security-reviewer Major fix, `pnpm exec vitest run --config vitest.e2e.config.mts apps/gateway-api/src/notification.e2e-spec.ts`: pass, 1 file / 4 tests.
+- Primed Nx graph module-boundary lint:
+  `pnpm exec nx graph --file=tmp-graph.json`, then `@work/notification-api:lint`,
+  `@work/presence-api:lint`, and `@work/gateway-api:lint`: pass. The first primed run caught a real
+  boundary error from notification importing `@work/presence-contract`; fixed by using a local minimal event
+  payload type and keeping the live e2e as the contract proof.
+- `pnpm exec vitest run --config vitest.e2e.config.mts apps/gateway-api/src/notification.e2e-spec.ts`: pass,
+  1 file / 4 tests. This covers authenticated notification APIs, no public notification POST, presence
+  create / cancel → manager notification through shared event bus, trigger-config permission 403, and
+  `enabled=false` suppressing generated notifications.
+- `pnpm verify`: pass. Unit: 32 files / 156 tests, with 5 env-gated Postgres integration files skipped when
+  `RUN_POSTGRES_INTEGRATION` is unset. Web: 26 files / 55 tests. E2E: 5 files / 38 tests. Build passed.
+- Postgres notification repository integration was invoked without `RUN_POSTGRES_INTEGRATION=true` and
+  correctly skipped. `docker ps` failed because Docker Desktop Linux engine pipe was unavailable, and
+  `Test-NetConnection localhost:5432` returned `TcpTestSucceeded: False`; local `verify:full` is therefore
+  blocked by missing local Postgres/Docker and must be covered by CI or a machine with PostgreSQL.
+
+Security notes:
+
+- `PLATFORM_ORG_PORT` only returns user ids, every method takes `enterpriseId`, no public HTTP endpoint was
+  added, and notification recipient resolution does not read platform schema.
+- `docs/security-baseline.md` §8.2 now documents the process-internal read-only platform port baseline.
+- First `security-reviewer` pass found one Major: `resolveDepartmentManager` returned
+  `department.managerUserId` without re-checking that manager employee exists, belongs to the same enterprise,
+  and is active. Fixed by validating the manager employee before returning the id, with unit coverage for
+  missing / disabled / cross-enterprise manager.
+- Final `security-reviewer` pass: LGTM, Blocking 0 / Major 0 / Minor 0. The reviewer confirmed the platform
+  read port returns only ids, has no HTTP route, filters role recipients by enterprise and active status, and
+  keeps notification event handling best-effort.
+
+Follow-up:
+
+- M7-3: scheduler foundation (`@nestjs/schedule`, schedule config, placeholder job). SSE and frontend
+  notification UI remain M7-4.
+
 ## 2026-06-07
 
 ### M7-1 Notification Module Skeleton

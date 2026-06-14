@@ -11,6 +11,7 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
+    "@work/event-bus": "workspace:*",
     "@work/errors": "workspace:*"
   },
   "peerDependencies": {

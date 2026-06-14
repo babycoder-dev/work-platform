@@ -4,12 +4,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readNotificationDatabaseConfig } from './db.config';
 import { runNotificationMigrations } from './migrate';
 import { PostgresNotificationRepository } from './postgres-notification.repository';
+import { PostgresTriggerConfigRepository } from './postgres-trigger-config.repository';
 
 const shouldRun = process.env.RUN_POSTGRES_INTEGRATION === 'true';
 
 describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
   let pool: Pool;
   let repository: PostgresNotificationRepository;
+  let triggerConfigRepository: PostgresTriggerConfigRepository;
   let recipientUserId: string;
   let otherUserId: string;
 
@@ -22,6 +24,7 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
       max: config.poolMax,
     });
     repository = new PostgresNotificationRepository(pool);
+    triggerConfigRepository = new PostgresTriggerConfigRepository(pool);
     recipientUserId = randomUUID();
     otherUserId = randomUUID();
   });
@@ -61,7 +64,40 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
     await expect(notificationTableExists()).resolves.toBe(true);
   });
 
+  it('migrates trigger config idempotently and upserts default recipients', async () => {
+    await runNotificationMigrations();
+
+    await expect(
+      triggerConfigRepository.findTriggerConfig('presence.status.changed'),
+    ).resolves.toMatchObject({
+      triggerKey: 'presence.status.changed',
+      enabled: true,
+      defaultRecipients: [{ kind: 'department_manager' }],
+    });
+
+    await expect(
+      triggerConfigRepository.upsertTriggerConfig('presence.status.changed', {
+        enabled: false,
+        defaultRecipients: [{ kind: 'role', roleCode: 'hr' }],
+      }),
+    ).resolves.toMatchObject({
+      triggerKey: 'presence.status.changed',
+      enabled: false,
+      defaultRecipients: [{ kind: 'role', roleCode: 'hr' }],
+    });
+
+    await expect(triggerConfigTableExists()).resolves.toBe(true);
+  });
+
   async function notificationTableExists(): Promise<boolean> {
+    return tableExists('notification.notification');
+  }
+
+  async function triggerConfigTableExists(): Promise<boolean> {
+    return tableExists('notification.trigger_config');
+  }
+
+  async function tableExists(regclassName: string): Promise<boolean> {
     const client = new Client({
       connectionString: readNotificationDatabaseConfig().databaseUrl,
       ssl: readNotificationDatabaseConfig().ssl ? { rejectUnauthorized: false } : undefined,
@@ -69,7 +105,8 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
     await client.connect();
     try {
       const result = await client.query<{ exists: boolean }>(
-        "SELECT to_regclass('notification.notification') IS NOT NULL AS exists",
+        'SELECT to_regclass($1) IS NOT NULL AS exists',
+        [regclassName],
       );
       return result.rows[0]?.exists === true;
     } finally {

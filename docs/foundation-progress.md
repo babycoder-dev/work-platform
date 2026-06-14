@@ -21,7 +21,7 @@
 | M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done        | M4-4 交付验证已完成；presence 模块进入维护态                                                        |
 | M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done        | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                                     |
 | M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done        | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，下一步 M7 通知 + 调度                 |
-| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | In Progress | M7-1 模块骨架已交付；下一步 M7-2 事件订阅 + RecipientResolver + platform 读端口；不引入 IM/重型实时 |
+| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | In Progress | M7-2 事件订阅 + RecipientResolver + platform 读端口已交付；下一步 M7-3 调度基建；不引入 IM/重型实时 |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending     | 依赖 M5/M6/M7                                                                                       |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending     | 在 M4 presence 基础上扩展                                                                           |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                          |
@@ -185,7 +185,7 @@
 当前建议执行：
 
 ```text
-M7-2: 事件订阅 + RecipientResolver + platform 读端口（只接 presence.status.changed live 链路）
+M7-3: 调度基建（@nestjs/schedule + schedule 配置 + 占位 job）
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -197,7 +197,8 @@ Files provider、上传 API、staged 生命周期、TTL 清理、配额 / 限流
 （`docs/rfc/m7-notification-scheduler.md`，两轮独立评审通过）：通知做成 `modules/notification` 共享模块、
 事件驱动 + 接收人可配、SSE 单实例推送、`@nestjs/schedule` 调度、删除 `apps/notification-api`；
 本期只接通 `presence.status.changed`→部门负责人一条 live 链路，①②④触发点留预留接线。
-M7-1 模块骨架已完成，下一步进入 M7-2 事件订阅 + RecipientResolver + platform 读端口切片。
+M7-1 模块骨架已完成；M7-2 已接通 presence.status.changed → 部门负责人通知 live 链路，
+下一步进入 M7-3 调度基建切片。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -212,7 +213,8 @@ M4-4 完成结果：
 
 M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享后端基建骨架、M6-2
 本地磁盘 Files provider + 上传 API、M6-3 Forms API + 快照记录 + 文件 / 人员字段、M6-4 后端
-交付验证、M6-W 前端地基 + 工作台首页均已完成。M7-0 RFC 已 Accepted，M7-1 通知模块骨架已完成，下一步执行 M7-2 事件订阅 + RecipientResolver + platform 读端口；
+交付验证、M6-W 前端地基 + 工作台首页均已完成。M7-0 RFC 已 Accepted，M7-1 通知模块骨架、
+M7-2 事件订阅 + RecipientResolver + platform 读端口已完成，下一步执行 M7-3 调度基建；
 forms UI 迁 M8。
 注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
 `docs/adr/0005-product-replan-roadmap.md`。
@@ -257,7 +259,8 @@ forms UI 迁 M8。
 | ---- | --------------------------------------- | ------- | ----------------------------------------------------------------------------------------- |
 | M7-0 | RFC                                     | Done    | 2026-06-07 Accepted；`docs/rfc/m7-notification-scheduler.md`                              |
 | M7-1 | 通知模块骨架 + 站内通知最小闭环         | Done    | 2026-06-07 完成；详见 verification-log `M7-1 Notification Module Skeleton`                |
-| M7-2 | 事件订阅 + 接收人解析 + platform 读端口 | Pending | 下一步；只接 `presence.status.changed` live 链路，触发点配置写接口 / SSE / 前端留后续切片 |
+| M7-2 | 事件订阅 + 接收人解析 + platform 读端口 | Done | 2026-06-14 完成；详见 verification-log `M7-2 Event Subscription + Recipient Resolver + Platform Org Port` |
+| M7-3 | 调度基建 | Pending | 下一步；`@nestjs/schedule` + schedule 配置 + 占位 job，日报具体逻辑仍预留 |
 
 ## 7. 当前阻塞项
 

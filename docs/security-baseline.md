@@ -350,6 +350,16 @@ M6 Files 本地磁盘 provider 属安全敏感面，必须满足：
 - 错误、日志、审计不得输出磁盘绝对路径、文件内容、完整请求体或跨租户命中对象 metadata。
 - PostgreSQL metadata 与本地文件 volume 必须协调备份恢复，备份按敏感数据保护，并做 metadata-volume 完整性检查。
 
+### 8.2 进程内平台只读端口基线
+
+通知等内嵌共享模块如需解析组织或角色接收人，只能通过 `@work/platform-contract` 暴露的进程内只读端口调用
+platform-api。M7-2 当前端口为 `PLATFORM_ORG_PORT`：
+
+- 调用方必须传入来自认证上下文或可信领域事件 payload 的 `enterpriseId`，platform 实现每次查询都校验企业边界。
+- 端口只返回 user id 等最小标识，不返回姓名、手机号、邮箱、账号、角色详情等档案或敏感字段。
+- 端口不得开放公开 HTTP 路由；业务模块不得直接读 `platform.*` schema 或跨 schema join。
+- 跨企业、不存在、禁用员工 / 部门 / 角色等情况按空结果处理，避免接收人解析泄露对象存在性。
+
 ## 9. Redis 安全
 
 Redis 首期用于 session/cache/stream 时必须：

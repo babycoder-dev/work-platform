@@ -62,9 +62,6 @@ describe('platform seed data', () => {
     expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
       'report:weekly:view',
     );
-    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
-      notificationPermissions.triggerConfigManage,
-    );
   });
 
   it('declares the presence management permission and registration menu', () => {
@@ -78,6 +75,7 @@ describe('platform seed data', () => {
         'forms:report-definition:manage',
         'forms:record:submit',
         'forms:record:view',
+        notificationPermissions.triggerConfigManage,
         'presence:board:view',
         'presence:status:create',
         'presence:status:manage',

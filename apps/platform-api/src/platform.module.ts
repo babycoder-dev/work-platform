@@ -3,6 +3,7 @@ import { PermissionGuard } from '@work/nest-common';
 import {
   PLATFORM_AUDIT_SERVICE,
   PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
+  PLATFORM_ORG_PORT,
   PLATFORM_SCOPE_SERVICE,
 } from '@work/platform-contract';
 import { AuthController } from './auth/auth.controller';
@@ -13,6 +14,7 @@ import { DbModule } from './db/db.module';
 import { DepartmentController } from './org/department.controller';
 import { EnterpriseController } from './org/enterprise.controller';
 import { OrgService } from './org/org.service';
+import { PlatformOrgLookupService } from './org/platform-org-lookup.service';
 import { PermissionController } from './rbac/permission.controller';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from './repositories/platform.repository';
 import { PostgresPlatformRepository } from './repositories/postgres-platform.repository';
@@ -57,6 +59,7 @@ import { EmployeeService } from './users/employee.service';
     AuthService,
     PlatformAuthGuard,
     OrgService,
+    PlatformOrgLookupService,
     EmployeeService,
     EmployeeLookupService,
     PlatformScopeService,
@@ -73,6 +76,10 @@ import { EmployeeService } from './users/employee.service';
       provide: PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
       useExisting: EmployeeLookupService,
     },
+    {
+      provide: PLATFORM_ORG_PORT,
+      useExisting: PlatformOrgLookupService,
+    },
     PermissionGuard,
     RbacService,
   ],
@@ -83,6 +90,7 @@ import { EmployeeService } from './users/employee.service';
     PLATFORM_SCOPE_SERVICE,
     PLATFORM_AUDIT_SERVICE,
     PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
+    PLATFORM_ORG_PORT,
   ],
 })
 export class PlatformModule {}

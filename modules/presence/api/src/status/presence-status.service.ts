@@ -108,11 +108,14 @@ export class PresenceStatusService {
       source: 'presence.api',
       traceId: auditContext.traceId,
       payload: {
+        recordId: record.id,
+        enterpriseId: currentUser.enterpriseId,
         userId: record.userId,
         status: record.status,
         startAt: record.startAt,
         endAt: record.endAt,
         changedBy: currentUser.id,
+        changeKind: 'created',
       },
     });
 
@@ -165,11 +168,14 @@ export class PresenceStatusService {
       source: 'presence.api',
       traceId: auditContext.traceId,
       payload: {
+        recordId: cancelled.id,
+        enterpriseId: currentUser.enterpriseId,
         userId: cancelled.userId,
         status: cancelled.status,
         startAt: cancelled.startAt,
         endAt: cancelled.endAt,
         changedBy: currentUser.id,
+        changeKind: 'cancelled',
       },
     });
 

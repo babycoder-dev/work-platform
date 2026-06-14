@@ -76,11 +76,14 @@ describe('PresenceStatusService', () => {
       source: 'presence.api',
       traceId: 'trace-create',
       payload: {
+        recordId: 'record-001',
+        enterpriseId: 'enterprise-001',
         userId: 'user-001',
         status: 'business_trip',
         startAt: '2026-05-25T01:00:00.000Z',
         endAt: '2026-05-25T09:00:00.000Z',
         changedBy: 'user-001',
+        changeKind: 'created',
       },
     });
   });
@@ -137,11 +140,14 @@ describe('PresenceStatusService', () => {
       source: 'presence.api',
       traceId: 'trace-cancel',
       payload: {
+        recordId: 'record-001',
+        enterpriseId: 'enterprise-001',
         userId: 'user-001',
         status: 'business_trip',
         startAt: '2026-05-25T01:00:00.000Z',
         endAt: '2026-05-25T09:00:00.000Z',
         changedBy: 'user-001',
+        changeKind: 'cancelled',
       },
     });
   });

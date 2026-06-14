@@ -12,8 +12,10 @@ describe('notification API', () => {
   let adminUserId: string;
   let notificationService: NotificationService;
   const previousEnv: Record<string, string | undefined> = {};
+  let suffix: string;
 
   beforeAll(async () => {
+    suffix = Date.now().toString();
     for (const key of ['PLATFORM_REPOSITORY_DRIVER', 'NOTIFICATION_REPOSITORY_DRIVER']) {
       previousEnv[key] = process.env[key];
     }
@@ -134,11 +136,174 @@ describe('notification API', () => {
       });
   });
 
+  it('turns presence status changes into manager notifications through the shared event bus', async () => {
+    const { managerToken, subjectToken } = await createPresenceTeam();
+    const before = await unreadCount(managerToken);
+
+    const created = await request(app.getHttpServer())
+      .post('/api/presence/status-records')
+      .set('Authorization', `Bearer ${subjectToken}`)
+      .send({
+        status: 'business_trip',
+        startAt: '2026-06-07T01:00:00.000Z',
+        endAt: '2026-06-07T09:00:00.000Z',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get('/api/notification')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              recipientUserId: expect.any(String),
+              sourceModule: 'presence',
+              sourceId: created.body.id,
+              content: '有团队成员登记了出差状态，请查看在位看板',
+            }),
+          ]),
+        );
+      });
+    await expect(unreadCount(managerToken)).resolves.toBe(before + 1);
+
+    await request(app.getHttpServer())
+      .delete(`/api/presence/status-records/${created.body.id}`)
+      .set('Authorization', `Bearer ${subjectToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get('/api/notification')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              sourceModule: 'presence',
+              sourceId: created.body.id,
+              content: '有团队成员取消了出差状态，请查看在位看板',
+            }),
+          ]),
+        );
+      });
+    await expect(unreadCount(managerToken)).resolves.toBe(before + 2);
+  });
+
+  it('protects trigger config writes and disables notification generation when configured off', async () => {
+    const { managerToken, subjectToken, limitedToken } = await createPresenceTeam();
+    const before = await unreadCount(managerToken);
+
+    await request(app.getHttpServer())
+      .put('/api/notification/trigger-config/presence.status.changed')
+      .set('Authorization', `Bearer ${limitedToken}`)
+      .send({ enabled: false })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .put('/api/notification/trigger-config/presence.status.changed')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ enabled: false, defaultRecipients: [{ kind: 'department_manager' }] })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toMatchObject({
+          triggerKey: 'presence.status.changed',
+          enabled: false,
+        });
+      });
+
+    await request(app.getHttpServer())
+      .post('/api/presence/status-records')
+      .set('Authorization', `Bearer ${subjectToken}`)
+      .send({
+        status: 'out',
+        startAt: '2026-06-08T01:00:00.000Z',
+        endAt: '2026-06-08T09:00:00.000Z',
+      })
+      .expect(201);
+
+    await expect(unreadCount(managerToken)).resolves.toBe(before);
+
+    await request(app.getHttpServer())
+      .put('/api/notification/trigger-config/presence.status.changed')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ enabled: true, defaultRecipients: [{ kind: 'department_manager' }] })
+      .expect(200);
+  });
+
   async function login(account: string, password: string): Promise<string> {
     const response = await request(app.getHttpServer())
       .post('/api/platform/auth/login')
       .send({ account, password })
       .expect(201);
     return response.body.accessToken;
+  }
+
+  async function unreadCount(token: string): Promise<number> {
+    const response = await request(app.getHttpServer())
+      .get('/api/notification/unread-count')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    return response.body.count as number;
+  }
+
+  async function createPresenceTeam() {
+    const marker = `${suffix}-${Math.random().toString(36).slice(2, 8)}`;
+    const manager = await createEmployee(`manager-${marker}`, `M${marker}`);
+    const department = await request(app.getHttpServer())
+      .post('/api/platform/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        enterpriseId: 'ent-default',
+        name: `Presence Dept ${marker}`,
+        code: `D${marker}`.slice(0, 20),
+        managerUserId: manager.id,
+      })
+      .expect(201);
+    const subject = await createEmployee(`subject-${marker}`, `S${marker}`, department.body.id);
+    const limited = await createEmployee(`limited-${marker}`, `L${marker}`);
+    const roleResponse = await request(app.getHttpServer())
+      .post('/api/platform/roles')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        enterpriseId: 'ent-default',
+        code: `presence-create-${marker}`,
+        name: `Presence create ${marker}`,
+        permissionCodes: ['presence:status:create'],
+        dataScopes: [
+          { dataType: 'profile', scope: 'self' },
+          { dataType: 'presence', scope: 'self' },
+          { dataType: 'report', scope: 'self' },
+        ],
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${subject.id}/roles`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ roleIds: [roleResponse.body.id] })
+      .expect(200);
+
+    return {
+      managerToken: await login(manager.account, 'Passw0rd'),
+      subjectToken: await login(subject.account, 'Passw0rd'),
+      limitedToken: await login(limited.account, 'Passw0rd'),
+    };
+  }
+
+  async function createEmployee(account: string, employeeNo: string, departmentId?: string) {
+    const response = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        enterpriseId: 'ent-default',
+        employeeNo: employeeNo.slice(0, 20),
+        account,
+        name: account,
+        departmentId,
+        initialPassword: 'Passw0rd',
+      })
+      .expect(201);
+    return response.body as { id: string; account: string };
   }
 });

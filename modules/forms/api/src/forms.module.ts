@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { EVENT_BUS, MemoryEventBus } from '@work/event-bus';
 import { FORMS_SERVICE } from '@work/forms-contract';
 import { FilesModule } from '@work/files-api';
+import { EventBusModule } from '@work/nest-common';
 import { PlatformModule } from '@work/platform-api';
 import { Pool } from 'pg';
 import { FormsDbModule, FORMS_DB_POOL } from './db/forms-db.module';
@@ -14,7 +14,7 @@ import { FormsService } from './forms/forms.service';
 import { FormsHealthController } from './system/forms-health.controller';
 
 @Module({
-  imports: [PlatformModule, FilesModule, FormsDbModule],
+  imports: [EventBusModule, PlatformModule, FilesModule, FormsDbModule],
   controllers: [FormsHealthController, FormsDefinitionController],
   providers: [
     {
@@ -30,10 +30,6 @@ import { FormsHealthController } from './system/forms-health.controller';
         memoryRepository: InMemoryFormsRepository,
       ) => (process.env.FORMS_REPOSITORY_DRIVER === 'memory' ? memoryRepository : postgresRepository),
       inject: [PostgresFormsRepository, InMemoryFormsRepository],
-    },
-    {
-      provide: EVENT_BUS,
-      useFactory: () => new MemoryEventBus(),
     },
     FormsService,
     FormsDefinitionPermissionGuard,

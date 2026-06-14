@@ -13,7 +13,7 @@ im-adapter-api
   OpenIM 适配 / 用户同步 / 系统通知 / Webhook
 
 modules/notification/api
-  站内通知 / 未读 / 通知渠道编排（经 gateway-api 装配）
+  站内通知 / 未读 / 触发点配置 / 接收人解析 / 通知渠道编排（经 gateway-api 装配）
 
 realtime-gateway
   平台实时通道 / 站内通知推送 / 状态刷新
@@ -217,6 +217,7 @@ platform.audit_logs
 platform.domain_events
 
 notification.notification
+notification.trigger_config
 
 presence.status_records
 presence.status_types
@@ -248,7 +249,15 @@ approval.instance.completed
 report.weekly.submitted
 ```
 
-事件先用进程内 event bus 或 Redis Stream，占位接口保持稳定，未来可替换为消息队列。
+当前内嵌阶段使用 `@work/nest-common` 的全局 `EventBusModule` 提供单例 `EVENT_BUS`，presence /
+files / forms / notification 共享同一进程内 `MemoryEventBus`。M7-2 已用
+`presence.status.changed` → notification 订阅器证明跨模块事件可达；未来服务拆分时保留事件契约并替换为
+Redis Stream / outbox / 消息队列。
+
+notification 的接收人解析只通过 `@work/platform-contract` 暴露的进程内只读 `PLATFORM_ORG_PORT`
+获取平台数据：`resolveDepartmentManager(enterpriseId,userId)` 与
+`listUserIdsByRole(enterpriseId,roleCode)` 均由 platform-api 实现，只返回 user id，不开放 HTTP 端点，
+不允许 notification 直接读 platform schema。
 
 ## 5.1 IM Provider
 
