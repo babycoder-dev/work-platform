@@ -20,7 +20,7 @@
     "@work/ui": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^6.28.0",
+    "react-router-dom": "^6.30.4",
     "vite": "^6.0.5"
   },
   "devDependencies": {
@@ -31,7 +31,7 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "jsdom": "^25.0.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.6"
   },
   "nx": {
     "tags": ["scope:composition", "type:app"]
