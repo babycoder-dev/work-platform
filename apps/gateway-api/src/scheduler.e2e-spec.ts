@@ -1,12 +1,15 @@
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import { configurePlatformHttp } from '@work/nest-common';
-import request from 'supertest';
+import { HeartbeatJob, SchedulerRegistry } from '@work/notification-api';
+import { scheduleJobKeys } from '@work/notification-contract';
+import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GatewayModule } from './gateway.module';
 
-describe('forms/files gateway mounting', () => {
+describe('notification scheduler bootstrap', () => {
   let app: INestApplication;
+  let registry: SchedulerRegistry;
+  let heartbeatJob: HeartbeatJob;
   const previousEnv: Record<string, string | undefined> = {};
 
   beforeAll(async () => {
@@ -23,6 +26,9 @@ describe('forms/files gateway mounting', () => {
     app = moduleRef.createNestApplication();
     configurePlatformHttp(app, { globalPrefix: 'api' });
     await app.init();
+
+    registry = app.get(SchedulerRegistry);
+    heartbeatJob = app.get(HeartbeatJob);
   });
 
   afterAll(async () => {
@@ -36,19 +42,17 @@ describe('forms/files gateway mounting', () => {
     }
   });
 
-  it('mounts forms and files routes with their module prefixes', async () => {
-    await request(app.getHttpServer())
-      .get('/api/forms/health')
-      .expect(200)
-      .expect((response) => {
-        expect(response.body).toEqual({ module: 'forms', status: 'ok' });
-      });
+  it('registers heartbeat from schedule_config and skips disabled report placeholders', async () => {
+    expect(registry.doesExist('cron', scheduleJobKeys.heartbeat)).toBe(true);
+    expect(registry.getCronJob(scheduleJobKeys.heartbeat).cronTime.source).toBe('0 * * * *');
+    expect(registry.doesExist('cron', scheduleJobKeys.reportReminderDue)).toBe(false);
+    expect(registry.doesExist('cron', scheduleJobKeys.reportReminderCompleted)).toBe(false);
 
-    await request(app.getHttpServer())
-      .get('/api/files/health')
-      .expect(200)
-      .expect((response) => {
-        expect(response.body).toEqual({ module: 'files', status: 'ok' });
-      });
+    const before = heartbeatJob.getStatus();
+    await heartbeatJob.getDefinition().run();
+    const after = heartbeatJob.getStatus();
+
+    expect(after.runCount).toBe(before.runCount + 1);
+    expect(after.lastRunAt).toBeInstanceOf(Date);
   });
 });

@@ -95,6 +95,12 @@ pnpm db:setup
 ```
 
 `db:setup` 会依次执行 platform、presence、files、forms、notification 迁移，再幂等写入默认企业、总部部门、平台权限、系统管理员角色和初始管理员身份。重复执行不会覆盖已有管理员密码，除非显式设置 `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true`。
+notification 迁移会自动发现并执行 `notification.schedule_config` 的调度配置迁移；无需单独新增入口，
+也可以用 `pnpm db:migrate:notification` 单独重跑，迁移和 seed 均幂等。
+
+M7-3 起，`gateway-api` 内嵌 notification 调度基建并由 `@nestjs/schedule` 在进程内注册 CronJob。当前生产假设是
+单实例调度；如果横向扩展多个 `gateway-api` 副本，调度 job 会在每个副本各自触发，需先补分布式锁 / leader 选举 /
+DB advisory lock 等多副本协调能力后再启用多副本调度。
 
 服务：
 

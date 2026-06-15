@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readNotificationDatabaseConfig } from './db.config';
 import { runNotificationMigrations } from './migrate';
 import { PostgresNotificationRepository } from './postgres-notification.repository';
+import { PostgresScheduleConfigRepository } from './postgres-schedule-config.repository';
 import { PostgresTriggerConfigRepository } from './postgres-trigger-config.repository';
 
 const shouldRun = process.env.RUN_POSTGRES_INTEGRATION === 'true';
@@ -12,6 +13,7 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
   let pool: Pool;
   let repository: PostgresNotificationRepository;
   let triggerConfigRepository: PostgresTriggerConfigRepository;
+  let scheduleConfigRepository: PostgresScheduleConfigRepository;
   let recipientUserId: string;
   let otherUserId: string;
 
@@ -25,6 +27,7 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
     });
     repository = new PostgresNotificationRepository(pool);
     triggerConfigRepository = new PostgresTriggerConfigRepository(pool);
+    scheduleConfigRepository = new PostgresScheduleConfigRepository(pool);
     recipientUserId = randomUUID();
     otherUserId = randomUUID();
   });
@@ -89,12 +92,63 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
     await expect(triggerConfigTableExists()).resolves.toBe(true);
   });
 
+  it('migrates schedule config idempotently and upserts cron settings', async () => {
+    await runNotificationMigrations();
+
+    await expect(
+      scheduleConfigRepository.findScheduleConfig('notification.heartbeat'),
+    ).resolves.toMatchObject({
+      jobKey: 'notification.heartbeat',
+      cron: '0 * * * *',
+      enabled: true,
+      params: {},
+    });
+    await expect(
+      scheduleConfigRepository.findScheduleConfig('report.reminder.due'),
+    ).resolves.toMatchObject({
+      jobKey: 'report.reminder.due',
+      cron: '0 9 * * *',
+      enabled: false,
+      params: {},
+    });
+
+    await expect(
+      scheduleConfigRepository.upsertScheduleConfig('notification.heartbeat', {
+        cron: '*/15 * * * *',
+        enabled: false,
+        params: { threshold: 5 },
+      }),
+    ).resolves.toMatchObject({
+      jobKey: 'notification.heartbeat',
+      cron: '*/15 * * * *',
+      enabled: false,
+      params: { threshold: 5 },
+    });
+
+    await expect(
+      scheduleConfigRepository.upsertScheduleConfig('notification.heartbeat', {
+        enabled: true,
+      }),
+    ).resolves.toMatchObject({
+      jobKey: 'notification.heartbeat',
+      cron: '*/15 * * * *',
+      enabled: true,
+      params: { threshold: 5 },
+    });
+
+    await expect(scheduleConfigTableExists()).resolves.toBe(true);
+  });
+
   async function notificationTableExists(): Promise<boolean> {
     return tableExists('notification.notification');
   }
 
   async function triggerConfigTableExists(): Promise<boolean> {
     return tableExists('notification.trigger_config');
+  }
+
+  async function scheduleConfigTableExists(): Promise<boolean> {
+    return tableExists('notification.schedule_config');
   }
 
   async function tableExists(regclassName: string): Promise<boolean> {

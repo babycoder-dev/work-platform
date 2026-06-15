@@ -13,7 +13,7 @@ im-adapter-api
   OpenIM 适配 / 用户同步 / 系统通知 / Webhook
 
 modules/notification/api
-  站内通知 / 未读 / 触发点配置 / 接收人解析 / 通知渠道编排（经 gateway-api 装配）
+  站内通知 / 未读 / 触发点配置 / 接收人解析 / 调度基建 / 通知渠道编排（经 gateway-api 装配）
 
 realtime-gateway
   平台实时通道 / 站内通知推送 / 状态刷新
@@ -218,6 +218,7 @@ platform.domain_events
 
 notification.notification
 notification.trigger_config
+notification.schedule_config
 
 presence.status_records
 presence.status_types
@@ -258,6 +259,13 @@ notification 的接收人解析只通过 `@work/platform-contract` 暴露的进�
 获取平台数据：`resolveDepartmentManager(enterpriseId,userId)` 与
 `listUserIdsByRole(enterpriseId,roleCode)` 均由 platform-api 实现，只返回 user id，不开放 HTTP 端点，
 不允许 notification 直接读 platform schema。
+
+notification 模块承载调度基建：`NotificationModule` 装配一次 `ScheduleModule.forRoot()`，
+`SchedulerBootstrapService` 启动时从 `notification.schedule_config` 读取 `cron` / `enabled` 并动态注册
+`CronJob`，销毁时停止并删除本服务注册的 job。M7-3 已启用 `notification.heartbeat` 占位 job 证明框架可用；
+`report.reminder.due` 与 `report.reminder.completed` 仅作为 M10 日报提醒接线点预留，默认 disabled。
+当前调度是进程内单实例 best-effort；多副本部署时每个副本都会触发 cron，分布式锁 / leader 选举 / DB advisory
+lock 属后续多副本调度协调预留。
 
 ## 5.1 IM Provider
 

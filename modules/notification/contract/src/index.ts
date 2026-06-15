@@ -4,4 +4,5 @@ export * from './notification.dto';
 export * from './permissions';
 export * from './platform-manifest';
 export * from './ports';
+export * from './schedule';
 export * from './trigger-config.dto';

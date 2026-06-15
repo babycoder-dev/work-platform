@@ -1,5 +1,60 @@
 # Verification Log
 
+## 2026-06-15
+
+### M7-3 Scheduler Infrastructure
+
+Change set:
+
+- Added `@nestjs/schedule` and explicit `cron` dependency to `@work/notification-api`.
+- Added `notification.schedule_config` migration with idempotent seed for enabled
+  `notification.heartbeat` and disabled M10 placeholders `report.reminder.due` /
+  `report.reminder.completed`.
+- Added schedule config repository contract plus memory / Postgres implementations and
+  Postgres-gated integration coverage.
+- Added `SchedulerBootstrapService` using `SchedulerRegistry` + dynamic `CronJob`, reading
+  cron/enabled from `schedule_config`, best-effort wrapping job handlers, and stopping/deleting
+  registered jobs on module destroy.
+- Added `HeartbeatJob` with in-process status for assertions and reserved no-op report reminder jobs
+  with M10 comments. No HTTP endpoint, permission point, or write audit was added.
+
+Command matrix:
+
+- `pnpm install`: pass; workspace already up to date after scheduler dependencies were declared.
+- Focused scheduler unit specs: pass, 3 files / 7 tests (`schedule_config` memory repo,
+  bootstrap dynamic registration / cleanup / swallow-error behavior, heartbeat + reserved no-op jobs).
+- Focused scheduler e2e: pass, 1 file / 1 test. Gateway composition registers heartbeat from the
+  seeded cron `0 * * * *`, skips disabled report placeholders, and `app.close()` exits cleanly.
+- Primed Nx graph boundary lint: pass for `@work/notification-api:lint` and `@work/gateway-api:lint`.
+- `pnpm verify`: pass. Unit: 35 files / 163 tests, with 5 env-gated Postgres integration files skipped
+  when `RUN_POSTGRES_INTEGRATION` is unset. Web: 26 files / 55 tests. E2E: 6 files / 39 tests,
+  including `apps/gateway-api/src/scheduler.e2e-spec.ts`. Build passed.
+- Postgres-gated `schedule_config` integration is present in
+  `modules/notification/api/src/db/postgres-notification.repository.integration.spec.ts`. Local
+  `verify:full` was not run because `docker ps` failed with a missing Docker Desktop Linux engine pipe,
+  `Test-NetConnection localhost:5432` returned `TcpTestSucceeded: False`, and `psql` is unavailable.
+  This is recorded as an environment block; the Postgres path must be covered by CI or a machine with
+  PostgreSQL and `RUN_POSTGRES_INTEGRATION=true`.
+
+Security / scope notes:
+
+- Non security-reviewer gate by task-package decision: this slice does not touch auth/scope/audit/rbac,
+  does not add HTTP endpoints, permission points, platform read ports, or sensitive fields, and only adds
+  notification-owned schema plus in-process scheduling. `docs/security-baseline.md` was therefore not changed.
+- `pnpm docker:build` was not run: the task package marks Docker build as non-required unless Dockerfile /
+  compose deployment shape changes, and this slice changed neither.
+- Post-implementation independent review found one Major: scheduler registration-time failures were logged
+  and swallowed, which could let the service start without the heartbeat job. Fixed by making registration /
+  config failures fail module initialization while preserving best-effort swallow behavior for job handler
+  execution failures; unit coverage now asserts both paths.
+- No deployment shape change: no Dockerfile / compose service changes. Deployment docs now call out
+  `notification.schedule_config` migration and the single-instance scheduling boundary.
+
+Follow-up:
+
+- M7-4: SSE endpoint + frontend bell / workbench card. M10 owns actual report reminder business logic and
+  any future schedule-config write API / audit path.
+
 ## 2026-06-14
 
 ### M7-2 Event Subscription + Recipient Resolver + Platform Org Port
