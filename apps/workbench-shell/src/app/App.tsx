@@ -115,7 +115,7 @@ export function App() {
   const navigationItems = useMemo(() => buildNavigationItems(session.menus), [session.menus]);
   const navigationGroups = useMemo(() => buildNavigationGroups(session.menus), [session.menus]);
 
-  async function handleLogin(input: LoginInput) {
+  const handleLogin = useCallback(async (input: LoginInput) => {
     setIsSubmitting(true);
     try {
       const login = await api.login(input);
@@ -131,13 +131,13 @@ export function App() {
     } finally {
       setIsSubmitting(false);
     }
-  }
+  }, [api]);
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     clearAccessToken();
     setSession({ menus: [] });
     setErrorMessage(undefined);
-  }
+  }, []);
 
   if (!session.accessToken || !session.currentUser) {
     return (

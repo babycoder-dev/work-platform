@@ -1,13 +1,45 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { CurrentUserDto } from '@work/platform-contract';
 import type { NotificationDto } from '@work/notification-contract';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppShell, LoginView, WorkbenchHome } from './App';
+import { App, AppShell, LoginView, WorkbenchHome } from './App';
 import type { NavigationGroup, NavigationItem } from './navigation';
 import type { NotificationApiClient } from '../platform/notification-api';
+
+const routerMock = vi.hoisted(() => ({
+  navigate: vi.fn(),
+}));
+
+const platformApiMock = vi.hoisted(() => ({
+  createPlatformApiClient: vi.fn(),
+}));
+
+const notificationApiFactoryMock = vi.hoisted(() => ({
+  createNotificationApiClient: vi.fn(),
+}));
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...actual,
+    useNavigate: () => routerMock.navigate,
+  };
+});
+
+vi.mock('../platform/platform-api', () => ({
+  createPlatformApiClient: platformApiMock.createPlatformApiClient,
+}));
+
+vi.mock('../platform/notification-api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../platform/notification-api')>();
+  return {
+    ...actual,
+    createNotificationApiClient: notificationApiFactoryMock.createNotificationApiClient,
+  };
+});
 
 const currentUser: CurrentUserDto = {
   id: 'user-001',
@@ -69,6 +101,9 @@ const notification: NotificationDto = {
 describe('workbench shell frontend foundation', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    routerMock.navigate.mockReset();
+    platformApiMock.createPlatformApiClient.mockReset();
+    notificationApiFactoryMock.createNotificationApiClient.mockReset();
   });
 
   it('renders the restyled login and preserves submit behavior', async () => {
@@ -119,9 +154,10 @@ describe('workbench shell frontend foundation', () => {
     expect(notificationButton).toBeDefined();
     await userEvent.click(notificationButton as HTMLButtonElement);
     expect(notificationApi.markRead).toHaveBeenCalledWith('notification-001');
+    expect(routerMock.navigate).toHaveBeenCalledWith('/presence/board');
+    expect(screen.queryByText('李四更新了在位状态')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '张' }));
-    expect(screen.queryByText('李四更新了在位状态')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('menuitem', { name: '退出登录' }));
     expect(onLogout).toHaveBeenCalled();
   });
@@ -141,6 +177,53 @@ describe('workbench shell frontend foundation', () => {
   it('formats large notification counts in the topbar badge', async () => {
     renderShell(vi.fn(), createNotificationApi({ count: 120, items: [] }));
     expect(await screen.findByText('99+')).toBeInTheDocument();
+  });
+
+  it('does not render the notification badge when there are no unread notifications', async () => {
+    const notificationApi = createNotificationApi({ count: 0, items: [] });
+    renderShell(vi.fn(), notificationApi);
+
+    const notificationButton = screen.getByRole('button', { name: /通知/ });
+    await waitForInitialNotificationLoad(notificationApi);
+
+    expect(within(notificationButton).queryByText('0')).not.toBeInTheDocument();
+    expect(within(notificationButton).queryByText('99+')).not.toBeInTheDocument();
+  });
+
+  it('keeps the notification stream stable across login bootstrap rerenders', async () => {
+    const platformApi = {
+      login: vi.fn().mockResolvedValue({
+        accessToken: 'token-001',
+        currentUser,
+      }),
+      bootstrap: vi.fn().mockResolvedValue({
+        currentUser,
+        menus: [],
+      }),
+    };
+    const notificationApiFns = createNotificationApi({ count: 0, items: [] });
+    platformApiMock.createPlatformApiClient.mockReturnValue(platformApi);
+    notificationApiFactoryMock.createNotificationApiClient.mockImplementation(() => ({
+      listNotifications: notificationApiFns.listNotifications,
+      unreadCount: notificationApiFns.unreadCount,
+      markRead: notificationApiFns.markRead,
+      markAllRead: notificationApiFns.markAllRead,
+      stream: notificationApiFns.stream,
+    }));
+
+    render(<App />);
+
+    await userEvent.type(screen.getByLabelText('密码'), 'secret');
+    await userEvent.click(screen.getByRole('button', { name: '登录' }));
+    await screen.findByText(/晚上好|下午好|早上好/);
+    await waitForInitialNotificationLoad(notificationApiFns);
+
+    expect(platformApi.login).toHaveBeenCalledWith({ account: 'admin', password: 'secret' });
+    expect(platformApi.bootstrap).toHaveBeenCalledTimes(1);
+    expect(notificationApiFns.stream).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole('button', { name: '折叠侧栏' }));
+    expect(notificationApiFns.stream).toHaveBeenCalledTimes(1);
   });
 
   it('closes topbar search with Escape', async () => {
@@ -228,4 +311,12 @@ function createNotificationApi({
     markAllRead: ReturnType<typeof vi.fn>;
     stream: ReturnType<typeof vi.fn>;
   };
+}
+
+async function waitForInitialNotificationLoad(
+  notificationApi: NotificationApiClient & {
+    unreadCount: ReturnType<typeof vi.fn>;
+  },
+) {
+  await waitFor(() => expect(notificationApi.unreadCount).toHaveBeenCalled());
 }

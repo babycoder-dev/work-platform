@@ -43,6 +43,27 @@ Command matrix:
   Docker deployment shape. Postgres-gated integration remains CI / Docker-host responsibility.
 - `pnpm docker:build`: not required by the task package and not run; no Dockerfile / compose service shape changed.
 
+Review follow-up on 2026-06-17:
+
+- Stabilized `App` login callbacks with `useCallback` so `AppShell` no longer rebuilds the notification API and
+  reconnects SSE during bootstrap / unrelated shell rerenders.
+- Added regression coverage for one-login-one-stream behavior, notification click navigation to `/presence/board`,
+  dropdown close after navigation, hidden bell badge when unread count is zero, 15s second-stage reconnect backoff,
+  and optimistic rollback for failed `markRead` / `markAllRead`.
+- Kept the optional `readSseBody(done:true) -> onClose` change out of this patch. It would alter the shared
+  http-client / hook close semantics beyond the required review fixes; current behavior remains intentional fallback
+  to polling + retry when a server / proxy closes the stream.
+- Review follow-up focused command:
+  `NODE_ENV=test npx vitest run --config vitest.web.config.mts apps/workbench-shell/src/app/App.spec.tsx apps/workbench-shell/src/app/use-notifications.spec.tsx`:
+  pass, 2 files / 16 tests. The new stream-stability test was first observed failing against the pre-fix code
+  (`stream` called twice), then passed after stabilizing callbacks.
+- `NODE_ENV=test npx vitest run --config vitest.config.mts packages/http-client/src/create-http-client.spec.ts`:
+  pass, 1 file / 5 tests.
+- `NODE_ENV=test npx vitest run --config vitest.web.config.mts`: pass, 28 files / 71 tests. The only stderr is the
+  existing React Router v7 future-flag warning.
+- `pnpm lint && pnpm typecheck`: pass. Existing lint warnings remain in `apps/im-adapter-api`, `apps/platform-api`,
+  and `apps/workbench-shell/src/module-registry/load-remote-module.ts`; no new lint errors.
+
 Fake-green / environment notes:
 
 - Web and e2e commands were run with `NODE_ENV=test` to avoid this Windows shell's `NODE_ENV=production`

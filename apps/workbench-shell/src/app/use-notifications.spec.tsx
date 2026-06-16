@@ -89,6 +89,100 @@ describe('useNotifications', () => {
     expect(api.unreadCount).toHaveBeenCalledTimes(3);
   });
 
+  it('increments reconnect backoff after consecutive stream errors', async () => {
+    const api = createApi();
+    const streamErrors: Array<() => void> = [];
+    api.stream.mockImplementation((options) => {
+      streamErrors.push(options.onError ?? vi.fn());
+      if (api.stream.mock.calls.length === 1) {
+        options.onOpen?.();
+      }
+      return { close: vi.fn() };
+    });
+    api.unreadCount.mockResolvedValue({ count: 0 });
+    api.listNotifications.mockResolvedValue({ items: [], total: 0 });
+
+    renderHook(() => useNotifications(api));
+    await flushPromises();
+
+    act(() => streamErrors[0]());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(api.stream).toHaveBeenCalledTimes(2);
+
+    act(() => streamErrors[1]());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(14_999);
+    });
+    expect(api.stream).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(api.stream).toHaveBeenCalledTimes(3);
+  });
+
+  it('rolls back optimistic markRead updates when the request fails', async () => {
+    const api = createApi();
+    const markReadFailure = createDeferred<void>();
+    api.stream.mockReturnValue({ close: vi.fn() });
+    api.unreadCount.mockResolvedValue({ count: 1 });
+    api.listNotifications.mockResolvedValue({ items: [notification], total: 1 });
+    api.markRead.mockReturnValue(markReadFailure.promise);
+
+    const { result } = renderHook(() => useNotifications(api));
+    await flushPromises();
+    expect(result.current.unreadCount).toBe(1);
+    expect(result.current.recent[0].readAt).toBeUndefined();
+
+    let markReadPromise!: Promise<void>;
+    act(() => {
+      markReadPromise = result.current.markRead(notification);
+    });
+
+    expect(result.current.unreadCount).toBe(0);
+    expect(result.current.recent[0].readAt).toBeDefined();
+
+    await act(async () => {
+      markReadFailure.reject(new Error('mark read failed'));
+      await expect(markReadPromise).rejects.toThrow('mark read failed');
+    });
+
+    expect(result.current.unreadCount).toBe(1);
+    expect(result.current.recent[0].readAt).toBeUndefined();
+  });
+
+  it('rolls back optimistic markAllRead updates when the request fails', async () => {
+    const api = createApi();
+    const markAllReadFailure = createDeferred<void>();
+    api.stream.mockReturnValue({ close: vi.fn() });
+    api.unreadCount.mockResolvedValue({ count: 1 });
+    api.listNotifications.mockResolvedValue({ items: [notification], total: 1 });
+    api.markAllRead.mockReturnValue(markAllReadFailure.promise);
+
+    const { result } = renderHook(() => useNotifications(api));
+    await flushPromises();
+    expect(result.current.unreadCount).toBe(1);
+    expect(result.current.recent[0].readAt).toBeUndefined();
+
+    let markAllReadPromise!: Promise<void>;
+    act(() => {
+      markAllReadPromise = result.current.markAllRead();
+    });
+
+    expect(result.current.unreadCount).toBe(0);
+    expect(result.current.recent[0].readAt).toBeDefined();
+
+    await act(async () => {
+      markAllReadFailure.reject(new Error('mark all read failed'));
+      await expect(markAllReadPromise).rejects.toThrow('mark all read failed');
+    });
+
+    expect(result.current.unreadCount).toBe(1);
+    expect(result.current.recent[0].readAt).toBeUndefined();
+  });
+
   it('cleans stream and timers on unmount', async () => {
     const api = createApi();
     const close = vi.fn();
@@ -127,4 +221,14 @@ async function flushPromises() {
   await act(async () => {
     await Promise.resolve();
   });
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve;
+    reject = innerReject;
+  });
+  return { promise, resolve, reject };
 }
