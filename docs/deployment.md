@@ -102,6 +102,10 @@ M7-3 起，`gateway-api` 内嵌 notification 调度基建并由 `@nestjs/schedul
 单实例调度；如果横向扩展多个 `gateway-api` 副本，调度 job 会在每个副本各自触发，需先补分布式锁 / leader 选举 /
 DB advisory lock 等多副本协调能力后再启用多副本调度。
 
+M7-4a 起，`gateway-api` 还承载通知 SSE 端点 `GET /api/notification/stream`。反向代理必须允许
+`text/event-stream` 长连接，并对该路径关闭响应缓冲、压缩聚合或过短 idle timeout；当前推送注册表为进程内单实例，
+横向扩展前需补 PostgreSQL `LISTEN/NOTIFY` 或 Redis pub/sub 级别的跨副本 fan-out。
+
 服务：
 
 - `workbench-shell`

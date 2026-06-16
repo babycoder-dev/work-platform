@@ -267,6 +267,12 @@ notification 模块承载调度基建：`NotificationModule` 装配一次 `Sched
 当前调度是进程内单实例 best-effort；多副本部署时每个副本都会触发 cron，分布式锁 / leader 选举 / DB advisory
 lock 属后续多副本调度协调预留。
 
+notification 模块同时持有 SSE 推送端点：`GET /api/notification/stream` 由 Nest `@Sse()` 暴露，
+经 gateway 全局 `PlatformAuthGuard` 鉴权，不单设功能权限。连接登记在进程内 `NotificationStreamRegistry`
+（按 userId 支持多标签页），`NotificationService.create()` 落库后只推送 `{ type: 'notification.created' }`
+最小信号；通知正文、未读数和列表仍以 REST API 为事实源。当前推送也是单实例直推，多副本 fan-out 通过
+PostgreSQL `LISTEN/NOTIFY` 或 Redis pub/sub 预留。
+
 ## 5.1 IM Provider
 
 OpenIMServer 作为默认 IM Provider 独立部署，平台通过 `im-adapter-api` 接入。
