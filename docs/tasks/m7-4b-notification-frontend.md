@@ -129,8 +129,10 @@ repositories`、不改鉴权规则、不新增后端端点/权限点/敏感字�
   在已登录态调用（`AppShell` 已有 `currentUser`；令牌用 `readAccessToken`，`onUnauthorized` 复用 App 传下的登出回调）：
   - state：`unreadCount: number`、`recent: NotificationDto[]`（最近若干条，如 limit 10）、`status: 'live'|'polling'`。
   - 初次：并行拉 `unreadCount()` + `listNotifications({limit:10})`。
-  - 建 SSE：`api.stream({ onOpen: ()=>设 live + 停轮询, onMessage: ()=>**收到任何信号即重拉** unreadCount+list（去抖，
-如 300ms 合并多帧）, onError: ()=>转入回退 })`。**onMessage 不信任帧内容**（REST 为事实源），只当"该刷新了"。
+  - 建 SSE：`api.stream({ onOpen: ()=>设 live + 停轮询, onMessage: (data)=>**仅当 `data?.type === notificationEvents.notificationCreated`**
+（`@work/notification-contract`，4a 落地已把该常量收敛到 contract）**才重拉** unreadCount+list（去抖，如 300ms 合并多帧）；
+`keepalive` 及其它未知 type **忽略**（心跳不得触发刷新，否则每 ~25s 空跑一次，比兜底轮询还频繁）, onError: ()=>转入回退 })`。
+    **只用 `type` 区分"有新通知"信号与心跳，不读取/不依赖通知正文**（REST 为事实源）。> 注：4a 的 SSE 帧形如 `{ type: 'notification.created' }` 或 `{ type: 'keepalive' }`（`keepalive` 常量是 api 传输层内部值，> 未进 contract）；前端只需匹配 `notificationEvents.notificationCreated`、其余一律忽略，无需 keepalive 常量。
   - **断线回退**：`onError`/连接关闭 → `status='polling'`，启 `setInterval`（如 60s）轮询 `unreadCount`+`list`，
     同时**退避重连** SSE（如 5s/15s/30s 上限），重连成功（onOpen）→ 清轮询定时器、回 `live`。
   - **清理（硬约束，防泄漏）**：hook `useEffect` 的 cleanup 必须 `handle.close()`（abort SSE）+ `clearInterval`(轮询)
