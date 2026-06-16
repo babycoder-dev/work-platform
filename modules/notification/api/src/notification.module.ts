@@ -26,6 +26,7 @@ import {
   ReportReminderDueJob,
 } from './scheduler/jobs/report-reminder.jobs';
 import { SchedulerBootstrapService } from './scheduler/scheduler-bootstrap.service';
+import { NotificationStreamRegistry } from './stream/notification-stream.registry';
 
 @Module({
   // ScheduleModule.forRoot() 由 notification 模块装配一次：notification 经 gateway 装配一次，
@@ -95,6 +96,7 @@ import { SchedulerBootstrapService } from './scheduler/scheduler-bootstrap.servi
     ReportReminderDueJob,
     ReportReminderCompletedJob,
     SchedulerBootstrapService,
+    NotificationStreamRegistry,
     {
       provide: NOTIFICATION_SERVICE,
       useExisting: NotificationService,

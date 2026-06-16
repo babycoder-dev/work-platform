@@ -8,7 +8,9 @@ import {
   Query,
   Req,
   Body,
+  Sse,
 } from '@nestjs/common';
+import type { MessageEvent } from '@nestjs/common';
 import {
   buildAuthAuditContext,
   dtoValidationPipe,
@@ -19,12 +21,16 @@ import { notificationPermissions } from '@work/notification-contract';
 import { NotificationService } from './notification.service';
 import { TriggerConfigService } from '../trigger-config/trigger-config.service';
 import { UpdateTriggerConfigDto } from '../trigger-config/trigger-config.dto';
+import { NotificationStreamRegistry } from '../stream/notification-stream.registry';
+import type { Observable } from 'rxjs';
 
 @Controller('notification')
 export class NotificationController {
   constructor(
     @Inject(NotificationService) private readonly notificationService: NotificationService,
     @Inject(TriggerConfigService) private readonly triggerConfigService: TriggerConfigService,
+    @Inject(NotificationStreamRegistry)
+    private readonly streamRegistry: NotificationStreamRegistry,
   ) {}
 
   @Get()
@@ -44,6 +50,11 @@ export class NotificationController {
   @Get('unread-count')
   unreadCount(@Req() request: RequestWithAuth) {
     return this.notificationService.unreadCount(currentUserId(request));
+  }
+
+  @Sse('stream')
+  stream(@Req() request: RequestWithAuth): Observable<MessageEvent> {
+    return this.streamRegistry.connect(currentUserId(request));
   }
 
   @Get('trigger-config')

@@ -55,6 +55,91 @@ Follow-up:
 - M7-4: SSE endpoint + frontend bell / workbench card. M10 owns actual report reminder business logic and
   any future schedule-config write API / audit path.
 
+### M7-4a Notification SSE Backend
+
+> Implemented in a prior session; this entry's command matrix was re-verified end-to-end in a follow-up session
+> (evidence-based) before delivery. All conclusions below reflect actual command output in the
+> `codex/m7-4a-notification-sse-backend` worktree.
+
+Change set:
+
+- Added `GET /api/notification/stream` on `NotificationController` with Nest `@Sse()`. The route is not
+  `@Public`, has no `@RequirePermissions`, and derives the connection user only from `request.currentUser.id`.
+- Added `NotificationStreamRegistry`, an in-process user connection table supporting multiple browser tabs,
+  per-connection keepalive, `finalize` cleanup, and process-local fan-out. Multi-replica pub/sub remains reserved.
+- Wired `NotificationService.create()` as the single generation fan-out point: after persistence, each
+  recipient receives only `{ type: 'notification.created' }`; notification title/content/unread count stay REST-only.
+- Added explicit `rxjs` dependency to `@work/notification-api` and registered the new stream e2e in the root
+  `pnpm test:e2e` script.
+- Updated architecture, deployment, security baseline, and progress docs for the SSE endpoint and M7-4a / M7-4b split.
+
+Command matrix (re-verified in the `codex/m7-4a-notification-sse-backend` worktree; conclusions are evidence-based
+from actual command output, not assumed):
+
+- `pnpm install`: pass after declaring `rxjs`; `pnpm-lock.yaml` updated. `rxjs@7.8.x` present in
+  `node_modules/.pnpm` (both 7.8.1 + 7.8.2 hoists), so the strict-hoist direct `import 'rxjs'` resolves.
+- TDD red checks (prior session): new stream unit specs initially failed because stream files did not exist; new
+  SSE e2e initially returned 404 for `/api/notification/stream`, then passed after implementation. The e2e binds
+  `127.0.0.1` because `::1` fetch failed on this Windows host with `EACCES`.
+- `pnpm lint`: **pass, 0 errors.** Only pre-existing warnings remain (im-adapter unused placeholder params,
+  platform-api non-null assertions, workbench-shell `_descriptor`) — none introduced by this slice;
+  `@work/notification-api` and `@work/gateway-api` lint clean.
+- `pnpm typecheck`: **pass** — all 26 workspace projects compile, incl. `modules/notification/api`.
+- `pnpm test:unit`: **pass — 36 files / 170 tests**, 5 env-gated Postgres integration files skipped
+  (`RUN_POSTGRES_INTEGRATION` unset). Includes the 2 new stream files / 6 tests
+  (`NotificationStreamRegistry` registry/keepalive/destroy + `NotificationService.create` minimal-signal fan-out,
+  asserting no notification content leaks into the SSE payload).
+- `pnpm test:web`: **pass — 26 files / 55 tests** (under `NODE_ENV=test`). An earlier run misreported this as a
+  pre-existing `React.act is not a function` toolchain failure; the real root cause is the host shell's
+  `NODE_ENV=production` (production React strips `React.act`, so any `@testing-library/react` run fails) — the same
+  root cause as the `FILE_STORAGE_LOCAL_ROOT` e2e gate noted below. Re-run under `NODE_ENV=test`, the full web suite
+  is green. (Any earlier `Failed to resolve import "@testing-library/react"` was a per-worktree `pnpm install`/hoist
+  artifact, not a toolchain defect — the dependency resolves and the suite passes in this worktree.) This slice
+  touches no frontend source, so web status is identical to main.
+- `pnpm test:e2e`: **pass — 7 files / 42 tests** (incl. `apps/gateway-api/src/notification-stream.e2e-spec.ts`,
+  3 tests). Covers no-token 401, `Content-Type: text/event-stream`, receiving `notification.created`,
+  only-current-user delivery, and registry connection count returning to zero after HTTP disconnect.
+  **Process exits cleanly in ~16s — no vitest "did not exit" hang**, confirming the per-connection keepalive timer
+  is destroyed on unsubscribe (`merge(subject$, keepalive$).pipe(takeUntil(destroyed$), finalize(...))`), not a
+  module-level shared timer.
+- PR gate follow-up: GitGuardian flagged the e2e's literal employee test password as `Generic Password`.
+  Replaced the literal with a generated test value and re-ran
+  `pnpm exec vitest run --config vitest.e2e.config.mts apps/gateway-api/src/notification-stream.e2e-spec.ts`:
+  pass, 1 file / 3 tests.
+- `pnpm build`: **pass** — all 26 projects build, incl. `modules/notification/api`, `apps/platform-api`,
+  `apps/gateway-api`, and the full `apps/workbench-shell` production vite build.
+- Environment note for re-runs: this host's shell has `NODE_ENV=production`, which trips the pre-existing
+  `FILE_STORAGE_LOCAL_ROOT is required in production` gate in `readFilesStorageConfig` and blocks any
+  `GatewayModule`-loading e2e suite from mounting. That gate is unrelated to this slice (identical on `main`);
+  e2e was re-run with `NODE_ENV=test` to exercise the real test path. CI / Docker hosts set `NODE_ENV` + storage
+  root correctly.
+- `pnpm docker:build`: not required by the task package (no Dockerfile / compose deployment-shape change).
+- `pnpm verify:full` / Postgres-gated paths: not run locally (no Docker Desktop Linux engine / local PG); remain
+  CI / Docker-host responsibility.
+
+Security / scope notes:
+
+- Security baseline §8.3 now records the SSE guard and minimum-payload baseline. The slice still does not change
+  auth/scope/audit/rbac, does not add permissions, and does not modify migrations.
+- SSE frames are intentionally signals only; clients must refetch notification list / unread count through REST.
+- Completion review (this session, verifying the prior-session WIP): the slice is non-mandatory under
+  security-baseline §16 (reuses existing `PlatformAuthGuard`, no new permission points, no auth/scope/audit/rbac
+  or migration changes). Spot-checked against the task-package 命门: `/stream` is **not** `@Public`, has **no**
+  `@RequirePermissions`, user id comes only from `request.currentUser.id` via the existing `currentUserId(request)`
+  helper, and the handler never reads a client-supplied `recipientUserId` — only-own-user delivery is enforced
+  both in the registry (`emitToUser` keyed on the server-derived userId) and verified by the SSE e2e.
+- Independent general review (current session): Blocking 0 / Major 0 / Minor 0. Reviewer confirmed auth guard use,
+  minimum SSE payload, only-current-user delivery, disconnect cleanup coverage, `rxjs` dependency, and docs.
+- Voluntary security-reviewer pass (current session): Blocking 0 / Major 0 / Minor 0. Reviewer confirmed `/stream`
+  is not public, does not read client recipient ids, sends no title/content/unread payload, and cleans up
+  connections on disconnect.
+- Code-simplifier pass (current session): no required changes. One readability suggestion in the SSE e2e was applied
+  so the created frame is awaited once before payload and non-leak assertions.
+
+Follow-up:
+
+- M7-4b: frontend bell / workbench notification card, SSE consumption, and REST polling fallback.
+
 ## 2026-06-14
 
 ### M7-2 Event Subscription + Recipient Resolver + Platform Org Port

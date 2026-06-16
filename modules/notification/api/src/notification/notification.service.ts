@@ -9,11 +9,14 @@ import { randomUUID } from 'node:crypto';
 import { NOTIFICATION_REPOSITORY } from '../db/notification-repository.token';
 import type { NotificationRepository } from '../db/notification.repository';
 import type { NotificationRecord } from '../db/schema/notification.schema';
+import { notificationStreamEventTypes } from '../stream/notification-stream.events';
+import { NotificationStreamRegistry } from '../stream/notification-stream.registry';
 
 @Injectable()
 export class NotificationService implements NotificationServicePort {
   constructor(
     @Inject(NOTIFICATION_REPOSITORY) private readonly repository: NotificationRepository,
+    @Inject(NotificationStreamRegistry) private readonly streamRegistry: NotificationStreamRegistry,
   ) {}
 
   async create(input: CreateNotificationInput): Promise<{ items: NotificationDto[] }> {
@@ -31,6 +34,14 @@ export class NotificationService implements NotificationServicePort {
         createdAt,
       })),
     );
+
+    // This is the single fan-out point for in-app notifications. Future non-in-app
+    // channels should add a channel check here rather than leaking content over SSE.
+    for (const record of records) {
+      this.streamRegistry.emitToUser(record.recipientUserId, {
+        data: { type: notificationStreamEventTypes.created },
+      });
+    }
 
     return { items: records.map(toDto) };
   }

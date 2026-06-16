@@ -360,6 +360,13 @@ platform-api。M7-2 当前端口为 `PLATFORM_ORG_PORT`：
 - 端口不得开放公开 HTTP 路由；业务模块不得直接读 `platform.*` schema 或跨 schema join。
 - 跨企业、不存在、禁用员工 / 部门 / 角色等情况按空结果处理，避免接收人解析泄露对象存在性。
 
+### 8.3 通知 SSE 推送基线
+
+通知 SSE 端点 `GET /api/notification/stream` 沿用 gateway 全局 `PlatformAuthGuard`，不得标记 `@Public`，
+也不得接受客户端传入的 `recipientUserId`。连接身份只能来自 `request.currentUser.id`，推送帧只包含
+`notification.created` 等最小信号，不下发通知正文、未读数或其它用户数据；REST API 仍是通知列表和未读数事实源。
+当前连接注册表是进程内单实例能力，多副本 fan-out 需另行引入共享 pub/sub 后才能启用。
+
 ## 9. Redis 安全
 
 Redis 首期用于 session/cache/stream 时必须：
