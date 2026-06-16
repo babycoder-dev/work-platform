@@ -1,5 +1,73 @@
 # Verification Log
 
+## 2026-06-16
+
+### M7-4b Notification Frontend
+
+Change set:
+
+- Added `@work/http-client.stream()` for SSE over `fetch` + `ReadableStream`, reusing bearer-token
+  injection, `onUnauthorized`, trace id, abort cleanup, SSE frame parsing, and keeping tokens out of URLs.
+- Wired Workbench Shell notification data: topbar bell unread badge, dropdown notification list, single
+  mark-read + source navigation, mark-all-read, workbench unread statistic, and latest-message card now read
+  from the notification REST API.
+- Added `useNotifications` for initial REST refresh, `notification.created` SSE signal debounce refresh,
+  ignored keepalive / unknown events, 60s polling fallback, 5/15/30s reconnect backoff, and cleanup on unmount.
+- Added `modules/notification/web` with runtime, trigger-config API client, and `TriggerConfigPage`
+  for enabled toggle plus department-manager / role recipients. Registered the module in shell and added the
+  notification trigger-config menu to the server-side platform manifest.
+- Preserved non-notification M7/M11 placeholders: global search shell, pending items, approval / todo /
+  presence placeholder stats, profile menu placeholders, system dynamics, and sidebar badge slot.
+
+Command matrix:
+
+- `pnpm install`: pass; workspace now includes 28 projects and `pnpm-lock.yaml` is updated for
+  `@work/notification-web` / shell dependencies.
+- Focused `@work/http-client.stream` unit spec: pass, 1 file / 5 tests. Covers two parsed frames,
+  Authorization header, token absent from URL, close/abort without `onError`, 401 `onUnauthorized`, and
+  stream read error `onError`, including cleanup of caller-provided `AbortSignal` listeners.
+- Focused web specs under `NODE_ENV=test`: pass, 3 files / 16 tests
+  (`use-notifications`, `App`, `TriggerConfigPage`).
+- `pnpm lint`: pass. The normal recursive lint still prints the known "No cached ProjectGraph" warning where
+  Nx boundary checks are skipped.
+- Primed graph boundary lint: pass for `@work/http-client:lint`, `@work/notification-web:lint`, and
+  `@work/workbench-shell:lint`. `@work/workbench-shell` has one existing warning in
+  `load-remote-module.ts` (`_descriptor` unused), with 0 errors.
+- `pnpm typecheck`: pass; includes `modules/notification/web` and `apps/workbench-shell`.
+- `NODE_ENV=test pnpm test`: pass. Unit: 37 files / 175 tests, 5 Postgres-gated files skipped because
+  `RUN_POSTGRES_INTEGRATION` is unset. Web: 28 files / 66 tests.
+- `NODE_ENV=test pnpm test:e2e`: pass, 7 files / 42 tests.
+- `pnpm build`: pass; includes the production Vite build for `apps/workbench-shell` and the lazy
+  `TriggerConfigPage` chunk.
+- `pnpm verify:full`: not run locally; this slice is pure frontend / http-client and does not touch DB or
+  Docker deployment shape. Postgres-gated integration remains CI / Docker-host responsibility.
+- `pnpm docker:build`: not required by the task package and not run; no Dockerfile / compose service shape changed.
+
+Fake-green / environment notes:
+
+- Web and e2e commands were run with `NODE_ENV=test` to avoid this Windows shell's `NODE_ENV=production`
+  false failures (`React.act is not a function`, `FILE_STORAGE_LOCAL_ROOT` production gate).
+- SSE is consumed only through `@work/http-client.stream()`; no native `EventSource`, no shell-local fetch,
+  and no token-in-query path was added.
+
+Security / scope notes:
+
+- Non security-reviewer gate by task-package decision: this slice is frontend + shared http-client method only;
+  it does not touch auth/scope/audit/rbac, backend endpoints, migrations, or permission semantics.
+- Source review check: notification bell / card consume true notification APIs through
+  `apps/workbench-shell/src/platform/notification-api.ts`; hard-coded prototype counts or fake notification lists
+  were not introduced.
+- Independent review and code-simplifier pass completed before final verification. The review found three Major
+  issues and two Minor issues: fallback did not immediately REST refresh, caller `AbortSignal` listeners were not
+  removed, the bell badge did not expose the visible count, background refresh promises lacked `.catch()`, and the
+  related tests were too thin. All were fixed and covered by the focused specs above. Code-simplifier had no required
+  changes.
+
+Follow-up:
+
+- M7-5 delivery verification gate for notification + scheduler. Search backend remains M7 follow-up;
+  schedule-config UI remains M10.
+
 ## 2026-06-15
 
 ### M7-3 Scheduler Infrastructure

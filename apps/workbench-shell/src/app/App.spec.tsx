@@ -2,10 +2,12 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { CurrentUserDto } from '@work/platform-contract';
+import type { NotificationDto } from '@work/notification-contract';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell, LoginView, WorkbenchHome } from './App';
 import type { NavigationGroup, NavigationItem } from './navigation';
+import type { NotificationApiClient } from '../platform/notification-api';
 
 const currentUser: CurrentUserDto = {
   id: 'user-001',
@@ -53,6 +55,17 @@ const navigationGroups: NavigationGroup[] = [
   },
 ];
 
+const notification: NotificationDto = {
+  id: 'notification-001',
+  recipientUserId: 'user-001',
+  title: '在位状态变更',
+  content: '李四更新了在位状态',
+  sourceModule: 'presence',
+  sourceId: 'presence-001',
+  channel: 'in_app',
+  createdAt: '2026-06-16T00:00:00.000Z',
+};
+
 describe('workbench shell frontend foundation', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -86,7 +99,8 @@ describe('workbench shell frontend foundation', () => {
 
   it('supports topbar search, notification and avatar menu interactions', async () => {
     const onLogout = vi.fn();
-    renderShell(onLogout);
+    const notificationApi = createNotificationApi({ count: 1, items: [notification] });
+    renderShell(onLogout, notificationApi);
 
     await userEvent.keyboard('{Control>}k{/Control}');
     expect(screen.getByText('搜索后端待接入')).toBeInTheDocument();
@@ -97,12 +111,36 @@ describe('workbench shell frontend foundation', () => {
     expect(screen.getByText('搜索后端待接入')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /通知/ }));
     expect(screen.queryByText('搜索后端待接入')).not.toBeInTheDocument();
-    expect(screen.getByText('通知 API 待接入（M7）。')).toBeInTheDocument();
+    await screen.findAllByText('在位状态变更');
+    expect(screen.getByText('李四更新了在位状态')).toBeInTheDocument();
+    const notificationButton = screen
+      .getAllByRole('button', { name: /在位状态变更/ })
+      .find((button) => !button.hasAttribute('disabled'));
+    expect(notificationButton).toBeDefined();
+    await userEvent.click(notificationButton as HTMLButtonElement);
+    expect(notificationApi.markRead).toHaveBeenCalledWith('notification-001');
 
     await userEvent.click(screen.getByRole('button', { name: '张' }));
-    expect(screen.queryByText('通知 API 待接入（M7）。')).not.toBeInTheDocument();
+    expect(screen.queryByText('李四更新了在位状态')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('menuitem', { name: '退出登录' }));
     expect(onLogout).toHaveBeenCalled();
+  });
+
+  it('marks all notifications read from the topbar', async () => {
+    const notificationApi = createNotificationApi({ count: 2, items: [notification] });
+    renderShell(vi.fn(), notificationApi);
+
+    const notificationButton = screen.getByRole('button', { name: /通知/ });
+    expect(await within(notificationButton).findByText('2')).toBeInTheDocument();
+    await userEvent.click(notificationButton);
+    await userEvent.click(screen.getByRole('button', { name: '全部已读' }));
+
+    expect(notificationApi.markAllRead).toHaveBeenCalled();
+  });
+
+  it('formats large notification counts in the topbar badge', async () => {
+    renderShell(vi.fn(), createNotificationApi({ count: 120, items: [] }));
+    expect(await screen.findByText('99+')).toBeInTheDocument();
   });
 
   it('closes topbar search with Escape', async () => {
@@ -133,18 +171,61 @@ describe('workbench shell frontend foundation', () => {
     expect(within(home as HTMLElement).queryByText('5')).not.toBeInTheDocument();
     expect(within(home as HTMLElement).queryByText('231')).not.toBeInTheDocument();
   });
+
+  it('renders workbench notification statistic and latest messages from notification state', () => {
+    render(
+      <MemoryRouter>
+        <WorkbenchHome
+          currentUser={currentUser}
+          navigationItems={navigationItems}
+          notifications={{ unreadCount: 3, recent: [notification] }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('未读消息')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('最新消息')).toBeInTheDocument();
+    expect(screen.getByText('在位状态变更')).toBeInTheDocument();
+  });
 });
 
-function renderShell(onLogout = vi.fn()) {
+function renderShell(onLogout = vi.fn(), notificationApi = createNotificationApi()) {
   return render(
     <MemoryRouter>
       <AppShell
         currentUser={currentUser}
         navigationGroups={navigationGroups}
         navigationItems={navigationItems}
+        notificationApi={notificationApi}
         onLogout={onLogout}
         permissionCodes={['presence:board:view']}
       />
     </MemoryRouter>,
   );
+}
+
+function createNotificationApi({
+  count = 0,
+  items = [],
+}: {
+  count?: number;
+  items?: NotificationDto[];
+} = {}) {
+  return {
+    listNotifications: vi.fn().mockResolvedValue({ items, total: items.length }),
+    unreadCount: vi.fn().mockResolvedValue({ count }),
+    markRead: vi.fn().mockResolvedValue({}),
+    markAllRead: vi.fn().mockResolvedValue({ count }),
+    stream: vi.fn().mockImplementation((options) => {
+      options.onOpen?.();
+      return { close: vi.fn() };
+    }),
+  } as unknown as NotificationApiClient & {
+    listNotifications: ReturnType<typeof vi.fn>;
+    unreadCount: ReturnType<typeof vi.fn>;
+    markRead: ReturnType<typeof vi.fn>;
+    markAllRead: ReturnType<typeof vi.fn>;
+    stream: ReturnType<typeof vi.fn>;
+  };
 }

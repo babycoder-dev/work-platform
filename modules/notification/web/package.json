@@ -1,29 +1,21 @@
 {
-  "name": "@work/workbench-shell",
+  "name": "@work/notification-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./src/module.ts",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5173",
-    "build": "vite build",
+    "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
     "@work/http-client": "workspace:*",
     "@work/notification-contract": "workspace:*",
-    "@work/notification-web": "workspace:*",
     "@work/platform-contract": "workspace:*",
     "@work/platform-sdk": "workspace:*",
-    "@work/platform-web": "workspace:*",
-    "@work/presence-contract": "workspace:*",
-    "@work/presence-web": "workspace:*",
     "@work/ui": "workspace:*",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^6.30.4",
-    "vite": "^6.0.5"
+    "react": "^19.0.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
@@ -33,9 +25,10 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "jsdom": "^25.0.1",
+    "react-dom": "^19.0.0",
     "vitest": "^3.2.6"
   },
   "nx": {
-    "tags": ["scope:composition", "type:app"]
+    "tags": ["scope:notification", "type:feature"]
   }
 }

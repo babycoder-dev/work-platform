@@ -273,6 +273,13 @@ notification 模块同时持有 SSE 推送端点：`GET /api/notification/stream
 最小信号；通知正文、未读数和列表仍以 REST API 为事实源。当前推送也是单实例直推，多副本 fan-out 通过
 PostgreSQL `LISTEN/NOTIFY` 或 Redis pub/sub 预留。
 
+Workbench Shell 通过 `@work/http-client.stream()` 消费该 SSE 端点：Bearer token 只放在
+`Authorization` 头中，SSE 帧只作为重拉 REST 通知列表 / 未读数的信号，`keepalive` 与未知事件不触发刷新。
+断线后 shell 回退 60 秒 REST 轮询并按 5/15/30 秒退避重连。顶栏铃铛与工作台“最新消息”卡片接
+`GET /api/notification` / `GET /api/notification/unread-count`；触发点配置页落在
+`modules/notification/web`，经 notification manifest + shell module registry 挂载到
+`/notification/trigger-config`。
+
 ## 5.1 IM Provider
 
 OpenIMServer 作为默认 IM Provider 独立部署，平台通过 `im-adapter-api` 接入。
