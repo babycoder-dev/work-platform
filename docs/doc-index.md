@@ -114,6 +114,18 @@ docs/module-contract.md
 modules/presence/api（共享模块接入模式参考）
 ```
 
+### 2.9 开始 M8 人员 / 组织 / 档案
+
+```text
+docs/foundation-progress.md
+docs/product-requirements.md（§4.4、§3、§8）
+docs/adr/0005-product-replan-roadmap.md
+docs/rfc/m8-people-org-profile.md
+docs/security-baseline.md（§5 数据范围、§16 变更门禁——profile scope 首次用于写授权）
+apps/platform-api/src/{org,users,scope}, packages/platform-contract
+modules/forms/contract（profile.employee 槽位）, modules/notification/api（profile.updated 订阅）
+```
+
 ## 3. 文档职责
 
 | 文档                           | 职责                         | 什么时候更新                          |
@@ -194,6 +206,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M5 权限与角色管理 RFC：`docs/rfc/m5-roles-permissions-admin.md`（按类型数据范围模型 B、角色管理、Scope 改造）
 - M6 动态表单 mini + 文件存储 RFC：`docs/rfc/m6-dynamic-forms-file-storage.md`（固定槽位、快照值、本地磁盘 provider、私有文件访问边界）
 - M7 通知基建 + 定时任务调度 RFC：`docs/rfc/m7-notification-scheduler.md`（modules/notification 共享模块、事件驱动+接收人可配、SSE 单实例推送、@nestjs/schedule、删 notification-api app）
+- M8 人员 / 组织 / 档案 RFC：`docs/rfc/m8-people-org-profile.md`（核心留 platform 不新建模块、近况记录 `platform.status_logs`、消费 M6 forms `profile.employee` 槽位前端聚合、`profile.updated` 生产+notification 新增订阅、复用 `platform:org:*`、profile scope 首次用于写授权）
 
 后续建议补充：
 
