@@ -121,8 +121,10 @@ phantom-token 跨进程鉴权、写档案审计（`AGENTS.md` / `docs/security-b
 - `id uuid pk`、`enterprise_id uuid notNull`、`subject_employee_id uuid notNull`(→employees，近况归属的人)、
   `author_employee_id uuid notNull`(→employees，记录人=当前用户)、`content text notNull`(纯文本)、
   `created_at timestamptz notNull default now()`、软删 `deleted_at`(预留撤销)。
-  > 命名注：platform 里 user==employee（`user_roles.userId`→employees.id），scope 解析主键即 employee.id；
-  > 字段用 `*_employee_id` 与 schema 既有外键命名一致，避免 user/employee 混用歧义。
+  > 命名注：platform 里 user==employee（`user_roles.userId`→employees.id），scope 解析主键即 employee.id。
+  > **分层约定**：DB 字段与 status-logs API 入参统一用 `*_employee_id` / `subjectEmployeeIds`（与 schema 既有
+  > 外键命名一致）；**唯独 `profile.updated` 事件 payload 沿用 `subjectUserId`/`changedBy`**（面向 notification
+  > 消费、与 M7 既有事件字段语义对齐）。避免同一概念在 DB/API 层混用 user/employee。
 - 索引：`(enterprise_id, subject_employee_id, created_at desc)`（按人取脉络）。
 - **批量添加**=一次请求多个 `subjectEmployeeId` → 展开为多行（每人一条，`author/content/created_at` 同值）。
 
@@ -182,10 +184,10 @@ platform 迁移。
 
 近况记录：
 
-| 方法 | 路径                         | 说明                                                    | 权限                                                                  |
-| ---- | ---------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- |
-| GET  | `/employees/:id/status-logs` | 某人近况脉络（分页，按 `profile` 范围可见）             | `platform:employee:view` + 范围校验                                   |
-| POST | `/status-logs`               | 新增近况（body 含 `subjectUserIds[]` 批量 + `content`） | `platform:status-log:create` + 对每个 subject 的 `profile` 写范围校验 |
+| 方法 | 路径                         | 说明                                                        | 权限                                                                  |
+| ---- | ---------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| GET  | `/employees/:id/status-logs` | 某人近况脉络（分页，按 `profile` 范围可见）                 | `platform:employee:view` + 范围校验                                   |
+| POST | `/status-logs`               | 新增近况（body 含 `subjectEmployeeIds[]` 批量 + `content`） | `platform:status-log:create` + 对每个 subject 的 `profile` 写范围校验 |
 
 > 首登补全**不引入新端点**：复用 `POST auth/change-password`（清 `mustChangePassword`）+ `PUT /employees/me/profile`
 > （补全字段）。前端在 `mustChangePassword=true` 时强制走改密+补全向导。
