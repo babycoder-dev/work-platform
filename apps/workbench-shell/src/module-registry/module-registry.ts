@@ -1,4 +1,5 @@
 import type { WorkWebModule, WorkWebModuleRuntime } from '@work/platform-sdk';
+import { notificationWebModule } from '@work/notification-web';
 import { platformWebModule } from '@work/platform-web';
 import { presenceWebModule } from '@work/presence-web';
 
@@ -24,3 +25,4 @@ export const moduleRegistry = new ModuleRegistry();
 
 moduleRegistry.register(platformWebModule);
 moduleRegistry.register(presenceWebModule);
+moduleRegistry.register(notificationWebModule);

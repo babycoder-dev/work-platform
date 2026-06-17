@@ -105,6 +105,9 @@ DB advisory lock 等多副本协调能力后再启用多副本调度。
 M7-4a 起，`gateway-api` 还承载通知 SSE 端点 `GET /api/notification/stream`。反向代理必须允许
 `text/event-stream` 长连接，并对该路径关闭响应缓冲、压缩聚合或过短 idle timeout；当前推送注册表为进程内单实例，
 横向扩展前需补 PostgreSQL `LISTEN/NOTIFY` 或 Redis pub/sub 级别的跨副本 fan-out。
+M7-4b 起，`workbench-shell` 通过 fetch + ReadableStream 消费 SSE，因此代理必须同时允许普通
+`Authorization: Bearer ...` 头透传到 `/api/notification/stream`；前端断线会自动回退 REST 轮询，
+但代理缓冲会导致实时通知退化为轮询体验。
 
 服务：
 

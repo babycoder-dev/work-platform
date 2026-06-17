@@ -1,10 +1,11 @@
 import type { CurrentUserDto, LoginInput, MenuDto } from '@work/platform-contract';
+import type { NotificationDto } from '@work/notification-contract';
 import { createHttpClient } from '@work/http-client';
 import {
   Avatar,
+  Badge,
   Button,
   Checkbox,
-  Dot,
   Dropdown,
   EmptyState,
   Input,
@@ -13,8 +14,9 @@ import {
 } from '@work/ui';
 import type { ComponentType, FormEvent, LazyExoticComponent, ReactNode } from 'react';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserRouter as Router, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { moduleRegistry } from '../module-registry/module-registry';
+import { createNotificationApiClient, type NotificationApiClient } from '../platform/notification-api';
 import { createPlatformApiClient } from '../platform/platform-api';
 import { clearAccessToken, readAccessToken, saveAccessToken } from '../platform/session-storage';
 import {
@@ -25,6 +27,7 @@ import {
   type NavigationGroup,
   type NavigationItem,
 } from './navigation';
+import { useNotifications, type NotificationsState } from './use-notifications';
 
 interface ModuleRouteEntry {
   path: string;
@@ -112,7 +115,7 @@ export function App() {
   const navigationItems = useMemo(() => buildNavigationItems(session.menus), [session.menus]);
   const navigationGroups = useMemo(() => buildNavigationGroups(session.menus), [session.menus]);
 
-  async function handleLogin(input: LoginInput) {
+  const handleLogin = useCallback(async (input: LoginInput) => {
     setIsSubmitting(true);
     try {
       const login = await api.login(input);
@@ -128,13 +131,13 @@ export function App() {
     } finally {
       setIsSubmitting(false);
     }
-  }
+  }, [api]);
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     clearAccessToken();
     setSession({ menus: [] });
     setErrorMessage(undefined);
-  }
+  }, []);
 
   if (!session.accessToken || !session.currentUser) {
     return (
@@ -167,12 +170,23 @@ export function AppShell(props: {
   navigationItems: NavigationItem[];
   permissionCodes: string[];
   errorMessage?: string;
+  notificationApi?: NotificationApiClient;
   onLogout: () => void;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(() => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true');
   const [toast, setToast] = useState<string>();
   const location = useLocation();
   const activeNavigationItem = props.navigationItems.find((item) => item.path === normalizePath(location.pathname));
+  const notificationApi = useMemo(
+    () =>
+      props.notificationApi ??
+      createNotificationApiClient({
+        getAccessToken: () => readAccessToken() ?? '',
+        onUnauthorized: props.onLogout,
+      }),
+    [props.notificationApi, props.onLogout],
+  );
+  const notifications = useNotifications(notificationApi);
 
   function toggleCollapsed() {
     setIsCollapsed((current) => {
@@ -230,6 +244,7 @@ export function AppShell(props: {
         <Topbar
           activeTitle={activeNavigationItem?.title ?? '工作台'}
           currentUser={props.currentUser}
+          notifications={notifications}
           onLogout={props.onLogout}
           onPlaceholder={showPlaceholder}
           onToggleCollapsed={toggleCollapsed}
@@ -240,7 +255,13 @@ export function AppShell(props: {
             <Suspense fallback={<ShellState description="正在加载模块页面。" title="加载中" />}>
               <Routes>
                 <Route
-                  element={<WorkbenchHome currentUser={props.currentUser} navigationItems={props.navigationItems} />}
+                  element={
+                    <WorkbenchHome
+                      currentUser={props.currentUser}
+                      navigationItems={props.navigationItems}
+                      notifications={notifications}
+                    />
+                  }
                   index
                 />
                 {moduleRouteTable.map((entry) => (
@@ -268,6 +289,7 @@ export function AppShell(props: {
 function Topbar(props: {
   activeTitle: string;
   currentUser: CurrentUserDto;
+  notifications: Pick<NotificationsState, 'unreadCount' | 'recent' | 'markAllRead' | 'markRead'>;
   onLogout: () => void;
   onPlaceholder: (label: string) => void;
   onToggleCollapsed: () => void;
@@ -277,6 +299,7 @@ function Topbar(props: {
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isSearchOpen = activePopover === 'search';
+  const navigate = useNavigate();
 
   useEffect(() => {
     function handleKey(event: KeyboardEvent) {
@@ -347,13 +370,41 @@ function Topbar(props: {
         trigger={
           <Button aria-label="通知" className="app-topbar__icon-button">
             🔔
-            <Dot label="通知角标预留" />
+            {props.notifications.unreadCount > 0 ? (
+              <Badge count={formatUnreadCount(props.notifications.unreadCount)} />
+            ) : null}
           </Button>
         }
       >
         <div className="app-topbar__popover">
-          <h3>通知</h3>
-          <EmptyState title="暂无通知" description="通知 API 待接入（M7）。" />
+          <div className="app-topbar__popover-head">
+            <h3>通知</h3>
+            <Button
+              disabled={props.notifications.unreadCount === 0}
+              onClick={() => void props.notifications.markAllRead().catch(() => undefined)}
+            >
+              全部已读
+            </Button>
+          </div>
+          {props.notifications.recent.length === 0 ? (
+            <EmptyState title="暂无通知" description="有新通知时会在这里显示。" />
+          ) : (
+            <NotificationList
+              notifications={props.notifications.recent}
+              onSelect={(notification) => {
+                void props.notifications
+                  .markRead(notification)
+                  .then(() => {
+                    const target = resolveNotificationTarget(notification);
+                    if (target) {
+                      navigate(target);
+                      setActivePopover(undefined);
+                    }
+                  })
+                  .catch(() => undefined);
+              }}
+            />
+          )}
         </div>
       </Dropdown>
       <Dropdown
@@ -391,6 +442,38 @@ function Topbar(props: {
         </div>
       </Dropdown>
     </header>
+  );
+}
+
+function NotificationList({
+  compact,
+  notifications,
+  onSelect,
+}: {
+  compact?: boolean;
+  notifications: NotificationDto[];
+  onSelect?: (notification: NotificationDto) => void;
+}) {
+  return (
+    <ul className={compact ? 'notification-list notification-list--compact' : 'notification-list'}>
+      {notifications.map((notification) => (
+        <li
+          className={
+            notification.readAt ? 'notification-list__item' : 'notification-list__item notification-list__item--unread'
+          }
+          key={notification.id}
+        >
+          <button disabled={!onSelect} onClick={() => onSelect?.(notification)} type="button">
+            <span className="notification-list__title">
+              {!notification.readAt ? <span aria-label="未读" className="notification-list__dot" /> : null}
+              {notification.title}
+            </span>
+            {!compact ? <span className="notification-list__content">{notification.content}</span> : null}
+            <time dateTime={notification.createdAt}>{formatNotificationTime(notification.createdAt)}</time>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -489,13 +572,16 @@ export function LoginView(props: {
   );
 }
 
-export function WorkbenchHome(props: { currentUser: CurrentUserDto; navigationItems: NavigationItem[] }) {
+export function WorkbenchHome(props: {
+  currentUser: CurrentUserDto;
+  navigationItems: NavigationItem[];
+  notifications?: Pick<NotificationsState, 'unreadCount' | 'recent'>;
+}) {
   const greeting = getGreeting();
   const quickEntries = props.navigationItems.slice(0, 6);
   const placeholderStats = [
     { key: 'approval', title: '待我审批', milestone: 'M11' },
     { key: 'todo', title: '我的待办', milestone: 'vNext' },
-    { key: 'message', title: '未读消息', milestone: 'M7' },
     { key: 'presence', title: '在岗成员', milestone: 'presence 汇总 API' },
   ];
 
@@ -517,6 +603,14 @@ export function WorkbenchHome(props: { currentUser: CurrentUserDto; navigationIt
       </header>
 
       <div className="workbench-home__stats">
+        <article className="workbench-home__stat">
+          <div>
+            <span>未读消息</span>
+            <strong>{props.notifications?.unreadCount ?? 0}</strong>
+          </div>
+          <ModuleIcon moduleName="notification" />
+          <p>来自通知中心未读数</p>
+        </article>
         {placeholderStats.map((stat) => (
           <article className="workbench-home__stat" key={stat.key}>
             <div>
@@ -552,7 +646,11 @@ export function WorkbenchHome(props: { currentUser: CurrentUserDto; navigationIt
         </section>
         <section className="workbench-home__card">
           <h2>最新消息</h2>
-          <EmptyState title="暂无消息" description="消息与通知后端待接入（M7）。" />
+          {props.notifications?.recent.length ? (
+            <NotificationList compact notifications={props.notifications.recent.slice(0, 5)} />
+          ) : (
+            <EmptyState title="暂无消息" description="暂无通知消息。" />
+          )}
         </section>
         <section className="workbench-home__card">
           <h2>系统动态</h2>
@@ -590,6 +688,26 @@ function getGreeting(): string {
     return '下午好';
   }
   return '晚上好';
+}
+
+function resolveNotificationTarget(notification: NotificationDto): string | undefined {
+  if (notification.sourceModule === 'presence') {
+    return '/presence/board';
+  }
+  return undefined;
+}
+
+function formatUnreadCount(count: number): string {
+  return count > 99 ? '99+' : String(count);
+}
+
+function formatNotificationTime(value: string): string {
+  return new Date(value).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function readErrorMessage(error: unknown): string {

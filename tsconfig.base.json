@@ -24,6 +24,7 @@
       "@work/event-bus": ["packages/event-bus/src/index.ts"],
       "@work/notification-contract": ["modules/notification/contract/src/index.ts"],
       "@work/notification-api": ["modules/notification/api/src/index.ts"],
+      "@work/notification-web": ["modules/notification/web/src/module.ts"],
       "@work/forms-contract": ["modules/forms/contract/src/index.ts"],
       "@work/forms-api": ["modules/forms/api/src/index.ts"],
       "@work/files-contract": ["modules/files/contract/src/index.ts"],

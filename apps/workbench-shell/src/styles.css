@@ -248,6 +248,18 @@ body {
   margin: 0 0 var(--sp-2);
 }
 
+.app-topbar__popover-head {
+  align-items: center;
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: space-between;
+  margin-bottom: var(--sp-2);
+}
+
+.app-topbar__popover-head h3 {
+  margin: 0;
+}
+
 .app-topbar__avatar-button {
   background: transparent;
   border: 0;
@@ -487,6 +499,64 @@ body {
   color: var(--ink-4);
 }
 
+.notification-list {
+  display: grid;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0;
+  max-height: calc(var(--control-height-lg) * 8);
+  overflow: auto;
+  padding: 0;
+}
+
+.notification-list__item button {
+  background: transparent;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  text-align: left;
+  width: 100%;
+}
+
+.notification-list__item button:disabled {
+  cursor: default;
+}
+
+.notification-list__item--unread button {
+  background: var(--blue-50);
+  border-color: var(--blue-200);
+}
+
+.notification-list__title {
+  align-items: center;
+  color: var(--ink-1);
+  display: flex;
+  font-weight: 600;
+  gap: var(--sp-2);
+}
+
+.notification-list__dot {
+  background: var(--danger);
+  border-radius: var(--r-full);
+  flex: 0 0 auto;
+  height: var(--dot-size);
+  width: var(--dot-size);
+}
+
+.notification-list__content,
+.notification-list time {
+  color: var(--ink-4);
+  font-size: var(--font-size-12);
+}
+
+.notification-list--compact {
+  max-height: none;
+}
+
 .module-icon {
   align-items: center;
   background: var(--blue-50);
@@ -516,6 +586,11 @@ body {
 }
 
 .module-icon--message {
+  background: var(--cyan-bg);
+  color: var(--cyan);
+}
+
+.module-icon--notification {
   background: var(--cyan-bg);
   color: var(--cyan);
 }

@@ -10,6 +10,17 @@ export interface HttpRequestOptions {
   query?: Record<string, string | number | boolean | undefined>;
 }
 
+export interface SseStreamHandle {
+  close(): void;
+}
+
+export interface SseStreamOptions {
+  onMessage: (data: unknown) => void;
+  onError?: (error: unknown) => void;
+  onOpen?: () => void;
+  signal?: AbortSignal;
+}
+
 export interface HttpClient {
   get<TResponse>(url: string, options?: HttpRequestOptions): Promise<TResponse>;
   post<TResponse, TBody = unknown>(
@@ -28,4 +39,5 @@ export interface HttpClient {
     options?: HttpRequestOptions,
   ): Promise<TResponse>;
   delete<TResponse>(url: string, options?: HttpRequestOptions): Promise<TResponse>;
+  stream(url: string, options: SseStreamOptions): SseStreamHandle;
 }

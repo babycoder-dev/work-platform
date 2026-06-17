@@ -2,6 +2,7 @@ import type { ModuleManifestDto } from '@work/platform-contract';
 import { notificationPermissions } from './permissions';
 
 export const NOTIFICATION_MODULE_MANIFEST_ID = '00000000-0000-0000-0000-000000000207';
+export const NOTIFICATION_TRIGGER_CONFIG_MENU_ID = '00000000-0000-0000-0000-000000020701';
 
 export const notificationPlatformManifest: ModuleManifestDto = {
   id: NOTIFICATION_MODULE_MANIFEST_ID,
@@ -9,6 +10,7 @@ export const notificationPlatformManifest: ModuleManifestDto = {
   displayName: '通知中心',
   description: '站内通知、触发点与调度配置的共享后端模块',
   apiPrefix: '/api/notification',
+  webEntry: '/notification',
   status: 'active',
   permissions: [
     {
@@ -17,5 +19,15 @@ export const notificationPlatformManifest: ModuleManifestDto = {
       moduleName: 'notification',
     },
   ],
-  menus: [],
+  menus: [
+    {
+      id: NOTIFICATION_TRIGGER_CONFIG_MENU_ID,
+      moduleName: 'notification',
+      title: '通知设置',
+      path: '/notification/trigger-config',
+      permissionCode: notificationPermissions.triggerConfigManage,
+      sortOrder: 120,
+      status: 'active',
+    },
+  ],
 };
