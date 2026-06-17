@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Client, Pool } from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readNotificationDatabaseConfig } from './db.config';
 import { runNotificationMigrations } from './migrate';
 import { PostgresNotificationRepository } from './postgres-notification.repository';
@@ -33,7 +33,14 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
   });
 
   afterAll(async () => {
-    await pool?.end();
+    if (pool) {
+      await resetDefaultConfigs();
+      await pool.end();
+    }
+  });
+
+  beforeEach(async () => {
+    await resetDefaultConfigs();
   });
 
   it('migrates idempotently and stores recipient-scoped read state', async () => {
@@ -166,6 +173,43 @@ describe.skipIf(!shouldRun)('PostgresNotificationRepository', () => {
     } finally {
       await client.end();
     }
+  }
+
+  async function resetDefaultConfigs(): Promise<void> {
+    const triggerResult = await pool.query(
+      `
+        UPDATE notification.trigger_config
+        SET enabled = true,
+            default_recipients = '[{"kind":"department_manager"}]'::jsonb,
+            updated_at = now()
+        WHERE trigger_key = 'presence.status.changed'
+      `,
+    );
+    expect(triggerResult.rowCount).toBe(1);
+
+    const heartbeatResult = await pool.query(
+      `
+        UPDATE notification.schedule_config
+        SET cron = '0 * * * *',
+            enabled = true,
+            params = '{}'::jsonb,
+            updated_at = now()
+        WHERE job_key = 'notification.heartbeat'
+      `,
+    );
+    expect(heartbeatResult.rowCount).toBe(1);
+
+    const reportResult = await pool.query(
+      `
+        UPDATE notification.schedule_config
+        SET cron = '0 9 * * *',
+            enabled = false,
+            params = '{}'::jsonb,
+            updated_at = now()
+        WHERE job_key IN ('report.reminder.due', 'report.reminder.completed')
+      `,
+    );
+    expect(reportResult.rowCount).toBe(2);
   }
 });
 

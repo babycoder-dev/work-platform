@@ -28,6 +28,7 @@ describe.skipIf(!runPostgresE2E)('files upload API postgres', () => {
       'FILE_STORAGE_CLEANUP_INTERVAL_MS',
       'FILE_STORAGE_MIN_FREE_BYTES',
       'FILE_STORAGE_MIN_FREE_RATIO',
+      'PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD',
     ]) {
       previousEnv[key] = process.env[key];
     }
@@ -36,6 +37,7 @@ describe.skipIf(!runPostgresE2E)('files upload API postgres', () => {
     process.env.FILE_STORAGE_CLEANUP_INTERVAL_MS = '0';
     process.env.FILE_STORAGE_MIN_FREE_BYTES = '1';
     process.env.FILE_STORAGE_MIN_FREE_RATIO = '0';
+    process.env.PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD = 'true';
 
     await execFileAsync(
       process.platform === 'win32' ? 'cmd.exe' : 'pnpm',

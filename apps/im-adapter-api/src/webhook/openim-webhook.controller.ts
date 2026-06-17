@@ -1,10 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Post } from '@nestjs/common';
 import type { ImWebhookEvent } from '@work/im-provider';
 import { OpenImProviderService } from '../providers/openim-provider.service';
 
 @Controller('webhooks/openim')
 export class OpenImWebhookController {
-  constructor(private readonly imProvider: OpenImProviderService) {}
+  constructor(@Inject(OpenImProviderService) private readonly imProvider: OpenImProviderService) {}
 
   @Post()
   async receiveWebhook(@Body() payload: unknown) {

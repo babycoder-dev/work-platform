@@ -1,5 +1,136 @@
 # Verification Log
 
+## 2026-06-17
+
+### M7-5 Notification & Scheduler Delivery Verification
+
+Change set:
+
+- Ran the M7 notification + scheduler delivery gate over the completed M7-1 through M7-4b stack.
+- Fixed three validation-exposed regressions:
+  - `PostgresNotificationRepository` integration tests now reset default trigger/schedule rows before each
+    case and again at suite shutdown. `verify:full` runs the same env-gated spec once during `pnpm test`
+    and again during `pnpm test:db`; without isolation, the first run's intentional upsert mutations made
+    the second run fail against preserved admin-edit semantics.
+  - `platform-api`, `im-adapter-api`, and `realtime-gateway` `start:prod` scripts now pass
+    `--tsconfig ../../tsconfig.base.json` to `tsx`, matching `gateway-api`. The production compose bring-up
+    exposed that these Nest services otherwise failed in-container on decorator transforms. A PR review
+    then exposed that `im-adapter-api` still relies on emitted constructor metadata, so
+    `emitDecoratorMetadata` is now set in the shared base config used by the production `tsx` path, and the
+    IM adapter controllers now use explicit `@Inject(OpenImProviderService)` like the rest of the Nest code.
+  - `files-upload.postgres.e2e-spec.ts` now sets `PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD=true` for its
+    suite-local `db:setup`. The full Postgres e2e chain runs after the platform Postgres suite, which
+    intentionally changes the seeded admin password; resetting the test admin password keeps the later
+    upload suite isolated without changing production seed semantics.
+- Updated `docs/foundation-progress.md` to mark M7 Done and point the next slice at M8.
+- Confirmed `docs/architecture.md`, `docs/deployment.md`, and `docs/security-baseline.md` already describe
+  `modules/notification`, `db:migrate:notification`, SSE, scheduler, and the deleted `apps/notification-api`
+  deployment shape accurately; no extra edits required.
+
+Command matrix:
+
+- `pnpm install --frozen-lockfile`: pass; workspace scope 28 projects, lockfile already current.
+- `NODE_ENV=test pnpm verify`: pass.
+  - `lint`: pass with existing warnings only (`im-adapter-api` unused args, `platform-api` non-null assertions,
+    `workbench-shell/load-remote-module.ts` unused `_descriptor`); 0 errors.
+  - `typecheck`: pass.
+  - `test`: unit 42 files / 206 tests total, with fast-path Postgres-gated files skipped because
+    `RUN_POSTGRES_INTEGRATION` was unset; web 28 files / 71 tests.
+  - `test:e2e`: pass, 7 files / 42 tests, including notification / notification-stream / scheduler
+    in-memory gateway suites.
+  - `build`: pass.
+- Primed graph boundary lint: pass for `@work/notification-api:lint`, `@work/notification-web:lint`, and
+  `@work/gateway-api:lint` after `pnpm exec nx graph --file=tmp-m7-5-logs/nx-graph.json`.
+- `pnpm db:setup` with local Docker Postgres: pass. Observed order:
+  platform -> presence -> files -> forms -> notification -> seed. The notification step printed the
+  `db:migrate:notification` script banner and exited 0; seed reported `permissionCount: 21`.
+- `NODE_ENV=test RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true pnpm verify:full`: pass after the
+  integration-test isolation fixes.
+  - `verify` portion under PG env: unit 42 files / 206 tests, web 28 files / 71 tests, e2e 7 files / 42 tests.
+  - `test:db`: pass, 5 files / 31 tests. `modules/notification/api/src/db/postgres-notification.repository.integration.spec.ts`
+    actually ran, 1 file / 3 tests, not skipped.
+  - `test:e2e:postgres`: pass, 3 files / 14 tests. Notification live-link Postgres coverage is intentionally
+    not in this suite; the three notification gateway e2e specs force the memory repository by design.
+- `pnpm docker:build`: pass after the `start:prod` regression fix. Built images are platform-api,
+  gateway-api, workbench-shell, realtime-gateway, and im-adapter-api; no notification-api image is produced.
+- `docker compose -f infra/docker-compose.prod.yml config`: pass; no `notification-api` service,
+  `depends_on: notification-api`, or `NOTIFICATION_API_URL` reference.
+- `docker compose -f infra/docker-compose.prod.yml up -d` / `down`: pass after the `start:prod` fix.
+  The bring-up showed `gateway-api`, `platform-api`, `im-adapter-api`, `realtime-gateway`,
+  `workbench-shell`, Postgres, and Redis up. `gateway-api` logs mapped `/api/notification/stream`,
+  `/api/notification/trigger-config`, and registered `notification.heartbeat` with cron `0 * * * *`.
+  A stale local `infra-notification-api:latest` image and orphan container from old runs were removed with
+  `docker image rm infra-notification-api:latest` and `docker compose ... down --remove-orphans`; they were
+  not produced by this branch.
+- PR review follow-up after moving `emitDecoratorMetadata` into `tsconfig.base.json` and adding explicit
+  IM adapter controller injection:
+  - `NODE_ENV=test pnpm verify`: pass. Unit 37 passed / 5 skipped files, 175 passed / 31 skipped tests;
+    web 28 files / 71 tests; e2e 7 files / 42 tests; build pass.
+  - `docker compose -f infra/docker-compose.prod.yml up -d`: pass. After ~30s,
+    `docker compose ... ps im-adapter-api` reported `infra-im-adapter-api-1` `Up 46 seconds`, and
+    `docker compose ... logs im-adapter-api` included `Nest application successfully started` plus mapped
+    `/api/im-adapter/notifications/system-message` and `/api/im-adapter/webhooks/openim`.
+  - `docker compose -f infra/docker-compose.prod.yml down`: pass.
+
+Smoke results:
+
+1. Baseline and auth: `GET /api/notification/stream` without token returned 401 from the global guard.
+2. Live chain: using real HTTP against gateway + local Postgres, admin created a manager employee, a managed
+   department, a subject employee, and a minimal presence role. With trigger config enabled, the subject
+   posted `POST /api/presence/status-records`; manager SSE received `{ "type": "notification.created" }`
+   with `content-type: text/event-stream`, and manager unread count changed 0 -> 1.
+3. Receiver UI: manager browser login showed topbar bell badge `1`, workbench "未读消息" card `1`,
+   "最新消息" containing the presence notification, and a bell dropdown item with the created notification.
+4. Read / navigation: clicking the bell dropdown notification marked it read and navigated to
+   `/presence/board`.
+5. Ownership isolation: an unrelated user with the same minimal presence role did not see the manager's
+   notification in `GET /api/notification`; trigger-config write as a non-admin user returned 403 and the
+   non-admin shell navigation did not include "通知设置".
+6. Trigger-config UI and negative proof: admin shell navigation included "通知设置"; `/notification/trigger-config`
+   loaded `presence.status.changed` as enabled with `部门负责人`. Disabling the trigger by API, then creating
+   another presence record, kept manager unread count at 0 and generated no notification for the disabled
+   record. `platform.audit_logs` showed successful `notification.trigger-config.update` audit rows.
+7. Scheduler: gateway logs during smoke and prod compose bring-up showed `notification.heartbeat` registered
+   and both report reminder jobs skipped as disabled placeholders.
+
+Fake-green review:
+
+- Postgres-gated notification coverage was verified by file/test counts: `test:db` ran
+  `PostgresNotificationRepository` 1 file / 3 tests under `RUN_POSTGRES_INTEGRATION=true`.
+- Web and e2e commands were run with `NODE_ENV=test` to avoid the known local production-mode false failures
+  (`React.act is not a function`, `FILE_STORAGE_LOCAL_ROOT is required in production`).
+- Live-link pass was based on real source and runtime path: presence publishes `presence.status.changed`,
+  the notification subscriber reads `notification.trigger_config`, `RecipientResolver` resolves the department
+  manager through the platform port, `NotificationService.create()` persists the row and emits the minimal SSE
+  signal, and Workbench Shell refreshes REST data only for `notification.created` while ignoring keepalive /
+  unknown frames.
+- Docker pass was based on actual build/compose output and image list after removing stale local artifacts:
+  no current build produced a notification-api image or compose service.
+
+Exit checklist:
+
+- [x] `modules/notification` contract+api, `notification.*` schema/migrations, dual repository implementations,
+  and `db:migrate:notification` in `db:setup`. (§18-1)
+- [x] `presence.status.changed` -> department manager notification end-to-end, with in-memory e2e plus
+  Postgres/gateway/browser smoke evidence. (§18-2)
+- [x] SSE endpoint authenticated by the global guard, sends only the current user's stream, and frontend
+  fallback polling / reconnect logic is present and tested. (§18-3)
+- [x] Scheduler framework, dynamic schedule config, heartbeat placeholder, and report reminder placeholders
+  are in place. (§18-4)
+- [x] Platform read port security review was completed in M7-2; this slice did not touch auth/scope/audit/rbac,
+  guards, data scope, token/session, or migrations, so no new security-reviewer gate was required. (§18-5)
+- [x] `apps/notification-api` is deleted from git and no dev/docker/release/CODEOWNERS/CI deployment reference
+  remains. (§18-6)
+- [x] Frontend bell, workbench latest-message card, unread stat, SSE consumption, and trigger-config UI consume
+  real notification APIs; non-notification placeholders remain intact. (§18-7)
+- [x] Trigger-config write API, `notification:trigger-config:manage`, and audit were validated. (§18-8)
+- [x] `pnpm verify`, `verify:full`, `docker:build`, compose config, and compose up/down passed locally. (§18-9)
+
+Follow-up:
+
+- M8: people / organization / profile work, including the previously tracked employee bare-id tenant-isolation
+  follow-up and forms profile UI integration.
+
 ## 2026-06-16
 
 ### M7-4b Notification Frontend
