@@ -20,8 +20,8 @@
 | M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done        | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                                     |
 | M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done        | M4-4 交付验证已完成；presence 模块进入维护态                                                        |
 | M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done        | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                                     |
-| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done        | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，下一步 M7 通知 + 调度                 |
-| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | In Progress | M7-4b 前端铃铛 / 工作台卡片、SSE 消费、触发点配置 UI 已交付；下一步 M7-5 交付验证                  |
+| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done        | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，M7 通知 + 调度已交付                 |
+| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done        | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪 |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending     | 依赖 M5/M6/M7                                                                                       |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending     | 在 M4 presence 基础上扩展                                                                           |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                          |
@@ -185,7 +185,7 @@
 当前建议执行：
 
 ```text
-M7-5: 通知 + 调度交付验证门禁
+M8: 人员 / 组织 / 档案
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -202,7 +202,8 @@ M7-3 已交付 `@nestjs/schedule` 调度基建、`notification.schedule_config`�
 ①② 日报提醒预留接线点。M7-4 已拆分为后端 SSE 管道（M7-4a）与前端消费（M7-4b）：
 M7-4a 已交付 `GET /api/notification/stream`、进程内连接注册表和 `create()` 最小信号推送；
 M7-4b 已交付 `@work/http-client.stream()`、shell 铃铛 / 工作台通知卡片、断线回退轮询和
-`modules/notification/web` 触发点配置页。下一步进入 M7-5 通知 + 调度交付验证门禁。
+`modules/notification/web` 触发点配置页。M7-5 通知 + 调度交付验证门禁已完成，M7 整段退出。
+下一步进入 M8（人员 / 组织 / 档案），M8 依赖的 M5/M6/M7 基建已就位。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -219,7 +220,7 @@ M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享�
 本地磁盘 Files provider + 上传 API、M6-3 Forms API + 快照记录 + 文件 / 人员字段、M6-4 后端
 交付验证、M6-W 前端地基 + 工作台首页均已完成。M7-0 RFC 已 Accepted，M7-1 通知模块骨架、
 M7-2 事件订阅 + RecipientResolver + platform 读端口已完成；M7-3 调度基建已完成，M7-4a SSE 后端已完成，
-M7-4b 前端接入已完成，下一步执行 M7-5；
+M7-4b 前端接入已完成，M7-5 交付验证已完成；下一步进入 M8（人员 / 组织 / 档案）；
 forms UI 迁 M8。
 注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
 `docs/adr/0005-product-replan-roadmap.md`。
@@ -268,6 +269,7 @@ forms UI 迁 M8。
 | M7-3 | 调度基建 | Done | 2026-06-15 完成；详见 verification-log `M7-3 Scheduler Infrastructure`，日报具体逻辑仍预留 M10 |
 | M7-4a | SSE 推送后端端点 + 进程内连接注册表 | Done | 2026-06-15 完成；详见 verification-log `M7-4a Notification SSE Backend`；REST 仍为事实源，SSE 只推最小信号 |
 | M7-4b | 前端铃铛 / 工作台卡片 + SSE 消费 | Done | 2026-06-16 完成；详见 verification-log `M7-4b Notification Frontend`；断线回退 REST 轮询，触发点配置 UI 已落位 |
+| M7-5 | 通知 + 调度交付验证门禁 | Done | 2026-06-17 完成；详见 verification-log `M7-5 Notification & Scheduler Delivery Verification`；M7 整段退出，下一步 M8 |
 
 ## 7. 当前阻塞项
 
