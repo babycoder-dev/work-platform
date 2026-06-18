@@ -207,6 +207,9 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M6 动态表单 mini + 文件存储 RFC：`docs/rfc/m6-dynamic-forms-file-storage.md`（固定槽位、快照值、本地磁盘 provider、私有文件访问边界）
 - M7 通知基建 + 定时任务调度 RFC：`docs/rfc/m7-notification-scheduler.md`（modules/notification 共享模块、事件驱动+接收人可配、SSE 单实例推送、@nestjs/schedule、删 notification-api app）
 - M8 人员 / 组织 / 档案 RFC：`docs/rfc/m8-people-org-profile.md`（核心留 platform 不新建模块、近况记录 `platform.status_logs`、消费 M6 forms `profile.employee` 槽位前端聚合、`profile.updated` 生产+notification 新增订阅、复用 `platform:org:*`、profile scope 首次用于写授权）
+- 设计真源（Claude Design 交接包）：`docs/design/ui-handoff/`（README + `design/` 下 tokens.css + 登录/外壳/工作台/组织成员/消息中心/我的待办/审批中心 设计稿；UI 实现的**只读基准**，要求像素级还原）
+- UI 还原度差距清单：`docs/design/ui-fidelity-gap-foundation.md`（地基三屏 设计 vs 实现逐项差距 L-_/S-_/W-\_ + L1/L2 边界 + 设计还原度门禁立意）
+- UI 地基还原收口切片任务包：`docs/tasks/ui-foundation-fidelity.md`（M8 前；组件库+登录+外壳+工作台像素级还原 + 还原度门禁 A/B 两层；后续 UI 切片复用该门禁）
 
 后续建议补充：
 
