@@ -48,6 +48,19 @@ pnpm docker:build
 - 已完成的替代检查。
 - 需要在 CI 或有网环境补跑的命令。
 
+### 2.1 UI 设计还原度门禁
+
+涉及 `apps/workbench-shell` 或 `packages/ui` 的 UI 类交付，除 `pnpm verify` 外必须对照
+`docs/tasks/ui-foundation-fidelity.md` 与 `docs/design/ui-fidelity-gap-foundation.md` 执行设计还原度门禁：
+
+- `packages/ui/src/**` 与 `apps/workbench-shell/src/**` 不得出现硬编码 hex 色值，颜色统一来自 token。
+- 不得用 emoji 充当图标，占位图标必须来自统一线性 SVG 图标集。
+- 登录页、外壳和工作台首页的设计稿关键文案必须在 `*.spec.tsx` 中逐字断言。
+- 间距、圆角、阴影、字体等视觉参数优先使用 `--sp-*`、`--r-*`、`--shadow-*`、`--font*` token。
+- 已接入的真实数据链路和诚实 EmptyState 占位必须回归保留，不得用原型演示数字或条目充版式。
+
+交付记录需在 `docs/verification-log.md` 写明静态扫描、文案断言、真实接线回归和差距 ID 销项结果。
+
 ## 3. Git 规范
 
 分支命名：

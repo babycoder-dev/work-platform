@@ -1,5 +1,63 @@
 # Verification Log
 
+## 2026-06-18
+
+### UI Foundation Fidelity
+
+Change set:
+
+- UI-1: added the shared `Icon`, `Card`, `StatCard`, and `QuickGrid` components in `@work/ui`; exported them from the package entrypoint; moved the package token port away from hardcoded hex literals while preserving the design token values.
+- UI-2: restyled the login page against the design source: brand mark `工`, subtitle `企业内网账号统一登录入口`, empty default account field, placeholder `请输入工号或邮箱`, linear user/lock icons, checked remember-login default, button text `登 录`, and footer copy `登录即代表同意《内网使用规范》与《安全协议》`.
+- UI-3: restyled the shell brand, sidebar, topbar icon language, search placeholder, help icon, role line, and notification sidebar badge while preserving manifest-driven navigation, breadcrumbs, search shell, real notification unread count, profile menu, and route mounting.
+- UI-4: replaced the workbench-specific card/stat/app visual primitives with `StatCard`, `Card`, and `QuickGrid`; preserved real notification unread/recent data, real `navigationItems` quick entries, and honest EmptyState placeholders for unbuilt sources. Presence board count is optional and only requested when `presence:board:view` is present.
+- Code simplification pass: tightened `QuickGrid` custom render output with an internal keyed `Fragment`, preserving behavior while making the component API less dependent on each caller adding a key.
+- Documented the UI design fidelity gate in `docs/development-workflow.md` and marked the UI收口切片 Done in `docs/foundation-progress.md`.
+
+Command matrix:
+
+- `pnpm install`: pass; lockfile already current.
+- UI-1 targeted web specs:
+  `NODE_ENV=test pnpm exec vitest run --config vitest.web.config.mts packages/ui/src/components/Icon/Icon.spec.tsx packages/ui/src/components/Card/Card.spec.tsx packages/ui/src/components/StatCard/StatCard.spec.tsx packages/ui/src/components/QuickGrid/QuickGrid.spec.tsx`: pass, 4 files / 4 tests.
+- App targeted web spec:
+  `NODE_ENV=test pnpm exec vitest run --config vitest.web.config.mts apps/workbench-shell/src/app/App.spec.tsx`: pass, 1 file / 10 tests.
+- Full web regression:
+  `NODE_ENV=test pnpm exec vitest run --config vitest.web.config.mts`: pass, 32 files / 75 tests.
+- `pnpm typecheck`: pass.
+- `pnpm lint`: pass with existing warnings only; 0 errors. The standard lint path still prints the known Nx ProjectGraph warning.
+- Primed graph lint:
+  `pnpm exec nx graph --file=tmp-graph.json && pnpm exec nx run @work/ui:lint && pnpm exec nx run @work/workbench-shell:lint`: pass. `@work/ui` 0 problems; `@work/workbench-shell` 0 errors / 1 existing warning (`load-remote-module.ts` unused `_descriptor`).
+- `NODE_ENV=test pnpm verify`: pass.
+  - Unit: 37 passed / 5 skipped files; 175 passed / 31 skipped tests. Skipped files are existing env-gated tests.
+  - Web: 32 files / 75 tests.
+  - E2E: 7 files / 42 tests.
+  - Build: pass.
+- Post-simplification focused checks:
+  - `NODE_ENV=test pnpm exec vitest run --config vitest.web.config.mts packages/ui/src/components/QuickGrid/QuickGrid.spec.tsx`: pass, 1 file / 1 test.
+  - `pnpm typecheck`: pass.
+
+Fidelity gate evidence:
+
+- A1 zero hardcoded hex:
+  `rg -n "#[0-9a-fA-F]{3,8}" packages/ui/src apps/workbench-shell/src` returned no matches.
+- A2 zero emoji placeholders:
+  `rg -n "👤|🔒|🔔|☰|⌕|👋|😀|😁|😂|😅|😊|😍|👍|🎉|✅|❌|⚠️|📌|📄|📁|📊|📈|📉|🧩|🔍|🔎|🔑|👥|🏢|🏠|📝|📬|📭|📦|🚀|⭐|✨" packages/ui/src apps/workbench-shell/src` returned no matches.
+- A3 critical copy assertions live in `apps/workbench-shell/src/app/App.spec.tsx`: `企业内网账号统一登录入口`, `登 录`, `请输入工号或邮箱`, `登录即代表同意《内网使用规范》与《安全协议》`, and `内网工作台`.
+- A4 visual values use token variables in the touched UI sources; package colors now use token variables / token definitions without hex literals, and shell spacing/radius/shadow/font values continue to route through `--sp-*`, `--r-*`, `--shadow-*`, and `--font*`.
+- A5 regression preservation: tests still cover manifest navigation, sidebar collapse, topbar search shell, notification unread badge/list/read/jump, stream stability, workbench real user/menu/notification data, and absence of prototype fake numbers `12` / `9` / `5` / `231`.
+- Design source unchanged: `git diff -- docs/design/ui-handoff` is empty.
+
+Gap closeout:
+
+- UI-1: component library gaps closed for shared linear SVG icons, `Card`, `StatCard`, and `QuickGrid`; Tag five-color support was already present and retained.
+- UI-2: L-1 through L-8 closed or routed through token-backed components/styles.
+- UI-3: S-1, S-2, S-3, S-5, S-7, and S-8 closed; S-0/S-4/S-6 were already structurally correct and preserved.
+- UI-4: W-1 through W-6 closed by swapping the workbench visual layer to UI primitives while keeping real data and honest placeholders.
+
+Follow-up:
+
+- B-class pixel comparison remains reviewer-owned; implementation-side A-class gates and regression tests are complete.
+- M8 remains next for people / organization / profile work; unbuilt approval/todo sources stay as honest placeholders.
+
 ## 2026-06-17
 
 ### M7-5 Notification & Scheduler Delivery Verification

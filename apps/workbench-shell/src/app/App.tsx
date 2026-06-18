@@ -5,11 +5,16 @@ import {
   Avatar,
   Badge,
   Button,
+  Card,
   Checkbox,
   Dropdown,
   EmptyState,
+  Icon,
+  type IconName,
   Input,
   Menu,
+  QuickGrid,
+  StatCard,
   Toast,
 } from '@work/ui';
 import type { ComponentType, FormEvent, LazyExoticComponent, ReactNode } from 'react';
@@ -36,6 +41,17 @@ interface ModuleRouteEntry {
 }
 
 const SIDEBAR_COLLAPSED_KEY = 'work-platform.shell.collapsed';
+
+const moduleIconNames: Record<string, IconName> = {
+  approval: 'check',
+  files: 'file',
+  forms: 'file',
+  notification: 'notification',
+  platform: 'platform',
+  presence: 'presence',
+  report: 'calendar',
+  todo: 'inbox',
+};
 
 const moduleRouteTable: ModuleRouteEntry[] = buildModuleRouteTable(moduleRegistry.getModules()).map((route) => ({
   path: route.path,
@@ -187,6 +203,10 @@ export function AppShell(props: {
     [props.notificationApi, props.onLogout],
   );
   const notifications = useNotifications(notificationApi);
+  const presenceSummary = usePresenceSummary({
+    enabled: props.permissionCodes.includes('presence:board:view'),
+    onUnauthorized: props.onLogout,
+  });
 
   function toggleCollapsed() {
     setIsCollapsed((current) => {
@@ -204,8 +224,8 @@ export function AppShell(props: {
     <main className={isCollapsed ? 'app-shell app-shell--collapsed' : 'app-shell'}>
       <aside className="app-shell__side">
         <div className="app-shell__brand">
-          <span className="app-shell__logo">W</span>
-          <strong>Work Platform</strong>
+          <span className="app-shell__logo">工</span>
+          <strong>内网工作台</strong>
         </div>
         <nav className="app-shell__nav" aria-label="主导航">
           {props.navigationGroups.length === 0 ? (
@@ -225,7 +245,11 @@ export function AppShell(props: {
                   >
                     <ModuleIcon moduleName={item.moduleName} />
                     <span className="app-shell__nav-label">{item.title}</span>
-                    <span className="app-shell__badge-slot" aria-hidden="true" />
+                    {item.moduleName === 'notification' && notifications.unreadCount > 0 ? (
+                      <Badge count={formatUnreadCount(notifications.unreadCount)} />
+                    ) : (
+                      <span className="app-shell__badge-slot" aria-hidden="true" />
+                    )}
                   </NavLink>
                 ))}
               </section>
@@ -236,7 +260,7 @@ export function AppShell(props: {
           <Avatar name={props.currentUser.name} />
           <div>
             <strong>{props.currentUser.name}</strong>
-            <span>{props.currentUser.departmentName ?? '默认组织'}</span>
+            <span>{props.currentUser.roles[0] ?? props.currentUser.departmentName ?? '默认组织'}</span>
           </div>
         </div>
       </aside>
@@ -260,6 +284,7 @@ export function AppShell(props: {
                       currentUser={props.currentUser}
                       navigationItems={props.navigationItems}
                       notifications={notifications}
+                      presenceSummary={presenceSummary}
                     />
                   }
                   index
@@ -341,7 +366,7 @@ function Topbar(props: {
   return (
     <header className="app-topbar">
       <Button aria-label="折叠侧栏" className="app-topbar__icon-button" onClick={props.onToggleCollapsed}>
-        ☰
+        <Icon name="menu" />
       </Button>
       <div className="app-topbar__crumb">
         工作台 <span>/</span> <b>{props.activeTitle}</b>
@@ -353,8 +378,8 @@ function Topbar(props: {
           onChange={(event) => setSearchQuery(event.target.value)}
           onFocus={() => setActivePopover('search')}
           onKeyDown={handleSearchKey}
-          placeholder="搜索应用、成员、审批…  ⌘K"
-          prefix="⌕"
+          placeholder="搜索应用、文档、成员"
+          prefix={<Icon name="search" />}
           ref={searchInputRef}
           value={searchQuery}
         />
@@ -369,7 +394,7 @@ function Topbar(props: {
         open={activePopover === 'notifications'}
         trigger={
           <Button aria-label="通知" className="app-topbar__icon-button">
-            🔔
+            <Icon name="bell" />
             {props.notifications.unreadCount > 0 ? (
               <Badge count={formatUnreadCount(props.notifications.unreadCount)} />
             ) : null}
@@ -407,6 +432,13 @@ function Topbar(props: {
           )}
         </div>
       </Dropdown>
+      <Button
+        aria-label="帮助"
+        className="app-topbar__icon-button"
+        onClick={() => props.onPlaceholder('帮助中心')}
+      >
+        <Icon name="help" />
+      </Button>
       <Dropdown
         onOpenChange={(open) => setActivePopover(open ? 'profile' : undefined)}
         open={activePopover === 'profile'}
@@ -523,7 +555,7 @@ export function LoginView(props: {
   isSubmitting: boolean;
   onSubmit: (input: LoginInput) => Promise<void>;
 }) {
-  const [account, setAccount] = useState('admin');
+  const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -534,16 +566,17 @@ export function LoginView(props: {
   return (
     <main className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
-        <div className="login-card__logo">W</div>
+        <div className="login-card__logo">工</div>
         <div>
           <h1>登录工作台</h1>
-          <p>企业内部协作与管理入口</p>
+          <p>企业内网账号统一登录入口</p>
         </div>
         <Input
           autoComplete="username"
           label="账号"
           onChange={(event) => setAccount(event.target.value)}
-          prefix="👤"
+          placeholder="请输入工号或邮箱"
+          prefix={<Icon name="user" />}
           size="lg"
           value={account}
         />
@@ -551,22 +584,23 @@ export function LoginView(props: {
           autoComplete="current-password"
           label="密码"
           onChange={(event) => setPassword(event.target.value)}
-          prefix="🔒"
+          placeholder="请输入登录密码"
+          prefix={<Icon name="lock" />}
           size="lg"
           type="password"
           value={password}
         />
         <div className="login-card__row">
-          <Checkbox label="记住登录" />
+          <Checkbox defaultChecked label="记住登录" />
           <button className="login-card__link" disabled type="button">
             忘记密码？
           </button>
         </div>
         {props.errorMessage ? <div className="login-card__error">{props.errorMessage}</div> : null}
         <Button block disabled={props.isSubmitting || props.isBootstrapping} size="lg" type="submit" variant="primary">
-          {props.isSubmitting || props.isBootstrapping ? '处理中' : '登录'}
+          {props.isSubmitting || props.isBootstrapping ? '处理中' : '登 录'}
         </Button>
-        <p className="login-card__hint">登录即表示你正在访问企业内网工作台。</p>
+        <p className="login-card__hint">登录即代表同意《内网使用规范》与《安全协议》</p>
       </form>
     </main>
   );
@@ -576,13 +610,13 @@ export function WorkbenchHome(props: {
   currentUser: CurrentUserDto;
   navigationItems: NavigationItem[];
   notifications?: Pick<NotificationsState, 'unreadCount' | 'recent'>;
+  presenceSummary?: PresenceSummary;
 }) {
   const greeting = getGreeting();
   const quickEntries = props.navigationItems.slice(0, 6);
-  const placeholderStats = [
-    { key: 'approval', title: '待我审批', milestone: 'M11' },
-    { key: 'todo', title: '我的待办', milestone: 'vNext' },
-    { key: 'presence', title: '在岗成员', milestone: 'presence 汇总 API' },
+  const placeholderStats: Array<{ key: string; title: string; milestone: string; icon: IconName }> = [
+    { key: 'approval', title: '待我审批', milestone: 'M11', icon: 'check' },
+    { key: 'todo', title: '我的待办', milestone: 'vNext', icon: 'inbox' },
   ];
 
   return (
@@ -603,59 +637,65 @@ export function WorkbenchHome(props: {
       </header>
 
       <div className="workbench-home__stats">
-        <article className="workbench-home__stat">
-          <div>
-            <span>未读消息</span>
-            <strong>{props.notifications?.unreadCount ?? 0}</strong>
-          </div>
-          <ModuleIcon moduleName="notification" />
-          <p>来自通知中心未读数</p>
-        </article>
+        <StatCard
+          description="来自通知中心未读数"
+          icon={<Icon name="bell" />}
+          label="未读消息"
+          value={props.notifications?.unreadCount ?? 0}
+        />
         {placeholderStats.map((stat) => (
-          <article className="workbench-home__stat" key={stat.key}>
-            <div>
-              <span>{stat.title}</span>
-              <strong>待接入</strong>
-            </div>
-            <ModuleIcon moduleName={stat.key} />
-            <p>数据待接入（{stat.milestone}）</p>
-          </article>
+          <StatCard
+            description={`数据待接入（${stat.milestone}）`}
+            icon={<Icon name={stat.icon} />}
+            key={stat.key}
+            label={stat.title}
+            value="待接入"
+          />
         ))}
+        {props.presenceSummary ? (
+          <StatCard
+            description={`来自在位看板，共 ${props.presenceSummary.totalCount} 条记录`}
+            icon={<Icon name="presence" />}
+            label="在岗成员"
+            value={props.presenceSummary.workingCount}
+          />
+        ) : null}
       </div>
 
       <div className="workbench-home__grid">
-        <section className="workbench-home__card">
-          <h2>待处理事项</h2>
+        <Card title="待处理事项">
           <EmptyState title="暂无待处理事项" description="审批、待办等聚合来源待接入（M7/M11）。" />
-        </section>
-        <section className="workbench-home__card">
-          <h2>常用应用</h2>
+        </Card>
+        <Card title="常用应用">
           {quickEntries.length ? (
-            <div className="workbench-home__apps">
-              {quickEntries.map((entry) => (
-                <NavLink className="workbench-home__app" key={entry.path} to={entry.path}>
-                  <ModuleIcon moduleName={entry.moduleName} />
+            <QuickGrid
+              items={quickEntries.map((entry) => ({
+                ...entry,
+                key: entry.path,
+                icon: <ModuleIcon moduleName={entry.moduleName} />,
+              }))}
+              renderItem={(entry) => (
+                <NavLink className="work-quick-grid__item" key={entry.path} to={entry.path}>
+                  <span className="work-quick-grid__icon">{entry.icon}</span>
                   <span>{entry.title}</span>
                   <small>{entry.moduleName}</small>
                 </NavLink>
-              ))}
-            </div>
+              )}
+            />
           ) : (
             <EmptyState title="暂无应用入口" description="当前账号尚无可访问菜单。" />
           )}
-        </section>
-        <section className="workbench-home__card">
-          <h2>最新消息</h2>
+        </Card>
+        <Card title="最新消息">
           {props.notifications?.recent.length ? (
             <NotificationList compact notifications={props.notifications.recent.slice(0, 5)} />
           ) : (
             <EmptyState title="暂无消息" description="暂无通知消息。" />
           )}
-        </section>
-        <section className="workbench-home__card">
-          <h2>系统动态</h2>
+        </Card>
+        <Card title="系统动态">
           <EmptyState title="暂无动态" description="系统动态来源待接入，当前不展示原型演示数据。" />
-        </section>
+        </Card>
       </div>
     </section>
   );
@@ -671,12 +711,64 @@ function ShellState(props: { title: string; description: string }) {
 }
 
 function ModuleIcon({ moduleName }: { moduleName: string }) {
-  const label = moduleName.slice(0, 1).toUpperCase();
+  const iconName = moduleIconNames[moduleName] ?? 'app';
   return (
     <span className={`module-icon module-icon--${moduleName}`} aria-hidden="true">
-      {label}
+      <Icon name={iconName} />
     </span>
   );
+}
+
+interface PresenceSummary {
+  totalCount: number;
+  workingCount: number;
+}
+
+function usePresenceSummary({
+  enabled,
+  onUnauthorized,
+}: {
+  enabled: boolean;
+  onUnauthorized: () => void;
+}): PresenceSummary | undefined {
+  const [summary, setSummary] = useState<PresenceSummary>();
+
+  useEffect(() => {
+    if (!enabled) {
+      setSummary(undefined);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const http = createHttpClient({
+      baseUrl: new URL('/api/presence/', window.location.origin).toString(),
+      getAccessToken: () => readAccessToken() ?? '',
+      onUnauthorized,
+    });
+
+    void http
+      .get<{ items: Array<{ status: string }> }>('board')
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        setSummary({
+          totalCount: response.items.length,
+          workingCount: response.items.filter((item) => item.status === 'working').length,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSummary(undefined);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, onUnauthorized]);
+
+  return summary;
 }
 
 function getGreeting(): string {

@@ -22,7 +22,7 @@
 | M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done    | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                                              |
 | M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done    | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，M7 通知 + 调度已交付                           |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done    | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪 |
-| UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Pending | 任务包 `docs/tasks/ui-foundation-fidelity.md` 已二审定稿；UI-1→(UI-2‖UI-3)→UI-4；M8 后端可并行               |
+| UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Done    | 组件库、登录页、应用外壳、工作台首页已按设计真源收口；设计还原度门禁纳入开发流程；下一步 M8                 |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending | RFC 已二审定稿（待 1 项拍板）；依赖 M5/M6/M7                                                                 |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | 在 M4 presence 基础上扩展                                                                                    |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending | 依赖 M6/M7                                                                                                   |
@@ -186,10 +186,8 @@
 当前建议执行：
 
 ```text
-UI 收口切片（M8 前，地基三屏像素级还原 + 还原度门禁）
-  └ 任务包 docs/tasks/ui-foundation-fidelity.md（已二审定稿，可交 Codex）
 M8: 人员 / 组织 / 档案（RFC docs/rfc/m8-people-org-profile.md 已二审定稿，待 1 项拍板：
-    近况记录归属 platform.status_logs vs modules/profile；M8 后端切片可与 UI 收口并行）
+    近况记录归属 platform.status_logs vs modules/profile）
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -207,7 +205,8 @@ M7-3 已交付 `@nestjs/schedule` 调度基建、`notification.schedule_config`�
 M7-4a 已交付 `GET /api/notification/stream`、进程内连接注册表和 `create()` 最小信号推送；
 M7-4b 已交付 `@work/http-client.stream()`、shell 铃铛 / 工作台通知卡片、断线回退轮询和
 `modules/notification/web` 触发点配置页。M7-5 通知 + 调度交付验证门禁已完成，M7 整段退出。
-下一步进入 M8（人员 / 组织 / 档案），M8 依赖的 M5/M6/M7 基建已就位。
+UI 收口切片已完成地基三屏设计还原与门禁固化。下一步进入 M8（人员 / 组织 / 档案），
+M8 依赖的 M5/M6/M7 与 UI 地基已就位。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -274,6 +273,12 @@ forms UI 迁 M8。
 | M7-4a | SSE 推送后端端点 + 进程内连接注册表     | Done | 2026-06-15 完成；详见 verification-log `M7-4a Notification SSE Backend`；REST 仍为事实源，SSE 只推最小信号           |
 | M7-4b | 前端铃铛 / 工作台卡片 + SSE 消费        | Done | 2026-06-16 完成；详见 verification-log `M7-4b Notification Frontend`；断线回退 REST 轮询，触发点配置 UI 已落位       |
 | M7-5  | 通知 + 调度交付验证门禁                 | Done | 2026-06-17 完成；详见 verification-log `M7-5 Notification & Scheduler Delivery Verification`；M7 整段退出，下一步 M8 |
+
+### 6.5 UI 收口切片（M8 前）
+
+| 切片          | 能力                                                    | 状态 | 说明                                                                                             |
+| ------------- | ------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------ |
+| UI-Fidelity-1 | UI-1 组件库、UI-2 登录页、UI-3 应用外壳、UI-4 工作台首页 | Done | 2026-06-18 完成；详见 verification-log `UI Foundation Fidelity`；设计还原度门禁已纳入开发流程 |
 
 ## 7. 当前阻塞项
 

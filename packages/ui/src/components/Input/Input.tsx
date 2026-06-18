@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, useId } from 'react';
 import type { FieldProps } from '../field';
 import { cx } from '../shared';
 
-export type InputProps = FieldProps & Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>;
+export type InputProps = FieldProps & Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix' | 'size'>;
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { label, prefix, size = 'default', className, id, ...props },
@@ -10,15 +10,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 ) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
+  const hasPrefix = Boolean(prefix);
   const input = (
     <div className="work-control-wrap">
-      {prefix ? <span className="work-control-affix">{prefix}</span> : null}
+      {hasPrefix ? <span className="work-control-affix">{prefix}</span> : null}
       <input
         aria-label={label}
         className={cx(
           'work-input',
           size === 'lg' && 'work-input--lg',
-          prefix && 'work-input--affix',
+          hasPrefix && 'work-input--affix',
           className,
         )}
         id={inputId}

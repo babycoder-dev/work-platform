@@ -110,10 +110,13 @@ describe('workbench shell frontend foundation', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<LoginView isBootstrapping={false} isSubmitting={false} onSubmit={onSubmit} />);
 
+    expect(screen.getByText('企业内网账号统一登录入口')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('请输入工号或邮箱')).toHaveValue('');
+    expect(screen.getByText('登录即代表同意《内网使用规范》与《安全协议》')).toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText('账号'));
     await userEvent.type(screen.getByLabelText('账号'), 'alice');
     await userEvent.type(screen.getByLabelText('密码'), 'secret');
-    await userEvent.click(screen.getByRole('button', { name: '登录' }));
+    await userEvent.click(screen.getByRole('button', { name: '登 录' }));
 
     expect(onSubmit).toHaveBeenCalledWith({ account: 'alice', password: 'secret' });
   });
@@ -121,6 +124,7 @@ describe('workbench shell frontend foundation', () => {
   it('renders grouped manifest navigation and persists sidebar collapse', async () => {
     renderShell();
 
+    expect(screen.getByText('内网工作台')).toBeInTheDocument();
     expect(screen.getByText('协作')).toBeInTheDocument();
     const mainNavigation = screen.getByRole('navigation', { name: '主导航' });
     expect(within(mainNavigation).getByRole('link', { name: /在位看板/ })).toHaveAttribute(
@@ -142,7 +146,7 @@ describe('workbench shell frontend foundation', () => {
     await userEvent.click(screen.getByRole('button', { name: '折叠侧栏' }));
     expect(screen.queryByText('搜索后端待接入')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByPlaceholderText(/搜索应用/));
+    await userEvent.click(screen.getByPlaceholderText('搜索应用、文档、成员'));
     expect(screen.getByText('搜索后端待接入')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /通知/ }));
     expect(screen.queryByText('搜索后端待接入')).not.toBeInTheDocument();
@@ -213,8 +217,9 @@ describe('workbench shell frontend foundation', () => {
 
     render(<App />);
 
+    await userEvent.type(screen.getByLabelText('账号'), 'admin');
     await userEvent.type(screen.getByLabelText('密码'), 'secret');
-    await userEvent.click(screen.getByRole('button', { name: '登录' }));
+    await userEvent.click(screen.getByRole('button', { name: '登 录' }));
     await screen.findByText(/晚上好|下午好|早上好/);
     await waitForInitialNotificationLoad(notificationApiFns);
 
@@ -247,7 +252,7 @@ describe('workbench shell frontend foundation', () => {
     expect(screen.getByRole('link', { name: /在位看板/ })).toHaveAttribute('href', '/presence/board');
     expect(screen.getAllByText(/数据待接入/).length).toBeGreaterThan(0);
 
-    const home = screen.getByText('待处理事项').closest('section')?.parentElement;
+    const home = document.querySelector('.workbench-home');
     expect(home).toBeTruthy();
     expect(within(home as HTMLElement).queryByText('12')).not.toBeInTheDocument();
     expect(within(home as HTMLElement).queryByText('9')).not.toBeInTheDocument();

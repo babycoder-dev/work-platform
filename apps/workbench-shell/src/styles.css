@@ -19,6 +19,9 @@ body {
   --shell-content-card-min-height: 220px;
   --shell-placeholder-width: 520px;
   --shell-nav-icon-size: 18px;
+  --shell-login-logo-size: 44px;
+  --shell-page-max-width: 1280px;
+  --shell-letter-spacing-nav: calc(var(--sp-1) / 10);
   background: var(--fill-1);
   display: grid;
   grid-template-columns: var(--shell-sidebar-width) minmax(0, 1fr);
@@ -32,7 +35,7 @@ body {
 
 .app-shell__side {
   background: var(--white);
-  border-right: 1px solid var(--line-1);
+  border-right: var(--border-width) solid var(--line-1);
   display: grid;
   grid-template-rows: var(--shell-topbar-height) 1fr auto;
   min-width: 0;
@@ -82,7 +85,7 @@ body {
   color: var(--ink-4);
   font-size: var(--font-size-11);
   font-weight: 600;
-  letter-spacing: 0.4px;
+  letter-spacing: var(--shell-letter-spacing-nav);
   padding: 0 var(--sp-3);
   text-transform: uppercase;
 }
@@ -123,7 +126,7 @@ body {
 
 .app-shell__user {
   align-items: center;
-  border-top: 1px solid var(--line-2);
+  border-top: var(--border-width) solid var(--line-2);
   display: grid;
   gap: var(--sp-2);
   grid-template-columns: var(--avatar-size-md) minmax(0, 1fr);
@@ -180,7 +183,7 @@ body {
 .app-topbar {
   align-items: center;
   background: var(--white);
-  border-bottom: 1px solid var(--line-1);
+  border-bottom: var(--border-width) solid var(--line-1);
   display: flex;
   gap: var(--sp-4);
   min-width: 0;
@@ -192,6 +195,13 @@ body {
   height: var(--control-height-menu);
   min-width: var(--control-height-menu);
   padding: 0;
+  position: relative;
+}
+
+.app-topbar__icon-button .work-badge {
+  position: absolute;
+  right: calc(var(--sp-1) * -1);
+  top: calc(var(--sp-1) * -1);
 }
 
 .app-topbar__crumb {
@@ -229,7 +239,7 @@ body {
 .app-topbar__popover,
 .app-topbar__profile {
   background: var(--white);
-  border: 1px solid var(--line-1);
+  border: var(--border-width) solid var(--line-1);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-pop);
   min-width: var(--shell-popover-min-width);
@@ -297,7 +307,7 @@ body {
 .app-shell__error,
 .login-card__error {
   background: var(--danger-bg);
-  border: 1px solid var(--danger);
+  border: var(--border-width) solid var(--danger);
   border-radius: var(--r-sm);
   color: var(--danger);
   margin: var(--sp-4) var(--sp-5) 0;
@@ -321,7 +331,7 @@ body {
 
 .login-card {
   background: var(--white);
-  border: 1px solid var(--line-1);
+  border: var(--border-width) solid var(--line-1);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-pop);
   display: grid;
@@ -338,9 +348,9 @@ body {
   display: flex;
   font-size: var(--font-size-20);
   font-weight: 700;
-  height: var(--avatar-size-lg);
+  height: var(--shell-login-logo-size);
   justify-content: center;
-  width: var(--avatar-size-lg);
+  width: var(--shell-login-logo-size);
 }
 
 .login-card h1 {
@@ -378,6 +388,9 @@ body {
 .workbench-home {
   display: grid;
   gap: var(--sp-4);
+  margin: 0 auto;
+  max-width: var(--shell-page-max-width);
+  width: 100%;
 }
 
 .workbench-home__head {
@@ -407,40 +420,7 @@ body {
 .workbench-home__stats {
   display: grid;
   gap: var(--sp-4);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.workbench-home__stat,
-.workbench-home__card {
-  background: var(--white);
-  border: 1px solid var(--line-1);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-card);
-}
-
-.workbench-home__stat {
-  align-items: start;
-  display: grid;
-  gap: var(--sp-3);
-  grid-template-columns: minmax(0, 1fr) var(--avatar-size-md);
-  padding: calc(var(--sp-4) + var(--sp-1) / 2);
-}
-
-.workbench-home__stat span,
-.workbench-home__stat p {
-  color: var(--ink-3);
-  font-size: var(--font-size-13);
-}
-
-.workbench-home__stat strong {
-  display: block;
-  font-size: var(--font-size-22);
-  margin-top: var(--sp-2);
-}
-
-.workbench-home__stat p {
-  grid-column: 1 / -1;
-  margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--sp-10) * 4), 1fr));
 }
 
 .workbench-home__grid {
@@ -449,54 +429,15 @@ body {
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
 }
 
-.workbench-home__card {
-  display: grid;
-  gap: var(--sp-3);
+.workbench-home .work-card {
   min-height: var(--shell-content-card-min-height);
-  padding: var(--sp-4);
 }
 
-.workbench-home__card h2 {
-  font-size: var(--sp-4);
-  margin: 0;
-}
-
-.workbench-home__apps {
-  display: grid;
-  gap: var(--sp-3);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.workbench-home__app {
-  align-items: center;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
-  color: var(--ink-1);
-  display: grid;
-  gap: var(--sp-1) var(--sp-3);
-  grid-template-columns: var(--avatar-size-md) minmax(0, 1fr);
-  padding: var(--sp-3);
-  text-decoration: none;
-}
-
-.workbench-home__app:hover {
-  background: var(--blue-50);
-  border-color: var(--blue-200);
-}
-
-.workbench-home__app .module-icon {
-  grid-row: span 2;
-}
-
-.workbench-home__app span,
-.workbench-home__app small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workbench-home__app small {
-  color: var(--ink-4);
+.workbench-home .work-quick-grid__icon .module-icon {
+  background: transparent;
+  color: inherit;
+  height: auto;
+  width: auto;
 }
 
 .notification-list {
@@ -511,7 +452,7 @@ body {
 
 .notification-list__item button {
   background: transparent;
-  border: 1px solid var(--line-2);
+  border: var(--border-width) solid var(--line-2);
   border-radius: var(--r-md);
   color: var(--ink-2);
   cursor: pointer;
@@ -563,8 +504,6 @@ body {
   border-radius: var(--r-sm);
   color: var(--blue-600);
   display: inline-flex;
-  font-size: var(--font-size-12);
-  font-weight: 700;
   height: var(--avatar-size-sm);
   justify-content: center;
   width: var(--avatar-size-sm);
@@ -597,7 +536,7 @@ body {
 
 .shell-state {
   background: var(--white);
-  border: 1px solid var(--line-1);
+  border: var(--border-width) solid var(--line-1);
   border-radius: var(--r-md);
   display: grid;
   gap: var(--sp-2);
@@ -642,17 +581,13 @@ body {
 }
 
 .module-placeholder li {
-  border: 1px solid var(--line-1);
+  border: var(--border-width) solid var(--line-1);
   border-radius: var(--r-md);
   color: var(--ink-2);
   padding: var(--sp-3);
 }
 
 @media (max-width: 1080px) {
-  .workbench-home__stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .workbench-home__grid {
     grid-template-columns: 1fr;
   }
@@ -672,8 +607,7 @@ body {
     flex-direction: column;
   }
 
-  .workbench-home__stats,
-  .workbench-home__apps {
+  .workbench-home__stats {
     grid-template-columns: 1fr;
   }
 }
