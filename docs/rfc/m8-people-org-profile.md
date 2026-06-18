@@ -2,7 +2,10 @@
 
 ## 状态
 
-Draft（独立二审已修订，待最终拍板）｜ 起草 + 二审修订 2026-06-17 ｜ 依据 `docs/product-requirements.md` §4.4、§3、§8，`docs/adr/0005-product-replan-roadmap.md`
+Accepted（独立二审已修订 + 最终拍板）｜ 起草 + 二审修订 2026-06-17、定稿 2026-06-18 ｜ 依据 `docs/product-requirements.md` §4.4、§3、§8，`docs/adr/0005-product-replan-roadmap.md`
+
+> **2026-06-18 最终拍板**：§20 唯一开放项（近况记录归属）已定 = **放 `platform.status_logs`**（不新建 modules/profile，
+> 复用 platform 的 profile scope/audit、不跨 schema 读 employee;可逆,未来长成 CRM 活动流再抽）。RFC 转 Accepted。
 
 > 二审（独立 sub-agent）发现并已修订：B1 M7 未实现 `profile.updated` 订阅器（M8 须自建消费）、B2 复用既有
 > `platform:org:*` 不新发明部门权限、M2 `profile` scope 首次用于写授权属数据范围模型扩展（同变更补 baseline）、
