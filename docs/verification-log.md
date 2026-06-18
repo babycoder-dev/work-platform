@@ -13,6 +13,13 @@ Change set:
 - Code simplification pass: tightened `QuickGrid` custom render output with an internal keyed `Fragment`, preserving behavior while making the component API less dependent on each caller adding a key.
 - Documented the UI design fidelity gate in `docs/development-workflow.md` and marked the UI收口切片 Done in `docs/foundation-progress.md`.
 - PR review follow-up: clarified the A1 hex gate so future scans exclude `packages/ui/src/styles/tokens.css`, because that file is the token definition source of truth; business UI code remains token-only.
+- Visual follow-up after browser review: tightened the workbench home page against `docs/design/ui-handoff/design/工作台.html`
+  by adding the fixed Workbench nav entry, prototype search copy, grouped fallback navigation, home clock/date layout,
+  tone-matched stat cards, two-column workbench card layout, and prototype-like quick app grid. This retained real
+  user/menu/notification data and honest placeholders instead of importing prototype demo numbers.
+- Visual follow-up for mounted module pages: wrapped the existing Presence board/register pages in token-backed page
+  panels, buttons, form controls, list rows, and empty states so routed module pages no longer render as unstyled
+  HTML inside the new shell. Business calls and route mounting are unchanged.
 
 Command matrix:
 
@@ -35,16 +42,28 @@ Command matrix:
 - Post-simplification focused checks:
   - `NODE_ENV=test pnpm exec vitest run --config vitest.web.config.mts packages/ui/src/components/QuickGrid/QuickGrid.spec.tsx`: pass, 1 file / 1 test.
   - `pnpm typecheck`: pass.
+- Visual follow-up focused checks:
+  - `NODE_ENV=test npx vitest run --config vitest.web.config.mts modules/presence/web/src/pages/PresenceBoardPage.spec.tsx modules/presence/web/src/pages/RegisterStatusPage.spec.tsx apps/workbench-shell/src/app/App.spec.tsx`: pass, 3 files / 18 tests.
+  - `npx vitest run --config vitest.config.mts apps/workbench-shell/src/app/navigation.spec.ts`: pass, 1 file / 7 tests.
+  - `NODE_ENV=test pnpm test:web`: pass, 32 files / 75 tests.
+  - `NODE_ENV=test pnpm verify`: pass.
+    - Unit: 37 passed / 5 skipped files; 176 passed / 31 skipped tests. Skipped files are existing env-gated tests.
+    - Web: 32 files / 75 tests.
+    - E2E: 7 files / 42 tests.
+    - Build: pass.
+  - Browser evidence captured with headless Chrome against the local static build and gateway proxy:
+    `.tmp/workbench-home-current-2.png` and `.tmp/presence-board-current-2.png`.
 
 Fidelity gate evidence:
 
 - A1 zero hardcoded hex:
-  `rg -n "#[0-9a-fA-F]{3,8}" packages/ui/src apps/workbench-shell/src` returned no matches.
+  `rg -n "#[0-9a-fA-F]{3,8}" packages/ui/src apps/workbench-shell/src modules/presence/web/src` returned no matches.
 - A2 zero emoji placeholders:
-  `rg -n "👤|🔒|🔔|☰|⌕|👋|😀|😁|😂|😅|😊|😍|👍|🎉|✅|❌|⚠️|📌|📄|📁|📊|📈|📉|🧩|🔍|🔎|🔑|👥|🏢|🏠|📝|📬|📭|📦|🚀|⭐|✨" packages/ui/src apps/workbench-shell/src` returned no matches.
+  `rg -n "👤|🔒|🔔|☰|⌕|👋|😀|😁|😂|😅|😊|😍|👍|🎉|✅|❌|⚠️|📌|📄|📁|📊|📈|📉|🧩|🔍|🔎|🔑|👥|🏢|🏠|📝|📬|📭|📦|🚀|⭐|✨" packages/ui/src apps/workbench-shell/src modules/presence/web/src` returned no matches.
 - A3 critical copy assertions live in `apps/workbench-shell/src/app/App.spec.tsx`: `企业内网账号统一登录入口`, `登 录`, `请输入工号或邮箱`, `登录即代表同意《内网使用规范》与《安全协议》`, and `内网工作台`.
 - A4 visual values use token variables in the touched UI sources; package colors now use token variables / token definitions without hex literals, and shell spacing/radius/shadow/font values continue to route through `--sp-*`, `--r-*`, `--shadow-*`, and `--font*`.
 - A5 regression preservation: tests still cover manifest navigation, sidebar collapse, topbar search shell, notification unread badge/list/read/jump, stream stability, workbench real user/menu/notification data, and absence of prototype fake numbers `12` / `9` / `5` / `231`.
+- A6 mounted-module preservation: Presence board/register API tests still pass after visual wrapping; the shell keeps lazy route mounting and the module pages keep their original `getPresenceApi()` calls.
 - Design source unchanged: `git diff -- docs/design/ui-handoff` is empty.
 
 Gap closeout:

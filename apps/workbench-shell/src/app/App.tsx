@@ -46,6 +46,7 @@ const moduleIconNames: Record<string, IconName> = {
   approval: 'check',
   files: 'file',
   forms: 'file',
+  home: 'home',
   notification: 'notification',
   platform: 'platform',
   presence: 'presence',
@@ -228,6 +229,19 @@ export function AppShell(props: {
           <strong>内网工作台</strong>
         </div>
         <nav className="app-shell__nav" aria-label="主导航">
+          <section className="app-shell__nav-group app-shell__nav-group--home">
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? 'app-shell__nav-item app-shell__nav-item--active' : 'app-shell__nav-item'
+              }
+              end
+              to="/"
+            >
+              <ModuleIcon moduleName="home" />
+              <span className="app-shell__nav-label">工作台</span>
+              <span className="app-shell__badge-slot" aria-hidden="true" />
+            </NavLink>
+          </section>
           {props.navigationGroups.length === 0 ? (
             <EmptyState title="暂无菜单" description="当前账号尚未获得可访问的菜单。" />
           ) : (
@@ -369,7 +383,7 @@ function Topbar(props: {
         <Icon name="menu" />
       </Button>
       <div className="app-topbar__crumb">
-        工作台 <span>/</span> <b>{props.activeTitle}</b>
+        {props.activeTitle === '工作台' ? <b>工作台</b> : <>工作台 <span>/</span> <b>{props.activeTitle}</b></>}
       </div>
       <div className="app-topbar__grow" />
       <div className="app-topbar__search" ref={searchRef}>
@@ -378,7 +392,7 @@ function Topbar(props: {
           onChange={(event) => setSearchQuery(event.target.value)}
           onFocus={() => setActivePopover('search')}
           onKeyDown={handleSearchKey}
-          placeholder="搜索应用、文档、成员"
+          placeholder="搜索应用、成员、审批…  ⌘K"
           prefix={<Icon name="search" />}
           ref={searchInputRef}
           value={searchQuery}
@@ -613,22 +627,31 @@ export function WorkbenchHome(props: {
   presenceSummary?: PresenceSummary;
 }) {
   const greeting = getGreeting();
-  const quickEntries = props.navigationItems.slice(0, 6);
-  const placeholderStats: Array<{ key: string; title: string; milestone: string; icon: IconName }> = [
-    { key: 'approval', title: '待我审批', milestone: 'M11', icon: 'check' },
-    { key: 'todo', title: '我的待办', milestone: 'vNext', icon: 'inbox' },
+  const now = new Date();
+  const quickEntries = props.navigationItems.slice(0, 8);
+  const placeholderStats: Array<{ key: string; title: string; milestone: string; icon: IconName; tone: string }> = [
+    { key: 'approval', title: '待我审批', milestone: 'M11', icon: 'check', tone: 'warning' },
+    { key: 'todo', title: '我的待办', milestone: 'vNext', icon: 'inbox', tone: 'info' },
   ];
 
   return (
     <section className="workbench-home">
-      <header className="workbench-home__head">
+      <header className="workbench-home__hello">
         <div>
           <h1>
             {greeting}，{props.currentUser.name}
           </h1>
-          <p>
-            {props.currentUser.departmentName ?? '默认组织'} · 今天是 {new Date().toLocaleDateString('zh-CN')}
-          </p>
+          <p>{buildHomeSubtitle(props.notifications?.unreadCount ?? 0)}</p>
+        </div>
+        <div className="workbench-home__clock" aria-label="当前日期时间">
+          <strong>
+            {now.toLocaleTimeString('zh-CN', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            })}
+          </strong>
+          <span>{formatHomeDate(now)}</span>
         </div>
         <div className="workbench-home__actions">
           <Button>刷新</Button>
@@ -638,6 +661,7 @@ export function WorkbenchHome(props: {
 
       <div className="workbench-home__stats">
         <StatCard
+          className="work-stat-card--purple"
           description="来自通知中心未读数"
           icon={<Icon name="bell" />}
           label="未读消息"
@@ -645,6 +669,7 @@ export function WorkbenchHome(props: {
         />
         {placeholderStats.map((stat) => (
           <StatCard
+            className={`work-stat-card--${stat.tone}`}
             description={`数据待接入（${stat.milestone}）`}
             icon={<Icon name={stat.icon} />}
             key={stat.key}
@@ -654,6 +679,7 @@ export function WorkbenchHome(props: {
         ))}
         {props.presenceSummary ? (
           <StatCard
+            className="work-stat-card--success"
             description={`来自在位看板，共 ${props.presenceSummary.totalCount} 条记录`}
             icon={<Icon name="presence" />}
             label="在岗成员"
@@ -663,39 +689,56 @@ export function WorkbenchHome(props: {
       </div>
 
       <div className="workbench-home__grid">
-        <Card title="待处理事项">
-          <EmptyState title="暂无待处理事项" description="审批、待办等聚合来源待接入（M7/M11）。" />
-        </Card>
-        <Card title="常用应用">
-          {quickEntries.length ? (
-            <QuickGrid
-              items={quickEntries.map((entry) => ({
-                ...entry,
-                key: entry.path,
-                icon: <ModuleIcon moduleName={entry.moduleName} />,
-              }))}
-              renderItem={(entry) => (
-                <NavLink className="work-quick-grid__item" key={entry.path} to={entry.path}>
-                  <span className="work-quick-grid__icon">{entry.icon}</span>
-                  <span>{entry.title}</span>
-                  <small>{entry.moduleName}</small>
-                </NavLink>
-              )}
-            />
-          ) : (
-            <EmptyState title="暂无应用入口" description="当前账号尚无可访问菜单。" />
-          )}
-        </Card>
-        <Card title="最新消息">
-          {props.notifications?.recent.length ? (
-            <NotificationList compact notifications={props.notifications.recent.slice(0, 5)} />
-          ) : (
-            <EmptyState title="暂无消息" description="暂无通知消息。" />
-          )}
-        </Card>
-        <Card title="系统动态">
-          <EmptyState title="暂无动态" description="系统动态来源待接入，当前不展示原型演示数据。" />
-        </Card>
+        <div className="workbench-home__col">
+          <Card
+            action={<span className="work-card__meta">数据待接入</span>}
+            className="workbench-card workbench-card--todo"
+            title="待处理事项"
+          >
+            <EmptyState title="暂无待处理事项" description="审批、待办等聚合来源待接入（M7/M11）。" />
+          </Card>
+          <Card
+            action={<span className="work-card__meta">管理</span>}
+            className="workbench-card workbench-card--apps"
+            title="常用应用"
+          >
+            {quickEntries.length ? (
+              <QuickGrid
+                items={quickEntries.map((entry) => ({
+                  ...entry,
+                  key: entry.path,
+                  icon: <ModuleIcon moduleName={entry.moduleName} />,
+                }))}
+                renderItem={(entry) => (
+                  <NavLink className="work-quick-grid__item" key={entry.path} to={entry.path}>
+                    <span className={`work-quick-grid__icon work-quick-grid__icon--${entry.moduleName}`}>
+                      {entry.icon}
+                    </span>
+                    <span>{entry.title}</span>
+                  </NavLink>
+                )}
+              />
+            ) : (
+              <EmptyState title="暂无应用入口" description="当前账号尚无可访问菜单。" />
+            )}
+          </Card>
+        </div>
+        <div className="workbench-home__col">
+          <Card
+            action={<span className="work-card__meta">查看全部</span>}
+            className="workbench-card"
+            title="最新消息"
+          >
+            {props.notifications?.recent.length ? (
+              <NotificationList compact notifications={props.notifications.recent.slice(0, 5)} />
+            ) : (
+              <EmptyState title="暂无消息" description="暂无通知消息。" />
+            )}
+          </Card>
+          <Card className="workbench-card" title="系统动态">
+            <EmptyState title="暂无动态" description="系统动态来源待接入，当前不展示原型演示数据。" />
+          </Card>
+        </div>
       </div>
     </section>
   );
@@ -780,6 +823,18 @@ function getGreeting(): string {
     return '下午好';
   }
   return '晚上好';
+}
+
+function buildHomeSubtitle(unreadCount: number): string {
+  if (unreadCount > 0) {
+    return `你有 ${unreadCount} 条未读消息，今日系统运行正常。`;
+  }
+  return '今日系统运行正常。待办、审批聚合数据待接入。';
+}
+
+function formatHomeDate(value: Date): string {
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  return `${value.getMonth() + 1} 月 ${value.getDate()} 日 ${weekdays[value.getDay()]}`;
 }
 
 function resolveNotificationTarget(notification: NotificationDto): string | undefined {

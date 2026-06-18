@@ -151,6 +151,82 @@ describe('workbench navigation', () => {
     ]);
   });
 
+  it('groups unparented menus by module name instead of rendering one group per item', () => {
+    const menus: MenuDto[] = [
+      {
+        id: 'org',
+        moduleName: 'platform',
+        title: '组织架构',
+        path: '/platform/org',
+        permissionCode: 'platform:org:view',
+        sortOrder: 1,
+        status: 'active',
+      },
+      {
+        id: 'roles',
+        moduleName: 'platform',
+        title: '角色权限',
+        path: '/platform/roles',
+        permissionCode: 'platform:role:view',
+        sortOrder: 2,
+        status: 'active',
+      },
+      {
+        id: 'board',
+        moduleName: 'presence',
+        title: '在位看板',
+        path: '/presence/board',
+        permissionCode: 'presence:board:view',
+        sortOrder: 3,
+        status: 'active',
+      },
+    ];
+
+    expect(buildNavigationGroups(menus)).toEqual([
+      {
+        id: 'ungrouped-platform',
+        title: 'platform',
+        moduleName: 'platform',
+        items: [
+          {
+            id: 'org',
+            title: '组织架构',
+            path: '/platform/org',
+            moduleName: 'platform',
+            permissionCode: 'platform:org:view',
+            parentId: undefined,
+            sortOrder: 1,
+          },
+          {
+            id: 'roles',
+            title: '角色权限',
+            path: '/platform/roles',
+            moduleName: 'platform',
+            permissionCode: 'platform:role:view',
+            parentId: undefined,
+            sortOrder: 2,
+          },
+        ],
+      },
+      {
+        id: 'ungrouped-presence',
+        title: 'presence',
+        moduleName: 'presence',
+        items: [
+          {
+            id: 'board',
+            title: '在位看板',
+            path: '/presence/board',
+            moduleName: 'presence',
+            permissionCode: 'presence:board:view',
+            parentId: undefined,
+            sortOrder: 3,
+          },
+        ],
+      },
+    ]);
+  });
+
   describe('buildModuleRouteTable', () => {
     it('flattens module routes in module and route order with normalized paths', () => {
       const modules = [

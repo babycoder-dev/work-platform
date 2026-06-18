@@ -49,6 +49,7 @@ export function buildNavigationGroups(menus: MenuDto[]): NavigationGroup[] {
     Array.from(childrenByParent.values()).flatMap((children) => children.map((child) => child.id)),
   );
   const groups: NavigationGroup[] = [];
+  const fallbackGroups = new Map<string, NavigationGroup>();
 
   for (const menu of activeMenus) {
     const children = childrenByParent.get(menu.id);
@@ -63,12 +64,19 @@ export function buildNavigationGroups(menus: MenuDto[]): NavigationGroup[] {
     }
 
     if (!groupedChildIds.has(menu.id) && (!menu.parentId || !menuById.has(menu.parentId))) {
-      groups.push({
-        id: `ungrouped-${menu.id}`,
-        title: menu.moduleName,
-        moduleName: menu.moduleName,
-        items: [toNavigationItem(menu)],
-      });
+      const group = fallbackGroups.get(menu.moduleName);
+      if (group) {
+        group.items.push(toNavigationItem(menu));
+      } else {
+        const nextGroup = {
+          id: `ungrouped-${menu.moduleName}`,
+          title: menu.moduleName,
+          moduleName: menu.moduleName,
+          items: [toNavigationItem(menu)],
+        };
+        fallbackGroups.set(menu.moduleName, nextGroup);
+        groups.push(nextGroup);
+      }
     }
   }
 

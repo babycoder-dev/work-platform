@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { CurrentUserDto } from '@work/platform-contract';
 import type { NotificationDto } from '@work/notification-contract';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, AppShell, LoginView, WorkbenchHome } from './App';
 import type { NavigationGroup, NavigationItem } from './navigation';
 import type { NotificationApiClient } from '../platform/notification-api';
@@ -101,9 +101,23 @@ const notification: NotificationDto = {
 describe('workbench shell frontend foundation', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ items: [] }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
     routerMock.navigate.mockReset();
     platformApiMock.createPlatformApiClient.mockReset();
     notificationApiFactoryMock.createNotificationApiClient.mockReset();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
   });
 
   it('renders the restyled login and preserves submit behavior', async () => {
@@ -146,7 +160,7 @@ describe('workbench shell frontend foundation', () => {
     await userEvent.click(screen.getByRole('button', { name: '折叠侧栏' }));
     expect(screen.queryByText('搜索后端待接入')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByPlaceholderText('搜索应用、文档、成员'));
+    await userEvent.click(screen.getByPlaceholderText(/搜索应用、成员、审批/));
     expect(screen.getByText('搜索后端待接入')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /通知/ }));
     expect(screen.queryByText('搜索后端待接入')).not.toBeInTheDocument();
@@ -248,7 +262,7 @@ describe('workbench shell frontend foundation', () => {
     );
 
     expect(screen.getByText(/张三/)).toBeInTheDocument();
-    expect(screen.getByText(/运营部/)).toBeInTheDocument();
+    expect(screen.getByText(/今日系统运行正常/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /在位看板/ })).toHaveAttribute('href', '/presence/board');
     expect(screen.getAllByText(/数据待接入/).length).toBeGreaterThan(0);
 

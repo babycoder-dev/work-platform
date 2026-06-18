@@ -104,63 +104,80 @@ export default function RegisterStatusPage() {
   }, [listState]);
 
   return (
-    <section className="presence-register">
-      <h2>状态登记</h2>
-      <form className="presence-register__form" onSubmit={submit}>
-        <label>
-          状态
-          <select onChange={onStatusChange} value={form.status}>
-            {STATUS_CHOICES.map((status) => (
-              <option key={status} value={status}>
-                {formatStatusLabel(status)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          开始时间
-          <input onChange={onTextField('startAt')} required type="datetime-local" value={form.startAt} />
-        </label>
-        <label>
-          结束时间（可选）
-          <input onChange={onTextField('endAt')} type="datetime-local" value={form.endAt} />
-        </label>
-        <label>
-          备注
-          <textarea onChange={onTextField('remark')} rows={3} value={form.remark} />
-        </label>
-        {submitState.kind === 'error' ? <p className="presence-register__error">{submitState.message}</p> : null}
-        <button disabled={submitState.kind === 'submitting' || !form.startAt} type="submit">
-          {submitState.kind === 'submitting' ? '提交中…' : '提交登记'}
-        </button>
-      </form>
+    <section className="presence-register presence-page">
+      <header className="presence-register__header">
+        <div>
+          <h2>状态登记</h2>
+          <p>登记外出、调研、出差或请假状态，便于团队协作排期。</p>
+        </div>
+      </header>
+      <div className="presence-register__grid">
+        <form className="presence-register__form presence-page__panel" onSubmit={submit}>
+          <label>
+            状态
+            <select onChange={onStatusChange} value={form.status}>
+              {STATUS_CHOICES.map((status) => (
+                <option key={status} value={status}>
+                  {formatStatusLabel(status)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            开始时间
+            <input onChange={onTextField('startAt')} required type="datetime-local" value={form.startAt} />
+          </label>
+          <label>
+            结束时间（可选）
+            <input onChange={onTextField('endAt')} type="datetime-local" value={form.endAt} />
+          </label>
+          <label>
+            备注
+            <textarea onChange={onTextField('remark')} rows={3} value={form.remark} />
+          </label>
+          {submitState.kind === 'error' ? <p className="presence-register__error">{submitState.message}</p> : null}
+          <button
+            className="presence-page__button"
+            disabled={submitState.kind === 'submitting' || !form.startAt}
+            type="submit"
+          >
+            {submitState.kind === 'submitting' ? '提交中…' : '提交登记'}
+          </button>
+        </form>
 
-      <section className="presence-register__history">
-        <h3>我的最近记录</h3>
-        {listState.kind === 'loading' ? <p>加载中…</p> : null}
-        {listState.kind === 'error' ? <p className="presence-register__error">{listState.message}</p> : null}
-        {listState.kind === 'ready' && listState.records.length === 0 ? <p>暂无记录。</p> : null}
-        {listState.kind === 'ready' && listState.records.length > 0 ? (
-          <ul>
-            {listState.records.map((record) => {
-              const isActive = activeRecords.some((active) => active.id === record.id);
-              return (
-                <li key={record.id}>
-                  <span>{formatStatusLabel(record.status)}</span>
-                  <span>{formatDateTime(record.startAt)}</span>
-                  <span>{record.endAt ? formatDateTime(record.endAt) : '未设定结束时间'}</span>
-                  {record.cancelledAt ? <span>（已取消）</span> : null}
-                  {isActive ? (
-                    <button disabled={cancellingId === record.id} onClick={() => void cancel(record.id)} type="button">
-                      {cancellingId === record.id ? '取消中…' : '取消'}
-                    </button>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-      </section>
+        <section className="presence-register__history presence-page__panel">
+          <h3>我的最近记录</h3>
+          {listState.kind === 'loading' ? <p className="presence-page__muted">加载中…</p> : null}
+          {listState.kind === 'error' ? <p className="presence-register__error">{listState.message}</p> : null}
+          {listState.kind === 'ready' && listState.records.length === 0 ? (
+            <div className="presence-page__empty presence-page__empty--compact">
+              <span aria-hidden="true" />
+              <strong>暂无记录。</strong>
+              <p>提交状态后会在这里显示最近记录。</p>
+            </div>
+          ) : null}
+          {listState.kind === 'ready' && listState.records.length > 0 ? (
+            <ul>
+              {listState.records.map((record) => {
+                const isActive = activeRecords.some((active) => active.id === record.id);
+                return (
+                  <li key={record.id}>
+                    <span>{formatStatusLabel(record.status)}</span>
+                    <span>{formatDateTime(record.startAt)}</span>
+                    <span>{record.endAt ? formatDateTime(record.endAt) : '未设定结束时间'}</span>
+                    {record.cancelledAt ? <span>（已取消）</span> : null}
+                    {isActive ? (
+                      <button disabled={cancellingId === record.id} onClick={() => void cancel(record.id)} type="button">
+                        {cancellingId === record.id ? '取消中…' : '取消'}
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </section>
+      </div>
     </section>
   );
 }

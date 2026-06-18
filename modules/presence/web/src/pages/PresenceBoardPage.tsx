@@ -26,34 +26,50 @@ export default function PresenceBoardPage() {
   }, [reload]);
 
   return (
-    <section className="presence-board">
+    <section className="presence-board presence-page">
       <header className="presence-board__header">
-        <h2>在位看板</h2>
-        <button disabled={state.kind === 'loading'} onClick={() => void reload()} type="button">
+        <div>
+          <h2>在位看板</h2>
+          <p>查看当前可见范围内的在位、外出、请假等状态。</p>
+        </div>
+        <button
+          className="presence-page__button"
+          disabled={state.kind === 'loading'}
+          onClick={() => void reload()}
+          type="button"
+        >
           刷新
         </button>
       </header>
-      {state.kind === 'loading' ? <p>加载中…</p> : null}
-      {state.kind === 'error' ? <p className="presence-board__error">{state.message}</p> : null}
-      {state.kind === 'ready' && state.records.length === 0 ? <p>当前没有进行中的在位记录。</p> : null}
-      {state.kind === 'ready' && state.records.length > 0 ? (
-        <ul className="presence-board__list">
-          {state.records.map((record) => (
-            <li key={record.id}>
-              <div>
-                <strong>{record.userName}</strong>
-                <span className="presence-board__dept">{record.departmentName}</span>
-              </div>
-              <StatusBadge status={record.status} />
-              <div className="presence-board__time">
-                <span>开始：{formatDateTime(record.startAt)}</span>
-                {record.endAt ? <span>结束：{formatDateTime(record.endAt)}</span> : <span>结束：未设定</span>}
-              </div>
-              {record.remark ? <p className="presence-board__remark">备注：{record.remark}</p> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <div className="presence-page__panel">
+        {state.kind === 'loading' ? <p className="presence-page__muted">加载中…</p> : null}
+        {state.kind === 'error' ? <p className="presence-board__error">{state.message}</p> : null}
+        {state.kind === 'ready' && state.records.length === 0 ? (
+          <div className="presence-page__empty">
+            <span aria-hidden="true" />
+            <strong>当前没有进行中的在位记录。</strong>
+            <p>成员登记外出、请假或调研后会显示在这里。</p>
+          </div>
+        ) : null}
+        {state.kind === 'ready' && state.records.length > 0 ? (
+          <ul className="presence-board__list">
+            {state.records.map((record) => (
+              <li key={record.id}>
+                <div className="presence-board__person">
+                  <strong>{record.userName}</strong>
+                  <span className="presence-board__dept">{record.departmentName}</span>
+                </div>
+                <StatusBadge status={record.status} />
+                <div className="presence-board__time">
+                  <span>开始：{formatDateTime(record.startAt)}</span>
+                  {record.endAt ? <span>结束：{formatDateTime(record.endAt)}</span> : <span>结束：未设定</span>}
+                </div>
+                {record.remark ? <p className="presence-board__remark">备注：{record.remark}</p> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </section>
   );
 }

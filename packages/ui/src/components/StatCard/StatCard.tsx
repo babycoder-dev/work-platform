@@ -23,11 +23,13 @@ export function StatCard({
   return (
     <article className={cx('work-stat-card', className)}>
       <div className="work-stat-card__main">
-        <span>{label}</span>
+        <div className="work-stat-card__top">
+          {icon ? <span className="work-stat-card__icon">{icon}</span> : null}
+          <span>{label}</span>
+        </div>
         <strong>{value}</strong>
         {description ? <p>{description}</p> : null}
       </div>
-      {icon ? <span className="work-stat-card__icon">{icon}</span> : null}
       {delta ? <span className={cx('work-stat-card__delta', `work-stat-card__delta--${deltaTone}`)}>{delta}</span> : null}
     </article>
   );
