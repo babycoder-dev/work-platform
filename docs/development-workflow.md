@@ -53,7 +53,8 @@ pnpm docker:build
 涉及 `apps/workbench-shell` 或 `packages/ui` 的 UI 类交付，除 `pnpm verify` 外必须对照
 `docs/tasks/ui-foundation-fidelity.md` 与 `docs/design/ui-fidelity-gap-foundation.md` 执行设计还原度门禁：
 
-- `packages/ui/src/**` 与 `apps/workbench-shell/src/**` 不得出现硬编码 hex 色值，颜色统一来自 token。
+- `packages/ui/src/**` 与 `apps/workbench-shell/src/**` 的业务 UI 源码不得出现硬编码 hex 色值，颜色统一来自 token；
+  `packages/ui/src/styles/tokens.css` 是 token 定义真源，允许字面色值。
 - 不得用 emoji 充当图标，占位图标必须来自统一线性 SVG 图标集。
 - 登录页、外壳和工作台首页的设计稿关键文案必须在 `*.spec.tsx` 中逐字断言。
 - 间距、圆角、阴影、字体等视觉参数优先使用 `--sp-*`、`--r-*`、`--shadow-*`、`--font*` token。

@@ -32,7 +32,7 @@ M8 之前的**收口切片**(类比 M3.5)。**不写新业务功能**——只�
 
 | #   | 硬判据                                                                                                  | 怎么核验                                                                                                                  |
 | --- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| A1  | **零硬编码 hex**:`packages/ui/src/**` 与 `apps/workbench-shell/src/**` 的 css/tsx 颜色只引 `var(--*)`   | grep `#[0-9a-fA-F]{3,6}` 命中=0（`components.css` 现状已 0,主整改面是 `apps/workbench-shell/src/styles.css`）             |
+| A1  | **业务 UI 零硬编码 hex**:`packages/ui/src/**` 与 `apps/workbench-shell/src/**` 的 css/tsx 颜色只引 `var(--*)`; `packages/ui/src/styles/tokens.css` 是 token 定义真源,允许字面色值 | grep `#[0-9a-fA-F]{3,6}` 时排除 `packages/ui/src/styles/tokens.css`,其余命中=0（`components.css` 与 `apps/workbench-shell/src/styles.css` 是重点） |
 | A2  | **零 emoji 占位**:源码无 emoji 当图标                                                                   | grep emoji 码点(👤🔒🔔☰⌕👋 等)命中=0,全部换线性 SVG                                                                      |
 | A3  | **关键文案逐字一致**:在 `*.spec.tsx` 断言渲染文本**精确等于**设计稿字符串                               | 如「企业内网账号统一登录入口」「登 录」「请输入工号或邮箱」「登录即代表同意《内网使用规范》与《安全协议》」「内网工作台」 |
 | A4  | **间距/圆角/阴影/字体只引 token 变量**(`--sp-*`/`--r-*`/`--shadow-*`/`--font`),落 4px 基准              | source-review css                                                                                                         |
@@ -145,7 +145,8 @@ M8 之前的**收口切片**(类比 M3.5)。**不写新业务功能**——只�
 - 覆盖:UI-1 关键组件渲染+态;登录页**关键文案逐字断言**(门禁 A3)/图标/默认态;外壳品牌/侧栏徽标;工作台首页
   **真实数据渲染**(mock 数据源,断言渲染的是真实字段而非虚构常量;并断言诚实占位仍在=门禁 A5)。
 - **门禁 A1/A2 静态核验**:对 `apps/workbench-shell/src/**`(尤其 `styles.css`——`workbench-home__*`/`login-card__*`
-  样式所在,最可能有魔法值;`components.css` 现状已 0 hex)与 `packages/ui/src/**` grep 硬编码 hex / emoji 码点,断言=0。
+  样式所在,最可能有魔法值)与 `packages/ui/src/**` grep 硬编码 hex / emoji 码点;A1 排除
+  `packages/ui/src/styles/tokens.css` 这个 token 定义真源,其余断言=0。
 - `pnpm verify` 全绿(lint/typecheck/test/test:e2e/build);本切片不涉 DB/部署形态,无需 verify:full/docker:build。
 - 禁止假绿/占位蒙混;还原度门禁(§2)A 类逐屏过 + B 类视觉抽查,verification-log 附核对。
 
@@ -156,7 +157,7 @@ M8 之前的**收口切片**(类比 M3.5)。**不写新业务功能**——只�
 - [ ] UI-3 应用外壳真差距(S-1/S-2/S-3/S-5/S-8 帮助图标 + S-7 文案)消除;S-0/S-4 确认。
 - [ ] UI-4 工作台首页换 UI-1 组件视觉(W-1..W-6),无虚构内容充数,门禁过。
 - [ ] **回归保留(勿回退)**:外壳面包屑/全局搜索壳/铃铛真实未读、工作台真实未读/通知/应用入口接线、诚实 EmptyState 占位——全部仍在,未被删除或替换为假数据(门禁 A5)。
-- [ ] 门禁 A 类(零 hex/零 emoji/文案逐字/token-only)实现方已自证;B 类视觉抽查由评审完成。
+- [ ] 门禁 A 类(业务 UI 零 hex、token 定义文件例外/零 emoji/文案逐字/token-only)实现方已自证;B 类视觉抽查由评审完成。
 - [ ] 每屏 verification-log 附**还原度核对表 + 并排比对结论**。
 - [ ] `pnpm verify` 全绿;设计稿(`docs/design/ui-handoff/`)未被改动。
 
@@ -175,7 +176,7 @@ Conventional Commits,建议按切片分次提交(`feat(ui-shell)` / `fix(ui-shel
 feat(ui): align component library + login/shell/workbench to design handoff
 
 Pixel-perfect remediation against docs/design/ui-handoff per the foundation gap
-analysis: token-only styling (no hardcoded hex), line-icon set (no emoji),
+analysis: token-only UI styling (no hardcoded hex outside token definitions), line-icon set (no emoji),
 breadcrumb/search/badge in the shell, and a real-data workbench home using the
 design's components (no fictional app-list/work-order content, L1/L2 boundary).
 Establish the design-fidelity gate as a UI delivery gate.

@@ -12,6 +12,7 @@ Change set:
 - UI-4: replaced the workbench-specific card/stat/app visual primitives with `StatCard`, `Card`, and `QuickGrid`; preserved real notification unread/recent data, real `navigationItems` quick entries, and honest EmptyState placeholders for unbuilt sources. Presence board count is optional and only requested when `presence:board:view` is present.
 - Code simplification pass: tightened `QuickGrid` custom render output with an internal keyed `Fragment`, preserving behavior while making the component API less dependent on each caller adding a key.
 - Documented the UI design fidelity gate in `docs/development-workflow.md` and marked the UI收口切片 Done in `docs/foundation-progress.md`.
+- PR review follow-up: clarified the A1 hex gate so future scans exclude `packages/ui/src/styles/tokens.css`, because that file is the token definition source of truth; business UI code remains token-only.
 
 Command matrix:
 
@@ -56,6 +57,7 @@ Gap closeout:
 Follow-up:
 
 - B-class pixel comparison remains reviewer-owned; implementation-side A-class gates and regression tests are complete.
+- The A1 gate now explicitly allows literal color values only inside `packages/ui/src/styles/tokens.css`; future UI slices should scan all other UI source paths for zero hardcoded hex.
 - M8 remains next for people / organization / profile work; unbuilt approval/todo sources stay as honest placeholders.
 
 ## 2026-06-17
