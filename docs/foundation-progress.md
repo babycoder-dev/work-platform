@@ -23,7 +23,7 @@
 | M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done    | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，M7 通知 + 调度已交付                           |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done    | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪 |
 | UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Pending | 任务包 `docs/tasks/ui-foundation-fidelity.md` 已二审定稿；UI-1→(UI-2‖UI-3)→UI-4；M8 后端可并行               |
-| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | In Progress | M8-1 部门管理已交付；下一步 M8-2a 档案读写后端；依赖 M5/M6/M7                                              |
+| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | In Progress | M8-1 部门管理已交付；M8-2a 任务包已二审定稿，下一步档案读写后端；依赖 M5/M6/M7                              |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | 在 M4 presence 基础上扩展                                                                                    |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending | 依赖 M6/M7                                                                                                   |
 | M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending | 简单串签流 + 节点通知 + 联动在位                                                                             |
@@ -187,8 +187,12 @@
 
 ```text
 M8: 人员 / 组织 / 档案（RFC docs/rfc/m8-people-org-profile.md 已 Accepted，
-    近况记录归属已拍板 = platform.status_logs；M8-1 部门管理已完成）
-  └ 下一步：M8-2a 档案读写后端
+    近况记录归属已拍板 = platform.status_logs；M8 后端切片可与 UI 收口并行）
+  └ M8-1 部门管理已完成：
+      OrgService 增删改/移动/设负责人 + 占用删除 409 + 双实现，无 DDL 迁移，已过 security-reviewer
+  └ M8-2a 档案读写后端任务包 docs/tasks/m8-2a-profile-read-write-backend.md（已二审定稿，可交 Codex；建议在 M8-1 合并后落地以免 repository 文件冲突；
+      :id/me 读 + 本人窄 DTO/管理 DTO 经写收口 service + profile scope 首次用于写授权 + registration_status 预留增列；
+      §16 触发 → 同变更补 security-baseline §5.3，不发 profile.updated(留 M8-3)，强制 security-reviewer）
   └ 后续：M8-2b 首登向导 → M8-3 profile.updated → M8-4 近况 → M8-5 自定义字段聚合 → M8-6 交付验证
 ```
 
