@@ -12,8 +12,8 @@ export class EmployeeLookupService implements PlatformEmployeeLookupPort {
     }
     const requested = new Set(ids);
     const departments = new Map(
-      (await this.repository.listDepartments())
-        .filter((department) => department.enterpriseId === enterpriseId && department.status === 'active')
+      (await this.repository.listDepartments(enterpriseId))
+        .filter((department) => department.status === 'active')
         .map((department) => [department.id, department.name]),
     );
     return (await this.repository.listEmployees())

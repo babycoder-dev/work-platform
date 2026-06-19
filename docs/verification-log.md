@@ -1,5 +1,112 @@
 # Verification Log
 
+## 2026-06-19
+
+### M8-1 Department Management
+
+Change set:
+
+- Added tenant-scoped department management to Platform Core:
+  - `GET /api/platform/departments` now lists only the authenticated tenant.
+  - `POST /api/platform/departments` derives `enterpriseId` from `request.currentUser.enterpriseId`; the
+    request body is no longer trusted for tenant selection.
+  - `PUT /api/platform/departments/:id` supports rename, move, manager assignment / clearing, and sort
+    order updates.
+  - `DELETE /api/platform/departments/:id` soft-deletes only empty departments and returns
+    `PLATFORM_DEPARTMENT_NOT_EMPTY` when active employees or active child departments still reference it.
+- Added repository parity across PostgreSQL and memory implementations for department update, soft delete,
+  active employee counts, active child checks, and cycle-check descendant traversal.
+- Preserved the existing active-only data-scope descendant traversal by adding a separate
+  `listDescendantDepartmentIdsForCycleCheck` path for move validation.
+- Added the Platform Web organization page under the existing `/platform/org` route: real department /
+  employee loading, create / edit / delete flows, permission-aware controls, and backend error display.
+- Updated Platform Core / architecture docs to state that organization data is owned by Platform Core and
+  business modules must not maintain their own organization tree.
+
+Validation-exposed fixes:
+
+1. Security-reviewer first pass found that `CreateDepartmentDto` still required client-supplied
+   `enterpriseId`. Fixed by removing `enterpriseId` from the DTO, deriving it in
+   `DepartmentController.createDepartment`, and adding e2e coverage for both "no body enterpriseId"
+   success and "body enterpriseId is rejected" failure.
+2. Security-reviewer first pass found that `UpdateDepartmentDto` accepted `null` for `name` and
+   `sortOrder`. Fixed by treating only `undefined` as omitted for those fields; `parentId` and
+   `managerUserId` intentionally still accept explicit `null` for clearing. E2E now rejects
+   `name: null` and `sortOrder: null` with 400.
+3. Removed the temporary Nx graph output artifact generated during boundary lint verification.
+4. Post-review Minor: `UpdateDepartmentDto.name` now mirrors create validation and rejects the empty string.
+   Added an e2e assertion for `{ name: '' } -> 400`.
+5. PR review follow-up: department soft delete now uses a repository-level atomic occupancy guard. The
+   PostgreSQL implementation locks department references with a transaction-scoped advisory lock across
+   child department creation, employee creation, and soft delete; the soft delete statement also requires
+   no active employees and no active child departments. If a race is detected after service prechecks,
+   the API returns `PLATFORM_DEPARTMENT_NOT_EMPTY` instead of deleting or misreporting 404. The memory
+   repository mirrors the guarded soft-delete result.
+6. PR review follow-up: the organization page parent selector now offers only top-level departments, so
+   the two-level UI cannot create hidden third-level departments.
+7. PR scanner follow-up: GitGuardian flagged fixed test password literals in this PR. They were test
+   fixtures, not production secrets, but the new / changed tests now use `TEST_INITIAL_SECRET` constants
+   instead of inline credential-like literals to reduce false-positive noise.
+
+Command matrix:
+
+- `pnpm install`: pass; lockfile updated for `modules/platform/web` consuming `@work/ui`.
+- Targeted unit and API client tests:
+  - `npx vitest run --config vitest.config.mts apps/platform-api/src/org/org.service.spec.ts apps/platform-api/src/store/platform-memory.store.spec.ts modules/platform/web/src/api/platform-roles-api-client.spec.ts`: pass, 3 files / 26 tests.
+  - `NODE_ENV=test npx vitest run --config vitest.web.config.mts modules/platform/web/src/pages/OrganizationPage.spec.tsx`: pass, 1 file / 4 tests.
+  - `NODE_ENV=test npx vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.e2e-spec.ts`: pass, 29 tests.
+- `NODE_ENV=test pnpm verify`: pass.
+  - `lint`: pass with existing warnings only (`im-adapter-api` unused args, `platform-api` existing
+    role / employee controller non-null assertions, `workbench-shell/load-remote-module.ts`
+    `_descriptor`); 0 errors.
+  - `typecheck`: pass.
+  - `test`: unit 38 passed / 5 skipped files, 186 passed / 33 skipped tests. PostgreSQL-gated tests
+    skipped because `RUN_POSTGRES_INTEGRATION` was unset in the fast path.
+  - `test:web`: pass, 29 files / 75 tests.
+  - `test:e2e`: pass, 7 files / 45 tests.
+  - `build`: pass.
+- Post-review targeted regression:
+  - `NODE_ENV=test npx vitest run --config vitest.e2e.config.mts apps/platform-api/src/platform-api.e2e-spec.ts`:
+    pass, 1 file / 29 tests.
+- PR review targeted regressions:
+  - `NODE_ENV=test npx vitest run --config vitest.config.mts apps/platform-api/src/org/org.service.spec.ts apps/platform-api/src/store/platform-memory.store.spec.ts modules/platform/web/src/api/platform-roles-api-client.spec.ts`:
+    pass, 3 files / 27 tests.
+  - `NODE_ENV=test npx vitest run --config vitest.web.config.mts modules/platform/web/src/pages/OrganizationPage.spec.tsx`:
+    pass, 1 file / 4 tests.
+  - `NODE_ENV=test RUN_POSTGRES_INTEGRATION=true DATABASE_URL=postgresql://work:work@localhost:5432/work_platform npx vitest run --config vitest.config.mts apps/platform-api/src/repositories/postgres-platform.repository.integration.spec.ts`:
+    pass, 1 file / 15 tests.
+- Local Docker PostgreSQL full path:
+  - `pnpm db:setup`: pass; seed reported `permissionCount: 21`.
+  - `NODE_ENV=test RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true PLATFORM_REPOSITORY_DRIVER=postgres PLATFORM_BOOTSTRAP_ADMIN_PASSWORD=admin123 pnpm verify:full`: pass.
+  - `verify` portion under PostgreSQL env: unit 43 files / 218 tests, web 29 files / 75 tests,
+    e2e 7 files / 45 tests.
+  - `test:db`: pass, 5 files / 33 tests. `postgres-platform.repository.integration.spec.ts` ran
+    15 tests, including department update / soft delete / occupancy and cycle traversal coverage.
+  - `test:e2e:postgres`: pass, 3 files / 14 tests.
+- Primed graph module-boundary lint:
+  - `pnpm exec nx graph --file=.tmp-m8-1-graph.json`: pass; temporary graph file removed afterwards.
+  - `pnpm exec nx run @work/platform-web:lint`: pass.
+  - `pnpm exec nx run @work/workbench-shell:lint`: pass with the existing `_descriptor` warning only.
+- Changed-file UI gate scan:
+  - `modules/platform/web/src/pages/OrganizationPage.tsx`, its spec, the platform API client files, and
+    the M8 organization styles in `apps/workbench-shell/src/styles.css` contain no hardcoded hex colors or
+    emoji placeholders.
+
+Security review:
+
+- First independent `security-reviewer` pass: Changes requested. The two Major findings are listed in
+  "Validation-exposed fixes" above and were fixed with regression coverage.
+- Second independent `security-reviewer` pass: pass; no Blocking, Major, or Minor findings. The review
+  confirmed tenant derivation from `request.currentUser.enterpriseId`, repository-level enterprise
+  predicates, cross-tenant NotFound behavior, active-only delete occupancy checks, unchanged data-scope
+  descendant traversal, and `platform:org:view/manage` guard wiring.
+
+Follow-up:
+
+- M8-2a profile read / write backend.
+- Existing employee `updateStatus(:id/status)` and `resetPassword(:id/password)` bare-id tenant follow-up
+  remains outside M8-1 and should be handled in the dedicated M8 personnel / organization security work.
+
 ## 2026-06-17
 
 ### M7-5 Notification & Scheduler Delivery Verification

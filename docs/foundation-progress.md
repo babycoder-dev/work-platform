@@ -23,7 +23,7 @@
 | M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done    | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，M7 通知 + 调度已交付                           |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done    | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪 |
 | UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Pending | 任务包 `docs/tasks/ui-foundation-fidelity.md` 已二审定稿；UI-1→(UI-2‖UI-3)→UI-4；M8 后端可并行               |
-| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Pending | RFC 已 Accepted（拍板：近况记录归 `platform.status_logs`）；M8-1 任务包已二审定稿；依赖 M5/M6/M7             |
+| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | In Progress | M8-1 部门管理已交付；下一步 M8-2a 档案读写后端；依赖 M5/M6/M7                                              |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | 在 M4 presence 基础上扩展                                                                                    |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending | 依赖 M6/M7                                                                                                   |
 | M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending | 简单串签流 + 节点通知 + 联动在位                                                                             |
@@ -186,13 +186,10 @@
 当前建议执行：
 
 ```text
-UI 收口切片（M8 前，地基三屏像素级还原 + 还原度门禁）
-  └ 任务包 docs/tasks/ui-foundation-fidelity.md（已二审定稿，可交 Codex）
 M8: 人员 / 组织 / 档案（RFC docs/rfc/m8-people-org-profile.md 已 Accepted，
-    近况记录归属已拍板 = platform.status_logs；M8 后端切片可与 UI 收口并行）
-  └ M8-1 部门管理任务包 docs/tasks/m8-1-department-management.md（已二审定稿，可交 Codex；
-      OrgService 增删改/移动/设负责人 + 占用删除 409 + 双实现，无 DDL 迁移，合并前过 security-reviewer）
-  └ 后续：M8-2a 档案读写后端 → M8-2b 首登向导 → M8-3 profile.updated → M8-4 近况 → M8-5 自定义字段聚合 → M8-6 交付验证
+    近况记录归属已拍板 = platform.status_logs；M8-1 部门管理已完成）
+  └ 下一步：M8-2a 档案读写后端
+  └ 后续：M8-2b 首登向导 → M8-3 profile.updated → M8-4 近况 → M8-5 自定义字段聚合 → M8-6 交付验证
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -227,8 +224,8 @@ M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享�
 本地磁盘 Files provider + 上传 API、M6-3 Forms API + 快照记录 + 文件 / 人员字段、M6-4 后端
 交付验证、M6-W 前端地基 + 工作台首页均已完成。M7-0 RFC 已 Accepted，M7-1 通知模块骨架、
 M7-2 事件订阅 + RecipientResolver + platform 读端口已完成；M7-3 调度基建已完成，M7-4a SSE 后端已完成，
-M7-4b 前端接入已完成，M7-5 交付验证已完成；下一步进入 M8（人员 / 组织 / 档案）；
-forms UI 迁 M8。
+M7-4b 前端接入已完成，M7-5 交付验证已完成；M8-1 部门管理已完成，下一步进入 M8-2a
+档案读写后端；forms UI 迁 M8。
 注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
 `docs/adr/0005-product-replan-roadmap.md`。
 
@@ -277,6 +274,19 @@ forms UI 迁 M8。
 | M7-4a | SSE 推送后端端点 + 进程内连接注册表     | Done | 2026-06-15 完成；详见 verification-log `M7-4a Notification SSE Backend`；REST 仍为事实源，SSE 只推最小信号           |
 | M7-4b | 前端铃铛 / 工作台卡片 + SSE 消费        | Done | 2026-06-16 完成；详见 verification-log `M7-4b Notification Frontend`；断线回退 REST 轮询，触发点配置 UI 已落位       |
 | M7-5  | 通知 + 调度交付验证门禁                 | Done | 2026-06-17 完成；详见 verification-log `M7-5 Notification & Scheduler Delivery Verification`；M7 整段退出，下一步 M8 |
+
+### 6.5 M8 人员 / 组织 / 档案切片
+
+| 切片  | 能力                       | 状态 | 说明                                                                                                             |
+| ----- | -------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
+| M8-0  | RFC                        | Done | 2026-06-18 Accepted；`docs/rfc/m8-people-org-profile.md`；近况记录归属 `platform.status_logs`                    |
+| M8-1  | 部门管理                   | Done | 2026-06-19 完成；详见 verification-log `M8-1 Department Management`；无 DDL / 新权限，合并前已过 security-reviewer |
+| M8-2a | 档案读写后端               | Pending | 下一步；profile employee 槽位读写、首登前置数据与权限边界按 M8 RFC 另切                                         |
+| M8-2b | 首登向导                   | Pending | 依赖 M8-2a                                                                                                      |
+| M8-3  | `profile.updated` 事件      | Pending | 依赖 M8-2a                                                                                                      |
+| M8-4  | 近况                       | Pending | 依赖 M8-2a / M8-3；落 `platform.status_logs`                                                                    |
+| M8-5  | 自定义字段聚合             | Pending | 依赖 M6 Forms 与 M8 profile 槽位                                                                                |
+| M8-6  | 交付验证                   | Pending | M8 后端 / 前端交付门禁                                                                                         |
 
 ## 7. 当前阻塞项
 

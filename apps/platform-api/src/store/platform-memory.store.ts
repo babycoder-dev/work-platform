@@ -13,6 +13,7 @@ import type {
   ModuleManifestDto,
   PermissionDto,
   RoleDto,
+  UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
 import type {
@@ -36,6 +37,8 @@ interface LocalIdentity {
   mustChangePassword: boolean;
 }
 
+type StoredDepartment = DepartmentDto & { deletedAt?: string };
+
 @Injectable()
 export class PlatformMemoryStore implements PlatformRepository {
   readonly enterprise: EnterpriseDto = {
@@ -45,7 +48,7 @@ export class PlatformMemoryStore implements PlatformRepository {
     status: 'active',
   };
 
-  readonly departments = new Map<string, DepartmentDto>();
+  readonly departments = new Map<string, StoredDepartment>();
   readonly employees = new Map<string, EmployeeDto>();
   readonly identities = new Map<string, LocalIdentity>();
   readonly accessSessions = new Map<string, AccessSession>();
@@ -63,12 +66,15 @@ export class PlatformMemoryStore implements PlatformRepository {
     return [this.enterprise];
   }
 
-  async listDepartments(): Promise<DepartmentDto[]> {
-    return Array.from(this.departments.values());
+  async listDepartments(enterpriseId: string): Promise<DepartmentDto[]> {
+    return Array.from(this.departments.values())
+      .filter((department) => department.enterpriseId === enterpriseId && !department.deletedAt)
+      .map(toDepartmentDto);
   }
 
   async findDepartmentById(id: string): Promise<DepartmentDto | undefined> {
-    return this.departments.get(id);
+    const department = this.departments.get(id);
+    return department && !department.deletedAt ? toDepartmentDto(department) : undefined;
   }
 
   async listDescendantDepartmentIds(
@@ -97,7 +103,7 @@ export class PlatformMemoryStore implements PlatformRepository {
   }
 
   async createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto> {
-    const department: DepartmentDto = {
+    const department: StoredDepartment = {
       id: randomUUID(),
       enterpriseId: input.enterpriseId,
       name: input.name,
@@ -109,7 +115,94 @@ export class PlatformMemoryStore implements PlatformRepository {
     };
 
     this.departments.set(department.id, department);
-    return department;
+    return toDepartmentDto(department);
+  }
+
+  async updateDepartment(
+    id: string,
+    input: UpdateDepartmentInput,
+    enterpriseId: string,
+  ): Promise<DepartmentDto | undefined> {
+    const department = this.departments.get(id);
+    if (!department || department.enterpriseId !== enterpriseId || department.deletedAt) {
+      return undefined;
+    }
+
+    const updated: StoredDepartment = {
+      ...department,
+      ...(Object.hasOwn(input, 'name') ? { name: input.name ?? department.name } : {}),
+      ...(Object.hasOwn(input, 'parentId') ? { parentId: input.parentId ?? undefined } : {}),
+      ...(Object.hasOwn(input, 'managerUserId')
+        ? { managerUserId: input.managerUserId ?? undefined }
+        : {}),
+      ...(Object.hasOwn(input, 'sortOrder') ? { sortOrder: input.sortOrder ?? department.sortOrder } : {}),
+    };
+
+    this.departments.set(id, updated);
+    return toDepartmentDto(updated);
+  }
+
+  async softDeleteDepartment(id: string, enterpriseId: string): Promise<boolean> {
+    const department = this.departments.get(id);
+    if (!department || department.enterpriseId !== enterpriseId || department.deletedAt) {
+      return false;
+    }
+    const activeEmployees = await this.countActiveEmployeesInDepartment(id, enterpriseId);
+    const hasActiveChildren = await this.hasActiveChildDepartments(id, enterpriseId);
+    if (activeEmployees > 0 || hasActiveChildren) {
+      return false;
+    }
+    this.departments.set(id, {
+      ...department,
+      deletedAt: new Date().toISOString(),
+    });
+    return true;
+  }
+
+  async countActiveEmployeesInDepartment(
+    departmentId: string,
+    enterpriseId: string,
+  ): Promise<number> {
+    return Array.from(this.employees.values()).filter(
+      (employee) =>
+        employee.enterpriseId === enterpriseId &&
+        employee.departmentId === departmentId &&
+        employee.status === 'active',
+    ).length;
+  }
+
+  async hasActiveChildDepartments(parentId: string, enterpriseId: string): Promise<boolean> {
+    return Array.from(this.departments.values()).some(
+      (department) =>
+        department.enterpriseId === enterpriseId &&
+        department.parentId === parentId &&
+        !department.deletedAt,
+    );
+  }
+
+  async listDescendantDepartmentIdsForCycleCheck(
+    parentDepartmentId: string,
+    enterpriseId: string,
+  ): Promise<string[]> {
+    const result: string[] = [];
+    const queue: string[] = [parentDepartmentId];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (current === undefined) {
+        continue;
+      }
+      for (const department of this.departments.values()) {
+        if (
+          department.parentId === current &&
+          department.enterpriseId === enterpriseId &&
+          !department.deletedAt
+        ) {
+          result.push(department.id);
+          queue.push(department.id);
+        }
+      }
+    }
+    return result;
   }
 
   async listEmployees(): Promise<EmployeeDto[]> {
@@ -119,7 +212,8 @@ export class PlatformMemoryStore implements PlatformRepository {
   async createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto> {
     if (
       input.departmentId !== undefined &&
-      this.departments.get(input.departmentId)?.enterpriseId !== input.enterpriseId
+      (this.departments.get(input.departmentId)?.enterpriseId !== input.enterpriseId ||
+        this.departments.get(input.departmentId)?.deletedAt)
     ) {
       throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
     }
@@ -365,7 +459,7 @@ export class PlatformMemoryStore implements PlatformRepository {
   }
 
   private seed() {
-    const rootDepartment: DepartmentDto = {
+    const rootDepartment: StoredDepartment = {
       id: 'dept-root',
       enterpriseId: this.enterprise.id,
       name: '总部',
@@ -425,4 +519,17 @@ export class PlatformMemoryStore implements PlatformRepository {
       mustChangePassword: true,
     });
   }
+}
+
+function toDepartmentDto(department: StoredDepartment): DepartmentDto {
+  return {
+    id: department.id,
+    enterpriseId: department.enterpriseId,
+    code: department.code,
+    name: department.name,
+    parentId: department.parentId,
+    managerUserId: department.managerUserId,
+    sortOrder: department.sortOrder,
+    status: department.status,
+  };
 }

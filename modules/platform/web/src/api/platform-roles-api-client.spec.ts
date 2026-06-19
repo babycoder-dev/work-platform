@@ -1,5 +1,5 @@
 import type { HttpClient } from '@work/http-client';
-import type { CreateRoleInput, UpdateRoleInput } from '@work/platform-contract';
+import type { CreateRoleInput, UpdateDepartmentInput, UpdateRoleInput } from '@work/platform-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { createPlatformRolesApiClient } from './platform-roles-api-client';
 
@@ -35,6 +35,33 @@ describe('createPlatformRolesApiClient', () => {
     const roles = await createPlatformRolesApiClient(http).listRoles();
     expect(roles).toEqual([{ id: 'role-001' }]);
     expect(http.calls).toEqual([{ method: 'GET', url: 'roles' }]);
+  });
+
+  it('lists departments and unwraps items', async () => {
+    const http = makeHttp();
+    const departments = await createPlatformRolesApiClient(http).listDepartments();
+    expect(departments).toEqual([{ id: 'role-001' }]);
+    expect(http.calls).toEqual([{ method: 'GET', url: 'departments' }]);
+  });
+
+  it('creates, updates, and deletes encoded department ids', async () => {
+    const http = makeHttp();
+    await createPlatformRolesApiClient(http).createDepartment({ code: 'RD', name: '研发部' });
+    const input = { name: '产品研发部', parentId: null } satisfies UpdateDepartmentInput;
+    await createPlatformRolesApiClient(http).updateDepartment('dept id', input);
+    await createPlatformRolesApiClient(http).deleteDepartment('dept/id');
+    expect(http.calls).toEqual([
+      { method: 'POST', url: 'departments', body: { code: 'RD', name: '研发部' } },
+      { method: 'PUT', url: 'departments/dept%20id', body: input },
+      { method: 'DELETE', url: 'departments/dept%2Fid' },
+    ]);
+  });
+
+  it('lists employees and unwraps items', async () => {
+    const http = makeHttp();
+    const employees = await createPlatformRolesApiClient(http).listEmployees();
+    expect(employees).toEqual([{ id: 'role-001' }]);
+    expect(http.calls).toEqual([{ method: 'GET', url: 'employees' }]);
   });
 
   it('gets an encoded role id', async () => {

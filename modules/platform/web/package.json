@@ -13,6 +13,7 @@
     "@work/http-client": "workspace:*",
     "@work/platform-contract": "workspace:*",
     "@work/platform-sdk": "workspace:*",
+    "@work/ui": "workspace:*",
     "react": "^19.0.0"
   },
   "devDependencies": {

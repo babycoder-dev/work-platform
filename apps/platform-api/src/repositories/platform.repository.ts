@@ -10,6 +10,7 @@ import type {
   ModuleManifestDto,
   PermissionDto,
   RoleDto,
+  UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
 
@@ -47,15 +48,31 @@ export interface UpdatePasswordInput {
 
 export interface PlatformRepository {
   listEnterprises(): Promise<EnterpriseDto[]>;
-  listDepartments(): Promise<DepartmentDto[]>;
+  listDepartments(enterpriseId: string): Promise<DepartmentDto[]>;
   createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto>;
   findDepartmentById(id: string): Promise<DepartmentDto | undefined>;
+  updateDepartment(
+    id: string,
+    input: UpdateDepartmentInput,
+    enterpriseId: string,
+  ): Promise<DepartmentDto | undefined>;
+  softDeleteDepartment(id: string, enterpriseId: string): Promise<boolean>;
+  countActiveEmployeesInDepartment(departmentId: string, enterpriseId: string): Promise<number>;
+  hasActiveChildDepartments(parentId: string, enterpriseId: string): Promise<boolean>;
   /**
    * 返回 parentDepartmentId 的全部子孙部门 id（不含 parentDepartmentId 本身）。
    * 仅返回与 enterpriseId 一致且 status='active' 的部门。
    * 若 parentDepartmentId 不存在或无子孙，返回 []。
    */
   listDescendantDepartmentIds(parentDepartmentId: string, enterpriseId: string): Promise<string[]>;
+  /**
+   * 环路防护专用：返回同企业、未软删的全部后代 id，不按 status 过滤。
+   * 不用于数据范围解析，避免改变 department_tree 语义。
+   */
+  listDescendantDepartmentIdsForCycleCheck(
+    parentDepartmentId: string,
+    enterpriseId: string,
+  ): Promise<string[]>;
   listEmployees(): Promise<EmployeeDto[]>;
   createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto>;
   findEmployeeById(id: string): Promise<EmployeeDto | undefined>;

@@ -551,7 +551,12 @@ function createRepositoryMock() {
       sortOrder: 1,
       status: 'active',
     }),
+    updateDepartment: vi.fn(),
+    softDeleteDepartment: vi.fn(),
+    countActiveEmployeesInDepartment: vi.fn(),
+    hasActiveChildDepartments: vi.fn(),
     listDescendantDepartmentIds: vi.fn().mockResolvedValue([]),
+    listDescendantDepartmentIdsForCycleCheck: vi.fn().mockResolvedValue([]),
     listEmployees: vi.fn().mockResolvedValue([]),
     createEmployee: vi.fn(),
     findEmployeeById: vi.fn().mockResolvedValue(employee),
@@ -580,6 +585,7 @@ function createRepositoryMock() {
     findEmployeeById: ReturnType<typeof vi.fn>;
     findDepartmentById: ReturnType<typeof vi.fn>;
     listDescendantDepartmentIds: ReturnType<typeof vi.fn>;
+    listDescendantDepartmentIdsForCycleCheck: ReturnType<typeof vi.fn>;
     findPermissionByCode: ReturnType<typeof vi.fn>;
     findRoleById: ReturnType<typeof vi.fn>;
     createAccessSession: ReturnType<typeof vi.fn>;

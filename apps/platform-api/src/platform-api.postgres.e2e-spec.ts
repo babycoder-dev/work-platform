@@ -153,7 +153,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .set('X-Forwarded-For', '203.0.113.20, 10.0.0.1')
       .set('User-Agent', 'postgres-write-agent')
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         code: `PGD${uniqueSuffix}`,
         name: 'Postgres Department',
       })
@@ -937,7 +936,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .post('/api/platform/departments')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         parentId,
         code,
         name,

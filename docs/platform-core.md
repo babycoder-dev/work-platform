@@ -41,7 +41,16 @@ access token 由 `AuthService` 写入 repository 会话存储。默认 PostgreSQ
 GET  /api/platform/enterprises
 GET  /api/platform/departments
 POST /api/platform/departments
+PUT  /api/platform/departments/:id
+DELETE /api/platform/departments/:id
 ```
+
+部门列表、创建、更新、移动、负责人设置和删除都以认证用户的 `currentUser.enterpriseId`
+作为租户边界；请求体中的企业字段不作为信任来源。更新支持改名、移动父级、设置 / 清空负责人和排序。
+删除为软删除，仍有 active 员工或 active 子部门时返回统一错误
+`PLATFORM_DEPARTMENT_NOT_EMPTY`（409）。移动到自身或子部门下返回
+`PLATFORM_DEPARTMENT_CYCLE`（400）。部门树数据范围解析继续使用既有 active-only
+后代展开语义，M8-1 只为移动校验新增独立的循环检测遍历。
 
 员工：
 
@@ -234,6 +243,8 @@ userAgent: User-Agent 请求头
 
 ```text
 platform.department.create
+platform.department.update
+platform.department.delete
 platform.employee.create
 platform.employee.status.update
 platform.employee.roles.assign

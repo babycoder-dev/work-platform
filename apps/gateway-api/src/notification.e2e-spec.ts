@@ -255,7 +255,6 @@ describe('notification API', () => {
       .post('/api/platform/departments')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        enterpriseId: 'ent-default',
         name: `Presence Dept ${marker}`,
         code: `D${marker}`.slice(0, 20),
         managerUserId: manager.id,

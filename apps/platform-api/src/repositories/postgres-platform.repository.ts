@@ -14,6 +14,7 @@ import type {
   PermissionDto,
   RoleDataScope,
   RoleDto,
+  UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
@@ -30,6 +31,17 @@ import type {
 import { mapPostgresError } from './postgres-error.mapper';
 
 type QueryExecutor = Pick<Pool, 'query'> | PoolClient;
+
+async function lockDepartmentReference(
+  client: PoolClient,
+  enterpriseId: string,
+  departmentId: string,
+): Promise<void> {
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))', [
+    'platform.department',
+    `${enterpriseId}:${departmentId}`,
+  ]);
+}
 
 interface EnterpriseRow {
   id: string;
@@ -122,20 +134,36 @@ export class PostgresPlatformRepository implements PlatformRepository {
     return result.rows.map(mapEnterprise);
   }
 
-  async listDepartments(): Promise<DepartmentDto[]> {
+  async listDepartments(enterpriseId: string): Promise<DepartmentDto[]> {
     const result = await this.pool.query<DepartmentRow>(`
       SELECT id, enterprise_id, parent_id, manager_user_id, code, name, sort_order, status
       FROM platform.departments
-      WHERE deleted_at IS NULL
+      WHERE enterprise_id = $1 AND deleted_at IS NULL
       ORDER BY sort_order, code
-    `);
+    `, [enterpriseId]);
 
     return result.rows.map(mapDepartment);
   }
 
   async createDepartment(input: CreateDepartmentInput): Promise<DepartmentDto> {
+    const client = await this.pool.connect();
     try {
-      const result = await this.pool.query<DepartmentRow>(
+      await client.query('BEGIN');
+      if (input.parentId !== undefined) {
+        await lockDepartmentReference(client, input.enterpriseId, input.parentId);
+        const parent = await client.query<{ id: string }>(
+          `
+            SELECT id
+            FROM platform.departments
+            WHERE id = $1 AND enterprise_id = $2 AND deleted_at IS NULL
+          `,
+          [input.parentId, input.enterpriseId],
+        );
+        if (parent.rows.length === 0) {
+          throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
+        }
+      }
+      const result = await client.query<DepartmentRow>(
         `
           INSERT INTO platform.departments (
             enterprise_id,
@@ -159,13 +187,20 @@ export class PostgresPlatformRepository implements PlatformRepository {
         ],
       );
 
+      await client.query('COMMIT');
       return mapDepartment(result.rows[0]);
     } catch (error) {
+      await client.query('ROLLBACK');
       mapPostgresError(error);
+    } finally {
+      client.release();
     }
   }
 
   async findDepartmentById(id: string): Promise<DepartmentDto | undefined> {
+    if (!isUuid(id)) {
+      return undefined;
+    }
     const result = await this.pool.query<DepartmentRow>(
       `
         SELECT id, enterprise_id, parent_id, manager_user_id, code, name, sort_order, status
@@ -176,6 +211,126 @@ export class PostgresPlatformRepository implements PlatformRepository {
     );
 
     return mapFirst(result, mapDepartment);
+  }
+
+  async updateDepartment(
+    id: string,
+    input: UpdateDepartmentInput,
+    enterpriseId: string,
+  ): Promise<DepartmentDto | undefined> {
+    const assignments: string[] = [];
+    const values: unknown[] = [id, enterpriseId];
+
+    if (Object.hasOwn(input, 'name')) {
+      values.push(input.name);
+      assignments.push(`name = $${values.length}`);
+    }
+    if (Object.hasOwn(input, 'parentId')) {
+      values.push(input.parentId ?? null);
+      assignments.push(`parent_id = $${values.length}`);
+    }
+    if (Object.hasOwn(input, 'managerUserId')) {
+      values.push(input.managerUserId ?? null);
+      assignments.push(`manager_user_id = $${values.length}`);
+    }
+    if (Object.hasOwn(input, 'sortOrder')) {
+      values.push(input.sortOrder);
+      assignments.push(`sort_order = $${values.length}`);
+    }
+
+    if (assignments.length === 0) {
+      const current = await this.findDepartmentById(id);
+      return current?.enterpriseId === enterpriseId ? current : undefined;
+    }
+
+    try {
+      const result = await this.pool.query<DepartmentRow>(
+        `
+          UPDATE platform.departments
+          SET ${assignments.join(', ')}, updated_at = now()
+          WHERE id = $1 AND enterprise_id = $2 AND deleted_at IS NULL
+          RETURNING id, enterprise_id, parent_id, manager_user_id, code, name, sort_order, status
+        `,
+        values,
+      );
+
+      return mapFirst(result, mapDepartment);
+    } catch (error) {
+      mapPostgresError(error);
+    }
+  }
+
+  async softDeleteDepartment(id: string, enterpriseId: string): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await lockDepartmentReference(client, enterpriseId, id);
+      const result = await client.query(
+        `
+          UPDATE platform.departments d
+          SET deleted_at = now(), updated_at = now()
+          WHERE d.id = $1
+            AND d.enterprise_id = $2
+            AND d.deleted_at IS NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM platform.employees e
+              WHERE e.department_id = d.id
+                AND e.enterprise_id = d.enterprise_id
+                AND e.status = 'active'
+                AND e.deleted_at IS NULL
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM platform.departments child
+              WHERE child.parent_id = d.id
+                AND child.enterprise_id = d.enterprise_id
+                AND child.deleted_at IS NULL
+            )
+        `,
+        [id, enterpriseId],
+      );
+      await client.query('COMMIT');
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      mapPostgresError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async countActiveEmployeesInDepartment(
+    departmentId: string,
+    enterpriseId: string,
+  ): Promise<number> {
+    const result = await this.pool.query<{ count: string }>(
+      `
+        SELECT count(*)::text AS count
+        FROM platform.employees
+        WHERE department_id = $1
+          AND enterprise_id = $2
+          AND status = 'active'
+          AND deleted_at IS NULL
+      `,
+      [departmentId, enterpriseId],
+    );
+    return Number(result.rows[0].count);
+  }
+
+  async hasActiveChildDepartments(parentId: string, enterpriseId: string): Promise<boolean> {
+    const result = await this.pool.query<{ exists: number }>(
+      `
+        SELECT 1 AS exists
+        FROM platform.departments
+        WHERE parent_id = $1
+          AND enterprise_id = $2
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [parentId, enterpriseId],
+    );
+    return result.rows.length > 0;
   }
 
   async listDescendantDepartmentIds(
@@ -209,6 +364,37 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
+  async listDescendantDepartmentIdsForCycleCheck(
+    parentDepartmentId: string,
+    enterpriseId: string,
+  ): Promise<string[]> {
+    try {
+      const result = await this.pool.query<{ id: string }>(
+        `
+          WITH RECURSIVE descendants AS (
+            SELECT id, parent_id
+            FROM platform.departments
+            WHERE parent_id = $1
+              AND enterprise_id = $2
+              AND deleted_at IS NULL
+            UNION ALL
+            SELECT d.id, d.parent_id
+            FROM platform.departments d
+            INNER JOIN descendants r ON d.parent_id = r.id
+            WHERE d.enterprise_id = $2
+              AND d.deleted_at IS NULL
+          )
+          SELECT id FROM descendants
+        `,
+        [parentDepartmentId, enterpriseId],
+      );
+      return result.rows.map((row) => row.id);
+    } catch (error) {
+      mapPostgresError(error);
+      return [];
+    }
+  }
+
   async listEmployees(): Promise<EmployeeDto[]> {
     const result = await this.pool.query<EmployeeRow>(
       employeeSelectSql('WHERE e.deleted_at IS NULL ORDER BY e.employee_no'),
@@ -222,8 +408,16 @@ export class PostgresPlatformRepository implements PlatformRepository {
     try {
       await client.query('BEGIN');
       if (input.departmentId !== undefined) {
-        const department = await this.findDepartmentById(input.departmentId);
-        if (!department || department.enterpriseId !== input.enterpriseId) {
+        await lockDepartmentReference(client, input.enterpriseId, input.departmentId);
+        const department = await client.query<{ id: string }>(
+          `
+            SELECT id
+            FROM platform.departments
+            WHERE id = $1 AND enterprise_id = $2 AND deleted_at IS NULL
+          `,
+          [input.departmentId, input.enterpriseId],
+        );
+        if (department.rows.length === 0) {
           throw new ApiError('PLATFORM_REFERENCE_NOT_FOUND', '关联资源不存在', { status: 400 });
         }
       }

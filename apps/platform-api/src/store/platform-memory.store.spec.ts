@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { verifyPassword } from '../security/secret-hash';
 import { PlatformMemoryStore } from './platform-memory.store';
 
+const TEST_INITIAL_SECRET = 'test-initial-secret';
+
 describe('PlatformMemoryStore', () => {
   it('seeds the default enterprise, department, admin and permissions', async () => {
     const store = new PlatformMemoryStore();
@@ -12,7 +14,7 @@ describe('PlatformMemoryStore', () => {
         name: '默认企业',
       }),
     ]);
-    await expect(store.listDepartments()).resolves.toEqual([
+    await expect(store.listDepartments('ent-default')).resolves.toEqual([
       expect.objectContaining({
         code: 'HQ',
         name: '总部',
@@ -49,7 +51,7 @@ describe('PlatformMemoryStore', () => {
       employeeNo: '000002',
       account: 'zhangsan',
       name: '张三',
-      initialPassword: 'Passw0rd',
+      initialPassword: TEST_INITIAL_SECRET,
     });
 
     const updated = await store.setUserRoles(employee.id, ['role-admin'], 'ent-default');
@@ -57,7 +59,7 @@ describe('PlatformMemoryStore', () => {
     const identity = await store.findLocalIdentityByAccount('zhangsan');
     expect(updated?.roleIds).toEqual(['role-admin']);
     expect(identity?.userId).toBe(employee.id);
-    expect(verifyPassword('Passw0rd', identity?.passwordHash ?? '')).toBe(true);
+    expect(verifyPassword(TEST_INITIAL_SECRET, identity?.passwordHash ?? '')).toBe(true);
   });
 
   it('rejects employee creation with a department from another tenant', async () => {
@@ -74,11 +76,94 @@ describe('PlatformMemoryStore', () => {
       employeeNo: '000099',
       account: 'cross-tenant-department',
       name: 'Cross Tenant Department',
-      initialPassword: 'Passw0rd',
+      initialPassword: TEST_INITIAL_SECRET,
     })).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
       status: 400,
     });
+  });
+
+  it('soft deletes departments without changing descendant scope behavior', async () => {
+    const store = new PlatformMemoryStore();
+    const parent = await store.createDepartment({
+      enterpriseId: 'ent-default',
+      code: 'SOFT-P',
+      name: 'Soft Parent',
+    });
+    const child = await store.createDepartment({
+      enterpriseId: 'ent-default',
+      parentId: parent.id,
+      code: 'SOFT-C',
+      name: 'Soft Child',
+    });
+
+    await expect(store.softDeleteDepartment(child.id, 'ent-other')).resolves.toBe(false);
+    await expect(store.softDeleteDepartment(parent.id, 'ent-default')).resolves.toBe(false);
+    await expect(store.softDeleteDepartment(child.id, 'ent-default')).resolves.toBe(true);
+
+    await expect(store.findDepartmentById(child.id)).resolves.toBeUndefined();
+    await expect(store.listDepartments('ent-default')).resolves.not.toContainEqual(
+      expect.objectContaining({ id: child.id }),
+    );
+    await expect(store.hasActiveChildDepartments(parent.id, 'ent-default')).resolves.toBe(false);
+
+    // Scope expansion intentionally keeps the original active-only behavior and is not used
+    // for cycle checks or deletion occupancy.
+    await expect(store.listDescendantDepartmentIds(parent.id, 'ent-default')).resolves.toContain(
+      child.id,
+    );
+  });
+
+  it('updates department fields by presence and counts active employee occupancy', async () => {
+    const store = new PlatformMemoryStore();
+    const department = await store.createDepartment({
+      enterpriseId: 'ent-default',
+      code: 'UPD',
+      name: '待更新',
+    });
+    const manager = await store.createEmployee({
+      enterpriseId: 'ent-default',
+      employeeNo: '000010',
+      account: 'manager',
+      name: 'Manager',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+    await store.createEmployee({
+      enterpriseId: 'ent-default',
+      departmentId: department.id,
+      employeeNo: '000011',
+      account: 'active-user',
+      name: 'Active User',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+    const disabled = await store.createEmployee({
+      enterpriseId: 'ent-default',
+      departmentId: department.id,
+      employeeNo: '000012',
+      account: 'disabled-user',
+      name: 'Disabled User',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+    await store.updateEmployee({ ...disabled, status: 'disabled' }, 'ent-default');
+
+    await expect(
+      store.updateDepartment(
+        department.id,
+        { name: '已更新', managerUserId: manager.id, parentId: null, sortOrder: 7 },
+        'ent-default',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: department.id,
+        name: '已更新',
+        managerUserId: manager.id,
+        parentId: undefined,
+        sortOrder: 7,
+      }),
+    );
+    await expect(store.updateDepartment(department.id, { name: '跨租户' }, 'ent-other')).resolves.toBeUndefined();
+    await expect(store.countActiveEmployeesInDepartment(department.id, 'ent-default')).resolves.toBe(1);
+    await expect(store.softDeleteDepartment(department.id, 'ent-default')).resolves.toBe(false);
   });
 
   it('round-trips per-type role data scopes with non-system roles by default', async () => {
@@ -118,7 +203,7 @@ describe('PlatformMemoryStore', () => {
       employeeNo: '000003',
       account: 'role-user',
       name: 'Role User',
-      initialPassword: 'Passw0rd',
+      initialPassword: TEST_INITIAL_SECRET,
     });
     await store.setUserRoles(employee.id, [role.id], 'ent-default');
 

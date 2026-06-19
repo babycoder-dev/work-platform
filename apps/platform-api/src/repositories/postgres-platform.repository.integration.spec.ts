@@ -13,6 +13,7 @@ import { hashPassword, verifyPassword } from '../security/secret-hash';
 import { PostgresPlatformRepository } from './postgres-platform.repository';
 
 const runPostgresIntegration = process.env.RUN_POSTGRES_INTEGRATION === 'true';
+const TEST_INITIAL_SECRET = 'test-initial-secret';
 
 describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration', () => {
   let pool: Pool;
@@ -91,7 +92,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       employeeNo: `IT${suffix}`,
       account: `integration-user-${suffix}`,
       name: 'Integration User',
-      initialPassword: 'Passw0rd1',
+      initialPassword: TEST_INITIAL_SECRET,
     });
 
     await expect(
@@ -106,7 +107,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       }),
     );
     expect(identity?.lockedUntil).toBeUndefined();
-    expect(verifyPassword('Passw0rd1', identity?.passwordHash ?? '')).toBe(true);
+    expect(verifyPassword(TEST_INITIAL_SECRET, identity?.passwordHash ?? '')).toBe(true);
 
     const reassigned = await repository.setUserRoles(employee.id, [], DEFAULT_ENTERPRISE_ID);
     expect(reassigned).toMatchObject({
@@ -435,6 +436,119 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     });
   });
 
+  it('updates and soft deletes departments with deleted-at aware occupancy checks', async () => {
+    const suffix = Date.now().toString();
+    const parent = await repository.createDepartment({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      code: `DUP${suffix}`,
+      name: 'Department Update Parent',
+    });
+    const child = await repository.createDepartment({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      parentId: parent.id,
+      code: `DUC${suffix}`,
+      name: 'Department Update Child',
+    });
+    const manager = await repository.createEmployee({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      departmentId: DEFAULT_DEPARTMENT_ID,
+      employeeNo: `DUM${suffix}`,
+      account: `department-manager-${suffix}`,
+      name: 'Department Manager',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+
+    await expect(
+      repository.updateDepartment(
+        child.id,
+        {
+          name: 'Updated Department Child',
+          parentId: null,
+          managerUserId: manager.id,
+          sortOrder: 9,
+        },
+        DEFAULT_ENTERPRISE_ID,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: child.id,
+        name: 'Updated Department Child',
+        parentId: undefined,
+        managerUserId: manager.id,
+        sortOrder: 9,
+      }),
+    );
+    await expect(
+      repository.updateDepartment(child.id, { name: 'Cross Tenant' }, '00000000-0000-0000-0000-00000000ffff'),
+    ).resolves.toBeUndefined();
+
+    await expect(repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
+    await repository.updateDepartment(child.id, { parentId: parent.id }, DEFAULT_ENTERPRISE_ID);
+    await expect(repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
+    await expect(repository.softDeleteDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
+    await expect(repository.softDeleteDepartment(child.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
+    await expect(repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
+    await expect(repository.findDepartmentById(child.id)).resolves.toBeUndefined();
+
+    await pool.query(
+      `
+        INSERT INTO platform.employees (
+          enterprise_id,
+          department_id,
+          employee_no,
+          account,
+          name,
+          status,
+          must_change_password,
+          deleted_at
+        )
+        VALUES ($1, $2, $3, $4, 'Deleted Employee', 'active', true, now())
+      `,
+      [DEFAULT_ENTERPRISE_ID, parent.id, `DUD${suffix}`, `deleted-employee-${suffix}`],
+    );
+    await expect(repository.countActiveEmployeesInDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(0);
+    await expect(repository.softDeleteDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
+
+    const occupied = await repository.createDepartment({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      code: `DUO${suffix}`,
+      name: 'Department Occupied',
+    });
+    await repository.createEmployee({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      departmentId: occupied.id,
+      employeeNo: `DUO${suffix}`,
+      account: `department-occupied-${suffix}`,
+      name: 'Department Occupied Employee',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+    await expect(repository.softDeleteDepartment(occupied.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
+  });
+
+  it('uses a deleted-at-only descendant query for cycle checks without changing active scope traversal', async () => {
+    const suffix = Date.now().toString();
+    const root = await repository.createDepartment({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      code: `DCR${suffix}`,
+      name: 'Cycle Root',
+    });
+    const disabled = await repository.createDepartment({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      parentId: root.id,
+      code: `DCD${suffix}`,
+      name: 'Cycle Disabled',
+    });
+    await pool.query('UPDATE platform.departments SET status = $2 WHERE id = $1', [
+      disabled.id,
+      'disabled',
+    ]);
+
+    await expect(repository.listDescendantDepartmentIds(root.id, DEFAULT_ENTERPRISE_ID)).resolves.not.toContain(disabled.id);
+    await expect(
+      repository.listDescendantDepartmentIdsForCycleCheck(root.id, DEFAULT_ENTERPRISE_ID),
+    ).resolves.toContain(disabled.id);
+  });
+
   it('rejects cross-tenant employee departments and role assignments defensively', async () => {
     const suffix = Date.now().toString();
     const enterprise = await pool.query<{ id: string }>(
@@ -464,7 +578,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       employeeNo: `SEC${suffix}`,
       account: `security-user-${suffix}`,
       name: 'Security User',
-      initialPassword: 'Passw0rd1',
+      initialPassword: TEST_INITIAL_SECRET,
     });
 
     await expect(
@@ -474,7 +588,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
         employeeNo: `BAD${suffix}`,
         account: `security-department-${suffix}`,
         name: 'Cross Tenant Department',
-        initialPassword: 'Passw0rd1',
+        initialPassword: TEST_INITIAL_SECRET,
       }),
     ).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
@@ -509,7 +623,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       employeeNo: `MR${suffix}`,
       account: `mutable-role-user-${suffix}`,
       name: 'Mutable Role User',
-      initialPassword: 'Passw0rd1',
+      initialPassword: TEST_INITIAL_SECRET,
     });
     await repository.setUserRoles(employee.id, [role.id], DEFAULT_ENTERPRISE_ID);
 

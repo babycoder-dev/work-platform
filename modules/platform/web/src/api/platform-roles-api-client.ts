@@ -1,12 +1,20 @@
 import type { HttpClient } from '@work/http-client';
 import type {
   CreateRoleInput,
+  DepartmentDto,
+  EmployeeDto,
   PermissionDto,
   RoleDto,
+  UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
 
 export interface PlatformRolesApiClient {
+  listDepartments(): Promise<DepartmentDto[]>;
+  createDepartment(input: { code: string; name: string; parentId?: string; managerUserId?: string; sortOrder?: number }): Promise<DepartmentDto>;
+  updateDepartment(id: string, input: UpdateDepartmentInput): Promise<DepartmentDto>;
+  deleteDepartment(id: string): Promise<void>;
+  listEmployees(): Promise<EmployeeDto[]>;
   listRoles(): Promise<RoleDto[]>;
   getRole(id: string): Promise<RoleDto>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;
@@ -18,6 +26,23 @@ export interface PlatformRolesApiClient {
 
 export function createPlatformRolesApiClient(http: HttpClient): PlatformRolesApiClient {
   return {
+    async listDepartments() {
+      const response = await http.get<{ items: DepartmentDto[] }>('departments');
+      return response.items;
+    },
+    createDepartment(input) {
+      return http.post<DepartmentDto, typeof input>('departments', input);
+    },
+    updateDepartment(id, input) {
+      return http.put<DepartmentDto, UpdateDepartmentInput>(`departments/${encodeURIComponent(id)}`, input);
+    },
+    deleteDepartment(id) {
+      return http.delete<void>(`departments/${encodeURIComponent(id)}`);
+    },
+    async listEmployees() {
+      const response = await http.get<{ items: EmployeeDto[] }>('employees');
+      return response.items;
+    },
     async listRoles() {
       const response = await http.get<{ items: RoleDto[] }>('roles');
       return response.items;

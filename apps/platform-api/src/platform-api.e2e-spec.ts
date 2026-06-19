@@ -122,6 +122,153 @@ describe('platform-api', () => {
     );
   });
 
+  it('updates, moves, and deletes departments with occupancy and cycle guards', async () => {
+    const token = await loginAsAdmin();
+    const suffix = Date.now().toString();
+    const manager = await createEmployee(token, {
+      employeeNo: `MGR${suffix}`,
+      account: `manager-${suffix}`,
+      name: '部门负责人',
+    });
+    const parent = await createDepartment(token, `ORG-P-${suffix}`, '父部门');
+    const child = await createDepartment(token, `ORG-C-${suffix}`, '子部门', parent.body.id);
+
+    const updateResponse = await request(app.getHttpServer())
+      .put(`/api/platform/departments/${child.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: '子部门改名',
+        parentId: null,
+        managerUserId: manager.body.id,
+        sortOrder: 12,
+      })
+      .expect(200);
+
+    expect(updateResponse.body).toEqual(
+      expect.objectContaining({
+        id: child.body.id,
+        name: '子部门改名',
+        managerUserId: manager.body.id,
+        sortOrder: 12,
+      }),
+    );
+    expect(updateResponse.body.parentId).toBeUndefined();
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/departments/${parent.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ parentId: parent.body.id })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/departments/${child.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ parentId: parent.body.id })
+      .expect(200);
+
+    const occupiedDelete = await request(app.getHttpServer())
+      .delete(`/api/platform/departments/${parent.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409);
+    expect(occupiedDelete.body).toEqual(
+      expect.objectContaining({
+        code: 'PLATFORM_DEPARTMENT_NOT_EMPTY',
+        message: '部门下仍有人员或子部门，无法删除',
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .delete(`/api/platform/departments/${child.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .delete(`/api/platform/departments/${parent.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    const listResponse = await request(app.getHttpServer())
+      .get('/api/platform/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(listResponse.body.items).not.toContainEqual(expect.objectContaining({ id: parent.body.id }));
+    expect(listResponse.body.items).not.toContainEqual(expect.objectContaining({ id: child.body.id }));
+  });
+
+  it('derives department tenant from the authenticated user and validates nullable update fields', async () => {
+    const token = await loginAsAdmin();
+    const suffix = Date.now().toString();
+
+    const noTenantResponse = await request(app.getHttpServer())
+      .post('/api/platform/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        code: `ORG-NO-TENANT-${suffix}`,
+        name: '认证租户部门',
+      })
+      .expect(201);
+    expect(noTenantResponse.body.enterpriseId).toBe('ent-default');
+
+    const rejectedTenantResponse = await request(app.getHttpServer())
+      .post('/api/platform/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: 'ent-other',
+        code: `ORG-IGNORE-TENANT-${suffix}`,
+        name: '忽略请求租户部门',
+      })
+      .expect(400);
+    expect(rejectedTenantResponse.body).toEqual(
+      expect.objectContaining({
+        success: false,
+        code: 'HTTP_400',
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/departments/${noTenantResponse.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: null })
+      .expect(400);
+    await request(app.getHttpServer())
+      .put(`/api/platform/departments/${noTenantResponse.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: '' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .put(`/api/platform/departments/${noTenantResponse.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ sortOrder: null })
+      .expect(400);
+  });
+
+  it('requires org manage permission for department mutation endpoints', async () => {
+    const adminToken = await loginAsAdmin();
+    const suffix = Date.now().toString();
+    const roleResponse = await createRoleWithPermissions(adminToken, `org-view-${suffix}`, [
+      'platform:org:view',
+    ]);
+    const employeeResponse = await createEmployee(adminToken, {
+      employeeNo: `OV${suffix}`,
+      account: `org-viewer-${suffix}`,
+      name: '组织只读',
+      roleIds: [roleResponse.body.id],
+    });
+    const viewerLogin = await login(`org-viewer-${suffix}`);
+    const department = await createDepartment(adminToken, `ORG-R-${suffix}`, '权限部门');
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/departments/${department.body.id}`)
+      .set('Authorization', `Bearer ${viewerLogin.body.accessToken}`)
+      .send({ name: '无权改名' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`/api/platform/departments/${department.body.id}`)
+      .set('Authorization', `Bearer ${viewerLogin.body.accessToken}`)
+      .expect(403);
+
+    expect(employeeResponse.body.id).toBeTruthy();
+  });
+
   it('returns the current user from an existing access token', async () => {
     const token = await loginAsAdmin();
     const response = await request(app.getHttpServer())
@@ -283,7 +430,6 @@ describe('platform-api', () => {
       .set('X-Forwarded-For', '198.51.100.20, 10.0.0.1')
       .set('User-Agent', 'memory-e2e-agent')
       .send({
-        enterpriseId: 'ent-default',
         code: `AUDIT${suffix}`,
         name: '审计测试部门',
       })
@@ -1204,7 +1350,6 @@ describe('platform-api', () => {
       .post('/api/platform/departments')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        enterpriseId: 'ent-default',
         parentId,
         code,
         name,
@@ -1226,6 +1371,20 @@ describe('platform-api', () => {
         name: code,
         permissionCodes: ['platform:employee:view'],
         dataScopes: [{ dataType: 'profile', scope: dataScope }],
+      })
+      .expect(201);
+  }
+
+  function createRoleWithPermissions(token: string, code: string, permissionCodes: string[]) {
+    return request(app.getHttpServer())
+      .post('/api/platform/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: 'ent-default',
+        code,
+        name: code,
+        permissionCodes,
+        dataScopes: [{ dataType: 'profile', scope: 'self' }],
       })
       .expect(201);
   }

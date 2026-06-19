@@ -25,6 +25,13 @@ export interface CreateDepartmentInput {
   sortOrder?: number;
 }
 
+export interface UpdateDepartmentInput {
+  name?: string;
+  parentId?: string | null;
+  managerUserId?: string | null;
+  sortOrder?: number;
+}
+
 export interface PlatformOrgPort {
   /**
    * Resolve the manager of the user's active department in the authenticated enterprise.
