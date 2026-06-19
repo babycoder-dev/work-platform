@@ -106,14 +106,23 @@ describe('workbench shell frontend foundation', () => {
     notificationApiFactoryMock.createNotificationApiClient.mockReset();
   });
 
-  it('renders the restyled login and preserves submit behavior', async () => {
+  it('renders the restyled login matching the design copy and preserves submit behavior', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<LoginView isBootstrapping={false} isSubmitting={false} onSubmit={onSubmit} />);
 
-    await userEvent.clear(screen.getByLabelText('账号'));
+    // fidelity gate A3 — exact design copy
+    expect(screen.getByText('工')).toBeInTheDocument();
+    expect(screen.getByText('企业内网账号统一登录入口')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('请输入工号或邮箱')).toBeInTheDocument();
+    expect(screen.getByText('登录即代表同意《内网使用规范》与《安全协议》')).toBeInTheDocument();
+    // account is empty by default so the placeholder is visible (L-4)
+    expect(screen.getByLabelText('账号')).toHaveValue('');
+    // "记住登录" is checked by default (L-5)
+    expect(screen.getByLabelText('记住登录')).toBeChecked();
+
     await userEvent.type(screen.getByLabelText('账号'), 'alice');
     await userEvent.type(screen.getByLabelText('密码'), 'secret');
-    await userEvent.click(screen.getByRole('button', { name: '登录' }));
+    await userEvent.click(screen.getByRole('button', { name: '登 录' }));
 
     expect(onSubmit).toHaveBeenCalledWith({ account: 'alice', password: 'secret' });
   });
@@ -213,8 +222,9 @@ describe('workbench shell frontend foundation', () => {
 
     render(<App />);
 
+    await userEvent.type(screen.getByLabelText('账号'), 'admin');
     await userEvent.type(screen.getByLabelText('密码'), 'secret');
-    await userEvent.click(screen.getByRole('button', { name: '登录' }));
+    await userEvent.click(screen.getByRole('button', { name: '登 录' }));
     await screen.findByText(/晚上好|下午好|早上好/);
     await waitForInitialNotificationLoad(notificationApiFns);
 
@@ -244,7 +254,10 @@ describe('workbench shell frontend foundation', () => {
 
     expect(screen.getByText(/张三/)).toBeInTheDocument();
     expect(screen.getByText(/运营部/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /在位看板/ })).toHaveAttribute('href', '/presence/board');
+    expect(screen.getByRole('link', { name: /在位看板/ })).toHaveAttribute(
+      'href',
+      '/presence/board',
+    );
     expect(screen.getAllByText(/数据待接入/).length).toBeGreaterThan(0);
 
     const home = screen.getByText('待处理事项').closest('section')?.parentElement;
@@ -267,7 +280,7 @@ describe('workbench shell frontend foundation', () => {
     );
 
     expect(screen.getByText('未读消息')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('3', { selector: '.work-stat__value' })).toBeInTheDocument();
     expect(screen.getByText('最新消息')).toBeInTheDocument();
     expect(screen.getByText('在位状态变更')).toBeInTheDocument();
   });

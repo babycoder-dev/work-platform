@@ -2,39 +2,39 @@
 
 /* Ported from docs/design/ui-handoff/design/tokens.css. */
 :root {
-  --blue-50: #EFF4FF;
-  --blue-100: #E1EAFF;
-  --blue-200: #B6CBFF;
-  --blue-300: #85A8FF;
-  --blue-400: #5285FF;
-  --blue-500: #3370FF;
-  --blue-600: #245BDB;
-  --blue-700: #1648CE;
-  --blue-disabled: #A6C0FF;
-  --ink-1: #1F2329;
-  --ink-2: #4E5969;
-  --ink-3: #646A73;
-  --ink-4: #8F959E;
-  --ink-5: #BBBFC4;
-  --line-1: #E5E6EB;
-  --line-2: #EFF0F1;
-  --fill-1: #F5F6F7;
-  --fill-2: #F2F3F5;
-  --fill-3: #EBECF0;
-  --white: #FFFFFF;
-  --success: #2EA121;
-  --success-bg: #E8F7E8;
-  --warning: #D97A00;
-  --warning-bg: #FFF3E0;
-  --danger: #F54A45;
-  --danger-bg: #FDECEC;
-  --danger-hover: #D93A36;
-  --info: #3370FF;
-  --info-bg: #EFF4FF;
-  --purple: #7A4FE0;
-  --purple-bg: #F0EBFC;
-  --cyan: #0A8B9E;
-  --cyan-bg: #E2F5F7;
+  --blue-50: #eff4ff;
+  --blue-100: #e1eaff;
+  --blue-200: #b6cbff;
+  --blue-300: #85a8ff;
+  --blue-400: #5285ff;
+  --blue-500: #3370ff;
+  --blue-600: #245bdb;
+  --blue-700: #1648ce;
+  --blue-disabled: #a6c0ff;
+  --ink-1: #1f2329;
+  --ink-2: #4e5969;
+  --ink-3: #646a73;
+  --ink-4: #8f959e;
+  --ink-5: #bbbfc4;
+  --line-1: #e5e6eb;
+  --line-2: #eff0f1;
+  --fill-1: #f5f6f7;
+  --fill-2: #f2f3f5;
+  --fill-3: #ebecf0;
+  --white: #ffffff;
+  --success: #2ea121;
+  --success-bg: #e8f7e8;
+  --warning: #d97a00;
+  --warning-bg: #fff3e0;
+  --danger: #f54a45;
+  --danger-bg: #fdecec;
+  --danger-hover: #d93a36;
+  --info: #3370ff;
+  --info-bg: #eff4ff;
+  --purple: #7a4fe0;
+  --purple-bg: #f0ebfc;
+  --cyan: #0a8b9e;
+  --cyan-bg: #e2f5f7;
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -52,8 +52,8 @@
   --shadow-pop: 0 4px 16px rgba(31, 35, 41, 0.1);
   --shadow-drawer: -6px 0 24px rgba(31, 35, 41, 0.1);
   --font:
-    -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB",
-    "Helvetica Neue", Arial, sans-serif;
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB',
+    'Helvetica Neue', Arial, sans-serif;
 
   --control-height-sm: 28px;
   --control-height-md: 32px;
@@ -86,6 +86,7 @@
   --font-size-18: 18px;
   --font-size-20: 20px;
   --font-size-22: 22px;
+  --font-size-30: 30px;
   --select-arrow-offset-a: 15px;
   --select-arrow-offset-b: 10px;
   --select-arrow-size: 5px;
@@ -96,6 +97,8 @@
   --switch-width: 36px;
   --switch-height: 20px;
   --switch-thumb-size: 16px;
+  --scrollbar-size: 10px;
+  --scrollbar-thumb: #d5d8dd;
 }
 
 * {
@@ -120,6 +123,24 @@ button {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+/* Custom thin scrollbar — design handoff global `::-webkit-scrollbar`. */
+::-webkit-scrollbar {
+  height: var(--scrollbar-size);
+  width: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  background-clip: content-box;
+  border: calc(var(--sp-1) / 2) solid transparent;
+  border-radius: var(--r-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-5);
+  background-clip: content-box;
 }
 
 @media (prefers-reduced-motion: reduce) {

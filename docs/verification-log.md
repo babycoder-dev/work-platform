@@ -1,5 +1,126 @@
 # Verification Log
 
+## 2026-06-19
+
+### UI Foundation Fidelity Slice (UI-1 → UI-2/UI-3 → UI-4 + fidelity gate)
+
+Implements the design handoff (`docs/design/ui-handoff/design/{企业工作台设计规范,工作台}.html`)
+against the task package `docs/tasks/ui-foundation-fidelity.md` and the gap clearance list
+`docs/design/ui-fidelity-gap-foundation.md`. Frontend/shell only — no backend, no auth/scope/audit,
+no migrations, no design-source edits. Not security-sensitive (security-reviewer not triggered).
+
+Change set:
+
+- **UI-1 component library (`packages/ui`)** — added a token-only line-icon set `Icon`
+  (SVG paths lifted verbatim from the handoff; replaces emoji/first-letter placeholders), `Card`
+  (`.card`/`.card-head`/`.card-body`), `StatCard` (`.stat` overview metric), and reusable
+  `.work-icon-square` / `.work-quick-grid` / `.work-feed` CSS. Upgraded `Checkbox` to the design's
+  custom-drawn control (`.checkbox.on` blue fill + white check SVG, native input visually hidden for
+  accessibility). Fixed `InputProps` so `prefix` accepts a `ReactNode` (was widened to `string` by the
+  HTML global `prefix` attribute), enabling SVG affixes. Added `--font-size-30` token. New web specs:
+  `Icon`, `Card`, `StatCard`.
+- **UI-2 login (`LoginView`)** — L-1..L-8 cleared: `工` brand mark, subtitle「企业内网账号统一登录入口」,
+  line-SVG user/lock prefixes, placeholder「请输入工号或邮箱」/「请输入密码」, default-checked「记住登录」,
+  primary button「登 录」, hint「登录即代表同意《内网使用规范》与《安全协议》」, and the `admin` default
+  value cleared so the placeholder shows. Real login submit unchanged.
+- **UI-3 app shell** — `工` + 「内网工作台」brand; all emoji (`☰`/`⌕`/`🔔`, nav first-letters) replaced
+  with line SVGs; topbar help icon added (S-8); sidebar nav unread badge bound to real unread for
+  messaging modules (S-3, no fabricated count); sidebar second line shows role then department fallback
+  (S-5); search placeholder「搜索应用、文档、成员」(S-7). Breadcrumb / global-search shell / bell real
+  unread / manifest-driven groups preserved (regression-kept, S-4/S-6).
+- **UI-4 workbench home** — re-skinned with `StatCard` / `Card` / `work-quick-grid` visuals. Real data
+  and honest placeholders all preserved: real unread stat + latest-notifications list; 待我审批 (M11) /
+  我的待办 (vNext) / 在岗成员 kept as honest "数据待接入" placeholders; 待处理事项 + 系统动态 EmptyState
+  kept. No fictional app-list / work-order / demo numbers introduced (L2 boundary). 新建申请 made a
+  disabled, honestly-labelled "（M11 待接入）" button rather than a dead clickable one.
+
+Fidelity gate (this slice establishes it; see `docs/development-workflow.md` §7):
+
+- A1 zero hardcoded hex: `grep '#[0-9a-fA-F]{3,6}'` over `apps/workbench-shell/src/**` = 0;
+  over `packages/ui/src/**` = 0 outside `tokens.css` (the single source of truth).
+- A2 zero emoji-as-icon: grep of the emoji code points used previously = 0 in both trees.
+- A3 exact copy: asserted verbatim in `App.spec.tsx` (logo `工`, subtitle, account placeholder, hint,
+  default-checked remember, button「登 录」).
+- A4 token-only spacing/radius/shadow/font: all new CSS uses `--sp-*`/`--r-*`/`--shadow-*` (with
+  `calc(token …)` to hit off-grid design pixels, matching the existing repo precedent) and `--font-size-*`.
+- A5 real wiring / honest placeholders preserved: asserted by the existing App.spec real-data tests
+  (real unread = 3, latest notification rendered, fabricated 12/9/5/231 absent, `数据待接入` present).
+- B class (visual side-by-side) handed to the independent reviewer.
+
+Command matrix:
+
+- `pnpm install --frozen-lockfile`: pass (lockfile unchanged; no new deps).
+- `NODE_ENV=test pnpm verify`: pass (`VERIFY_EXIT=0`).
+  - `lint`: pass, 0 errors (pre-existing `workbench-shell/load-remote-module.ts` unused `_descriptor`
+    warning only).
+  - `typecheck`: pass across all 28 projects.
+  - `test`: pass — web jsdom suite incl. the 3 new `@work/ui` specs and the updated `App.spec.tsx`
+    (10 shell tests), unit suite green.
+  - `test:e2e`: pass.
+  - `build`: pass; `workbench-shell` vite production build OK (CSS 29.07 kB / 5.55 kB gzip).
+- Local environment note (not a code issue): this box runs **Node v25**, whose now-global
+  `localStorage` shadows jsdom's and is a non-functional stub unless a valid `--localstorage-file` is
+  given; `App.spec`'s `beforeEach` `localStorage.clear()` then throws. CI runs Node 22 LTS (no such
+  global) and is unaffected. Locally the web suite was run with
+  `NODE_OPTIONS=--localstorage-file=$(mktemp -u …)` to validate; the workaround is local-only and not
+  committed.
+- Not run (out of slice scope, frontend/shell only): `verify:full`, `db:setup`, `docker:build`.
+
+### UI Foundation Fidelity — visual (B-class) review pass + structural fixes
+
+After the A-class gate, ran a screenshot-based side-by-side against the design prototype (the B-class
+review the gate calls for). Method (kept as a reusable regression harness):
+
+- Render the prototype `docs/design/ui-handoff/design/工作台.html` headlessly (system Chrome) at 1440×900
+  as the golden reference; screenshot the running shell (login / workbench / collapsed sidebar) at the
+  same viewport via a throwaway puppeteer-core script (token injected into `localStorage`), then diff
+  region by region. (Local-only harness under `.tmp/shots`, not committed.)
+
+Deltas found by the visual diff and fixed (all in `apps/workbench-shell`, plus the shared scrollbar in
+`packages/ui`):
+
+- **Fixed app frame + inner scroll**: `.app-shell` was `min-height:100vh` (whole page scrolled, sidebar
+  scrolled away). Now `height:100vh; overflow:hidden` with `min-height:0` on side/nav/main/content so only
+  the content (and nav list if needed) scrolls — matches prototype `.app{height:100vh;overflow:hidden}`.
+- **Custom thin scrollbar**: added the prototype's global `::-webkit-scrollbar` (token `--scrollbar-thumb`).
+- **Two-level sidebar**: flat module menus now group under real module section titles (平台管理 / 在位管理 /
+  通知中心) instead of one English module-code header per item; added the leading 工作台 home entry; brand
+  bottom divider; tightened group/item spacing to the prototype's flex layout.
+- **Per-menu icons + colours**: distinct line icon and quick-tile colour per menu (was one gear / one tone
+  per module).
+- **Header**: replaced the spec-demo 刷新/新建申请 buttons with the real `工作台.html` live clock + date
+  widget (`13:05 / 6 月 19 日 星期五`); breadcrumb now `工作台 / 概览` (was duplicated); honest real-unread
+  subtitle.
+- **Content width**: added the prototype's `max-width:1180px` centered wrapper (`--shell-home-max-width`)
+  and corrected the two-column ratio to `1.5fr / 1fr`; fixed dead responsive selectors so the grid
+  collapses on narrow viewports.
+
+Independent sub-agent visual audit: **PASS, no blocking, no gate violations** (A1 hex / A2 emoji / A4
+token-only re-confirmed clean). Re-ran `NODE_ENV=test pnpm verify` → pass (`VERIFY_EXIT=0`); web suite
+incl. updated `App.spec.tsx` green. Known intentional deltas vs the prototype remain by agreement (real
+data + honest "待接入"/EmptyState placeholders, real module section names, no fictional menus, no 👋).
+Folding standalone presence into 组织成员 per the prototype is M9 (在位状态 v2), out of this slice.
+
+### UI Foundation Fidelity — interactive-state review + login error fix
+
+Extended the visual review to interactive states (the prior screenshot pass only covered default/static
+states). Drove the running shell through each state via the puppeteer harness and screenshotted:
+login error / search popover / notification dropdown / avatar menu / help toast / collapsed sidebar. All
+behave and render faithfully (honest placeholders preserved; help uses the shared `@work/ui` Toast,
+top-center, matching the prototype `.toast`).
+
+One real bug found and fixed — **login error message widened the card**: a long error grew `.login-card`
+from 380px to 744px (measured). Root cause: `--shell-login-card-width` was defined only on `.app-shell`,
+but `LoginView` renders outside `.app-shell`, so `width: min(100%, var(--shell-login-card-width))`
+resolved to an invalid value and was dropped — the card had no width cap (it only _looked_ ~380px because
+the form content happened to be that wide). Fix in `apps/workbench-shell/src/styles.css`: scope
+`--shell-login-card-width` to `.login-page`, add `min-width:0` + `grid-template-columns:minmax(0,1fr)` to
+`.login-card`, and `overflow-wrap:anywhere` to the error box. Verified: card holds 380px and the error
+wraps at any message length. `NODE_ENV=test pnpm verify` → pass (`VERIFY_EXIT=0`).
+
+Lesson folded into the gate: design-fidelity review must cover **interactive states** (error / hover /
+open-popover / loading / empty-vs-data), not just default screenshots.
+
 ## 2026-06-17
 
 ### M7-5 Notification & Scheduler Delivery Verification
@@ -110,19 +231,19 @@ Fake-green review:
 Exit checklist:
 
 - [x] `modules/notification` contract+api, `notification.*` schema/migrations, dual repository implementations,
-  and `db:migrate:notification` in `db:setup`. (§18-1)
+      and `db:migrate:notification` in `db:setup`. (§18-1)
 - [x] `presence.status.changed` -> department manager notification end-to-end, with in-memory e2e plus
-  Postgres/gateway/browser smoke evidence. (§18-2)
+      Postgres/gateway/browser smoke evidence. (§18-2)
 - [x] SSE endpoint authenticated by the global guard, sends only the current user's stream, and frontend
-  fallback polling / reconnect logic is present and tested. (§18-3)
+      fallback polling / reconnect logic is present and tested. (§18-3)
 - [x] Scheduler framework, dynamic schedule config, heartbeat placeholder, and report reminder placeholders
-  are in place. (§18-4)
+      are in place. (§18-4)
 - [x] Platform read port security review was completed in M7-2; this slice did not touch auth/scope/audit/rbac,
-  guards, data scope, token/session, or migrations, so no new security-reviewer gate was required. (§18-5)
+      guards, data scope, token/session, or migrations, so no new security-reviewer gate was required. (§18-5)
 - [x] `apps/notification-api` is deleted from git and no dev/docker/release/CODEOWNERS/CI deployment reference
-  remains. (§18-6)
+      remains. (§18-6)
 - [x] Frontend bell, workbench latest-message card, unread stat, SSE consumption, and trigger-config UI consume
-  real notification APIs; non-notification placeholders remain intact. (§18-7)
+      real notification APIs; non-notification placeholders remain intact. (§18-7)
 - [x] Trigger-config write API, `notification:trigger-config:manage`, and audit were validated. (§18-8)
 - [x] `pnpm verify`, `verify:full`, `docker:build`, compose config, and compose up/down passed locally. (§18-9)
 
