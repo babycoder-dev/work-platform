@@ -108,6 +108,11 @@
   top: 0;
 }
 
+.work-control-affix .work-icon {
+  height: var(--sp-4);
+  width: var(--sp-4);
+}
+
 .work-input,
 .work-textarea,
 .work-select {
@@ -305,7 +310,7 @@
 .work-empty__card::after {
   background: var(--blue-500);
   border-radius: var(--r-full);
-  content: "";
+  content: '';
   height: calc(var(--sp-2) + var(--sp-1) / 2);
   position: absolute;
   right: calc(var(--sp-1) * -1);
@@ -548,9 +553,60 @@
   gap: var(--sp-2);
 }
 
+.work-checkbox {
+  cursor: pointer;
+}
+
 .work-checkbox input {
-  height: var(--sp-4);
-  width: var(--sp-4);
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  width: 0;
+}
+
+.work-checkbox__box {
+  align-items: center;
+  background: var(--white);
+  border: calc(var(--border-width) * 1.5) solid var(--ink-5);
+  border-radius: var(--r-xs);
+  color: var(--white);
+  display: inline-flex;
+  flex: none;
+  height: calc(var(--sp-4) - var(--border-width));
+  justify-content: center;
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast);
+  width: calc(var(--sp-4) - var(--border-width));
+}
+
+.work-checkbox__check {
+  height: calc(var(--sp-3) - var(--border-width));
+  opacity: 0;
+  width: calc(var(--sp-3) - var(--border-width));
+}
+
+.work-checkbox input:checked + .work-checkbox__box {
+  background: var(--blue-500);
+  border-color: var(--blue-500);
+}
+
+.work-checkbox input:checked + .work-checkbox__box .work-checkbox__check {
+  opacity: 1;
+}
+
+.work-checkbox input:disabled + .work-checkbox__box {
+  background: var(--fill-1);
+  border-color: var(--line-1);
+}
+
+.work-checkbox input:focus-visible + .work-checkbox__box {
+  box-shadow: var(--control-focus-ring);
+}
+
+.work-checkbox__label {
+  color: var(--ink-2);
+  font-size: var(--font-size-13);
 }
 
 .work-switch input {
@@ -608,4 +664,334 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Line-icon set (Icon.tsx). Size is set by the consuming context, mirroring the
+   design (`.icon-btn svg{18px}`, `.nav-item svg{17px}`, `.btn svg{15px}`). */
+.work-icon {
+  display: inline-block;
+  flex: none;
+  height: 1em;
+  width: 1em;
+}
+
+/* Content card — design `.card` / `.card-head` / `.card-body`. */
+.work-card {
+  background: var(--white);
+  border: var(--border-width) solid var(--line-1);
+  border-radius: var(--r-md);
+}
+
+.work-card__head {
+  align-items: center;
+  border-bottom: var(--border-width) solid var(--line-2);
+  display: flex;
+  padding: calc(var(--sp-4) - var(--border-width)) calc(var(--sp-4) + var(--sp-1) / 2);
+}
+
+.work-card__title {
+  font-size: var(--font-size-15);
+  font-weight: 600;
+  margin: 0;
+}
+
+.work-card__count {
+  background: var(--fill-2);
+  border-radius: var(--r-full);
+  color: var(--ink-4);
+  font-size: var(--font-size-12);
+  font-weight: 600;
+  margin-left: var(--sp-2);
+  padding: var(--badge-padding-y) var(--sp-2);
+}
+
+.work-card__action {
+  align-items: center;
+  color: var(--ink-4);
+  cursor: pointer;
+  display: flex;
+  font-size: var(--font-size-13);
+  gap: calc(var(--sp-1) - var(--border-width));
+  margin-left: auto;
+}
+
+.work-card__action:hover {
+  color: var(--blue-600);
+}
+
+.work-card__action .work-icon {
+  height: calc(var(--font-size-14) - var(--border-width) * 2);
+  width: calc(var(--font-size-14) - var(--border-width) * 2);
+}
+
+.work-card__body {
+  padding: calc(var(--sp-1) + var(--sp-1) / 2) calc(var(--sp-4) + var(--sp-1) / 2)
+    calc(var(--sp-3) + var(--sp-1) / 2);
+}
+
+.work-card__body--flush {
+  padding: 0;
+}
+
+/* Tinted icon square — design `.stat .ic` (also reused by other tinted icons). */
+.work-icon-square {
+  align-items: center;
+  border-radius: calc(var(--r-md) + var(--border-width));
+  display: inline-flex;
+  flex: none;
+  height: calc(var(--avatar-size-md) + var(--sp-1));
+  justify-content: center;
+  width: calc(var(--avatar-size-md) + var(--sp-1));
+}
+
+.work-icon-square .work-icon {
+  height: calc(var(--font-size-18) + var(--border-width));
+  width: calc(var(--font-size-18) + var(--border-width));
+}
+
+.work-icon-square--blue {
+  background: var(--info-bg);
+  color: var(--blue-500);
+}
+
+.work-icon-square--warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.work-icon-square--success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.work-icon-square--purple {
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+
+.work-icon-square--cyan {
+  background: var(--cyan-bg);
+  color: var(--cyan);
+}
+
+.work-icon-square--danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.work-icon-square--neutral {
+  background: var(--fill-3);
+  color: var(--ink-3);
+}
+
+/* Overview metric card — design `.stat`. */
+.work-stat {
+  background: var(--white);
+  border: var(--border-width) solid var(--line-1);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  padding: calc(var(--sp-4) + var(--sp-1) / 2);
+  position: relative;
+}
+
+.work-stat--interactive {
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    transform var(--motion-fast);
+}
+
+.work-stat--interactive:hover {
+  border-color: var(--blue-200);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+
+.work-stat__top {
+  align-items: center;
+  display: flex;
+  gap: calc(var(--sp-2) + var(--sp-1) / 2);
+}
+
+.work-stat__label {
+  color: var(--ink-3);
+  font-size: var(--font-size-13);
+}
+
+.work-stat__value {
+  font-size: var(--font-size-30);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  margin: var(--sp-3) 0 calc(var(--sp-1) / 2);
+}
+
+.work-stat__value--blue {
+  color: var(--blue-600);
+}
+
+.work-stat__value--warning {
+  color: var(--warning);
+}
+
+.work-stat__value--success {
+  color: var(--success);
+}
+
+.work-stat__value--purple {
+  color: var(--purple);
+}
+
+.work-stat__value--cyan {
+  color: var(--cyan);
+}
+
+.work-stat__value--danger {
+  color: var(--danger);
+}
+
+.work-stat__value--neutral {
+  color: var(--ink-1);
+}
+
+.work-stat__footer {
+  align-items: center;
+  color: var(--ink-4);
+  display: flex;
+  font-size: var(--font-size-12);
+  gap: calc(var(--sp-1) + var(--border-width));
+}
+
+.work-stat__footer .up {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.work-stat__footer .down {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Quick-entry grid — design `.apps` / `.appx` (solid colour icon tiles). */
+.work-quick-grid {
+  display: grid;
+  gap: calc(var(--sp-2) - var(--sp-1) / 2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: calc(var(--sp-3) + var(--sp-1) / 2);
+}
+
+.work-quick {
+  align-items: center;
+  border-radius: var(--r-md);
+  color: var(--ink-1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--sp-2) + var(--border-width));
+  padding: calc(var(--sp-3) + var(--sp-1) / 2) var(--sp-2);
+  text-align: center;
+  text-decoration: none;
+  transition: background-color var(--motion-fast);
+}
+
+.work-quick:hover {
+  background: var(--fill-1);
+}
+
+.work-quick__icon {
+  align-items: center;
+  border-radius: var(--r-lg);
+  color: var(--white);
+  display: flex;
+  flex: none;
+  height: var(--avatar-size-lg);
+  justify-content: center;
+  width: var(--avatar-size-lg);
+}
+
+.work-quick__icon .work-icon {
+  height: var(--font-size-22);
+  width: var(--font-size-22);
+}
+
+.work-quick__label {
+  color: var(--ink-2);
+  font-size: var(--font-size-12);
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-quick__icon--blue {
+  background: var(--blue-500);
+}
+
+.work-quick__icon--indigo {
+  background: var(--blue-600);
+}
+
+.work-quick__icon--success {
+  background: var(--success);
+}
+
+.work-quick__icon--purple {
+  background: var(--purple);
+}
+
+.work-quick__icon--cyan {
+  background: var(--cyan);
+}
+
+.work-quick__icon--warning {
+  background: var(--warning);
+}
+
+.work-quick__icon--neutral {
+  background: var(--fill-3);
+  color: var(--ink-3);
+}
+
+/* Activity feed — design `.feed` / `.feed-item` (coloured time dots). */
+.work-feed {
+  padding: calc(var(--sp-1) + var(--sp-1) / 2) calc(var(--sp-4) + var(--sp-1) / 2)
+    calc(var(--sp-2) + var(--sp-1) / 2);
+}
+
+.work-feed__item {
+  border-bottom: var(--border-width) solid var(--line-2);
+  display: flex;
+  gap: calc(var(--sp-2) + var(--sp-1) / 2);
+  padding: calc(var(--sp-2) + var(--sp-1) / 2) 0;
+}
+
+.work-feed__item:last-child {
+  border-bottom: 0;
+}
+
+.work-feed__dot {
+  border-radius: var(--r-full);
+  flex: none;
+  height: var(--sp-2);
+  margin-top: calc(var(--sp-1) + var(--sp-1) / 2);
+  width: var(--sp-2);
+}
+
+.work-feed__text {
+  color: var(--ink-1);
+  font-size: var(--font-size-13);
+  line-height: 1.5;
+}
+
+.work-feed__text b {
+  font-weight: 600;
+}
+
+.work-feed__meta {
+  color: var(--ink-4);
+  font-size: var(--font-size-12);
+  margin-top: calc(var(--sp-1) - var(--border-width));
 }

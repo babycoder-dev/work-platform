@@ -5,18 +5,42 @@ import {
   Avatar,
   Badge,
   Button,
+  Card,
   Checkbox,
   Dropdown,
   EmptyState,
+  Icon,
   Input,
   Menu,
+  StatCard,
   Toast,
+  type IconName,
+  type StatTone,
 } from '@work/ui';
 import type { ComponentType, FormEvent, LazyExoticComponent, ReactNode } from 'react';
-import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserRouter as Router, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Component,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  BrowserRouter as Router,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { moduleRegistry } from '../module-registry/module-registry';
-import { createNotificationApiClient, type NotificationApiClient } from '../platform/notification-api';
+import {
+  createNotificationApiClient,
+  type NotificationApiClient,
+} from '../platform/notification-api';
 import { createPlatformApiClient } from '../platform/platform-api';
 import { clearAccessToken, readAccessToken, saveAccessToken } from '../platform/session-storage';
 import {
@@ -37,11 +61,13 @@ interface ModuleRouteEntry {
 
 const SIDEBAR_COLLAPSED_KEY = 'work-platform.shell.collapsed';
 
-const moduleRouteTable: ModuleRouteEntry[] = buildModuleRouteTable(moduleRegistry.getModules()).map((route) => ({
-  path: route.path,
-  permission: route.permission,
-  Lazy: lazy(() => route.load().then((mod) => ({ default: mod.default as ComponentType }))),
-}));
+const moduleRouteTable: ModuleRouteEntry[] = buildModuleRouteTable(moduleRegistry.getModules()).map(
+  (route) => ({
+    path: route.path,
+    permission: route.permission,
+    Lazy: lazy(() => route.load().then((mod) => ({ default: mod.default as ComponentType }))),
+  }),
+);
 
 interface SessionState {
   accessToken?: string;
@@ -50,7 +76,10 @@ interface SessionState {
 }
 
 export function App() {
-  const [session, setSession] = useState<SessionState>({ accessToken: readAccessToken(), menus: [] });
+  const [session, setSession] = useState<SessionState>({
+    accessToken: readAccessToken(),
+    menus: [],
+  });
   const [isBootstrapping, setIsBootstrapping] = useState(Boolean(session.accessToken));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
@@ -115,23 +144,26 @@ export function App() {
   const navigationItems = useMemo(() => buildNavigationItems(session.menus), [session.menus]);
   const navigationGroups = useMemo(() => buildNavigationGroups(session.menus), [session.menus]);
 
-  const handleLogin = useCallback(async (input: LoginInput) => {
-    setIsSubmitting(true);
-    try {
-      const login = await api.login(input);
-      saveAccessToken(login.accessToken);
-      setSession({
-        accessToken: login.accessToken,
-        currentUser: login.currentUser,
-        menus: [],
-      });
-      setErrorMessage(undefined);
-    } catch (error) {
-      setErrorMessage(readErrorMessage(error));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [api]);
+  const handleLogin = useCallback(
+    async (input: LoginInput) => {
+      setIsSubmitting(true);
+      try {
+        const login = await api.login(input);
+        saveAccessToken(login.accessToken);
+        setSession({
+          accessToken: login.accessToken,
+          currentUser: login.currentUser,
+          menus: [],
+        });
+        setErrorMessage(undefined);
+      } catch (error) {
+        setErrorMessage(readErrorMessage(error));
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [api],
+  );
 
   const handleLogout = useCallback(() => {
     clearAccessToken();
@@ -173,10 +205,14 @@ export function AppShell(props: {
   notificationApi?: NotificationApiClient;
   onLogout: () => void;
 }) {
-  const [isCollapsed, setIsCollapsed] = useState(() => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true');
+  const [isCollapsed, setIsCollapsed] = useState(
+    () => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true',
+  );
   const [toast, setToast] = useState<string>();
   const location = useLocation();
-  const activeNavigationItem = props.navigationItems.find((item) => item.path === normalizePath(location.pathname));
+  const activeNavigationItem = props.navigationItems.find(
+    (item) => item.path === normalizePath(location.pathname),
+  );
   const notificationApi = useMemo(
     () =>
       props.notificationApi ??
@@ -204,45 +240,59 @@ export function AppShell(props: {
     <main className={isCollapsed ? 'app-shell app-shell--collapsed' : 'app-shell'}>
       <aside className="app-shell__side">
         <div className="app-shell__brand">
-          <span className="app-shell__logo">W</span>
-          <strong>Work Platform</strong>
+          <span className="app-shell__logo">工</span>
+          <strong>内网工作台</strong>
         </div>
         <nav className="app-shell__nav" aria-label="主导航">
-          {props.navigationGroups.length === 0 ? (
-            <EmptyState title="暂无菜单" description="当前账号尚未获得可访问的菜单。" />
-          ) : (
-            props.navigationGroups.map((group) => (
-              <section className="app-shell__nav-group" key={group.id}>
-                <div className="app-shell__nav-title">{group.title}</div>
-                {group.items.map((item) => (
-                  <NavLink
-                    className={({ isActive }) =>
-                      isActive ? 'app-shell__nav-item app-shell__nav-item--active' : 'app-shell__nav-item'
-                    }
-                    end
-                    key={item.path}
-                    to={item.path}
-                  >
-                    <ModuleIcon moduleName={item.moduleName} />
-                    <span className="app-shell__nav-label">{item.title}</span>
-                    <span className="app-shell__badge-slot" aria-hidden="true" />
-                  </NavLink>
-                ))}
-              </section>
-            ))
-          )}
+          <section className="app-shell__nav-group">
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? 'app-shell__nav-item app-shell__nav-item--active' : 'app-shell__nav-item'
+              }
+              end
+              to="/"
+            >
+              <Icon name="dashboard" />
+              <span className="app-shell__nav-label">工作台</span>
+            </NavLink>
+          </section>
+          {props.navigationGroups.length === 0
+            ? null
+            : buildSidebarSections(props.navigationGroups).map((group) => (
+                <section className="app-shell__nav-group" key={group.id}>
+                  <div className="app-shell__nav-title">{group.title}</div>
+                  {group.items.map((item) => (
+                    <NavLink
+                      className={({ isActive }) =>
+                        isActive
+                          ? 'app-shell__nav-item app-shell__nav-item--active'
+                          : 'app-shell__nav-item'
+                      }
+                      end
+                      key={item.path}
+                      to={item.path}
+                    >
+                      <ModuleIcon moduleName={item.moduleName} title={item.title} />
+                      <span className="app-shell__nav-label">{item.title}</span>
+                      {isMessagingModule(item.moduleName) && notifications.unreadCount > 0 ? (
+                        <Badge count={formatUnreadCount(notifications.unreadCount)} />
+                      ) : null}
+                    </NavLink>
+                  ))}
+                </section>
+              ))}
         </nav>
         <div className="app-shell__user">
           <Avatar name={props.currentUser.name} />
           <div>
             <strong>{props.currentUser.name}</strong>
-            <span>{props.currentUser.departmentName ?? '默认组织'}</span>
+            <span>{resolveUserSubtitle(props.currentUser)}</span>
           </div>
         </div>
       </aside>
       <section className="app-shell__main">
         <Topbar
-          activeTitle={activeNavigationItem?.title ?? '工作台'}
+          activeTitle={activeNavigationItem?.title ?? '概览'}
           currentUser={props.currentUser}
           notifications={notifications}
           onLogout={props.onLogout}
@@ -267,7 +317,10 @@ export function AppShell(props: {
                 {moduleRouteTable.map((entry) => (
                   <Route
                     element={
-                      <RequirePermission permission={entry.permission} permissionCodes={props.permissionCodes}>
+                      <RequirePermission
+                        permission={entry.permission}
+                        permissionCodes={props.permissionCodes}
+                      >
                         <entry.Lazy />
                       </RequirePermission>
                     }
@@ -275,13 +328,18 @@ export function AppShell(props: {
                     path={entry.path}
                   />
                 ))}
-                <Route element={<UnknownPathView navigationItems={props.navigationItems} />} path="*" />
+                <Route
+                  element={<UnknownPathView navigationItems={props.navigationItems} />}
+                  path="*"
+                />
               </Routes>
             </Suspense>
           </RouteErrorBoundary>
         </div>
       </section>
-      {toast ? <Toast durationMs={1800} message={toast} onClose={() => setToast(undefined)} /> : null}
+      {toast ? (
+        <Toast durationMs={1800} message={toast} onClose={() => setToast(undefined)} />
+      ) : null}
     </main>
   );
 }
@@ -340,8 +398,12 @@ function Topbar(props: {
 
   return (
     <header className="app-topbar">
-      <Button aria-label="折叠侧栏" className="app-topbar__icon-button" onClick={props.onToggleCollapsed}>
-        ☰
+      <Button
+        aria-label="折叠侧栏"
+        className="app-topbar__icon-button"
+        onClick={props.onToggleCollapsed}
+      >
+        <Icon name="menu" />
       </Button>
       <div className="app-topbar__crumb">
         工作台 <span>/</span> <b>{props.activeTitle}</b>
@@ -353,23 +415,33 @@ function Topbar(props: {
           onChange={(event) => setSearchQuery(event.target.value)}
           onFocus={() => setActivePopover('search')}
           onKeyDown={handleSearchKey}
-          placeholder="搜索应用、成员、审批…  ⌘K"
-          prefix="⌕"
+          placeholder="搜索应用、文档、成员"
+          prefix={<Icon name="search" />}
           ref={searchInputRef}
           value={searchQuery}
         />
         {isSearchOpen ? (
           <div className="app-topbar__search-pop" role="dialog">
-            <EmptyState title="搜索后端待接入" description="全局搜索 API 将在 M7 接入，当前仅保留交互壳。" />
+            <EmptyState
+              title="搜索后端待接入"
+              description="全局搜索 API 将在 M7 接入，当前仅保留交互壳。"
+            />
           </div>
         ) : null}
       </div>
+      <Button
+        aria-label="帮助"
+        className="app-topbar__icon-button"
+        onClick={() => props.onPlaceholder('帮助中心')}
+      >
+        <Icon name="help" />
+      </Button>
       <Dropdown
         onOpenChange={(open) => setActivePopover(open ? 'notifications' : undefined)}
         open={activePopover === 'notifications'}
         trigger={
           <Button aria-label="通知" className="app-topbar__icon-button">
-            🔔
+            <Icon name="bell" />
             {props.notifications.unreadCount > 0 ? (
               <Badge count={formatUnreadCount(props.notifications.unreadCount)} />
             ) : null}
@@ -459,17 +531,25 @@ function NotificationList({
       {notifications.map((notification) => (
         <li
           className={
-            notification.readAt ? 'notification-list__item' : 'notification-list__item notification-list__item--unread'
+            notification.readAt
+              ? 'notification-list__item'
+              : 'notification-list__item notification-list__item--unread'
           }
           key={notification.id}
         >
           <button disabled={!onSelect} onClick={() => onSelect?.(notification)} type="button">
             <span className="notification-list__title">
-              {!notification.readAt ? <span aria-label="未读" className="notification-list__dot" /> : null}
+              {!notification.readAt ? (
+                <span aria-label="未读" className="notification-list__dot" />
+              ) : null}
               {notification.title}
             </span>
-            {!compact ? <span className="notification-list__content">{notification.content}</span> : null}
-            <time dateTime={notification.createdAt}>{formatNotificationTime(notification.createdAt)}</time>
+            {!compact ? (
+              <span className="notification-list__content">{notification.content}</span>
+            ) : null}
+            <time dateTime={notification.createdAt}>
+              {formatNotificationTime(notification.createdAt)}
+            </time>
           </button>
         </li>
       ))}
@@ -477,7 +557,11 @@ function NotificationList({
   );
 }
 
-function RequirePermission(props: { permission?: string; permissionCodes: string[]; children: ReactNode }) {
+function RequirePermission(props: {
+  permission?: string;
+  permissionCodes: string[];
+  children: ReactNode;
+}) {
   if (props.permission && !props.permissionCodes.includes(props.permission)) {
     return <ShellState description="当前账号没有访问该模块页面的权限。" title="无权访问" />;
   }
@@ -523,8 +607,9 @@ export function LoginView(props: {
   isSubmitting: boolean;
   onSubmit: (input: LoginInput) => Promise<void>;
 }) {
-  const [account, setAccount] = useState('admin');
+  const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -534,16 +619,17 @@ export function LoginView(props: {
   return (
     <main className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
-        <div className="login-card__logo">W</div>
+        <div className="login-card__logo">工</div>
         <div>
           <h1>登录工作台</h1>
-          <p>企业内部协作与管理入口</p>
+          <p>企业内网账号统一登录入口</p>
         </div>
         <Input
           autoComplete="username"
           label="账号"
           onChange={(event) => setAccount(event.target.value)}
-          prefix="👤"
+          placeholder="请输入工号或邮箱"
+          prefix={<Icon name="user" />}
           size="lg"
           value={account}
         />
@@ -551,22 +637,33 @@ export function LoginView(props: {
           autoComplete="current-password"
           label="密码"
           onChange={(event) => setPassword(event.target.value)}
-          prefix="🔒"
+          placeholder="请输入密码"
+          prefix={<Icon name="lock" />}
           size="lg"
           type="password"
           value={password}
         />
         <div className="login-card__row">
-          <Checkbox label="记住登录" />
+          <Checkbox
+            checked={remember}
+            label="记住登录"
+            onChange={(event) => setRemember(event.target.checked)}
+          />
           <button className="login-card__link" disabled type="button">
             忘记密码？
           </button>
         </div>
         {props.errorMessage ? <div className="login-card__error">{props.errorMessage}</div> : null}
-        <Button block disabled={props.isSubmitting || props.isBootstrapping} size="lg" type="submit" variant="primary">
-          {props.isSubmitting || props.isBootstrapping ? '处理中' : '登录'}
+        <Button
+          block
+          disabled={props.isSubmitting || props.isBootstrapping}
+          size="lg"
+          type="submit"
+          variant="primary"
+        >
+          {props.isSubmitting || props.isBootstrapping ? '处理中' : '登 录'}
         </Button>
-        <p className="login-card__hint">登录即表示你正在访问企业内网工作台。</p>
+        <p className="login-card__hint">登录即代表同意《内网使用规范》与《安全协议》</p>
       </form>
     </main>
   );
@@ -578,11 +675,32 @@ export function WorkbenchHome(props: {
   notifications?: Pick<NotificationsState, 'unreadCount' | 'recent'>;
 }) {
   const greeting = getGreeting();
-  const quickEntries = props.navigationItems.slice(0, 6);
-  const placeholderStats = [
-    { key: 'approval', title: '待我审批', milestone: 'M11' },
-    { key: 'todo', title: '我的待办', milestone: 'vNext' },
-    { key: 'presence', title: '在岗成员', milestone: 'presence 汇总 API' },
+  const quickEntries = props.navigationItems.slice(0, 8);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const dateLabel = `${now.getMonth() + 1} 月 ${now.getDate()} 日 ${WEEKDAYS[now.getDay()]}`;
+  // Honest placeholders — these data sources are not built yet (see W-3 / L2 boundary).
+  // We keep the design's stat-card visuals but never fabricate the design's demo numbers.
+  const placeholderStats: {
+    key: string;
+    title: string;
+    icon: IconName;
+    tone: StatTone;
+    milestone: string;
+  }[] = [
+    { key: 'approval', title: '待我审批', icon: 'todo', tone: 'warning', milestone: 'M11' },
+    { key: 'todo', title: '我的待办', icon: 'clock', tone: 'blue', milestone: 'vNext' },
+    {
+      key: 'presence',
+      title: '在岗成员',
+      icon: 'users',
+      tone: 'success',
+      milestone: 'presence 汇总 API',
+    },
   ];
 
   return (
@@ -593,69 +711,79 @@ export function WorkbenchHome(props: {
             {greeting}，{props.currentUser.name}
           </h1>
           <p>
-            {props.currentUser.departmentName ?? '默认组织'} · 今天是 {new Date().toLocaleDateString('zh-CN')}
+            {props.currentUser.departmentName ?? '默认组织'} · 你有{' '}
+            <b>{props.notifications?.unreadCount ?? 0}</b> 条未读消息
           </p>
         </div>
-        <div className="workbench-home__actions">
-          <Button>刷新</Button>
-          <Button variant="primary">新建申请（M11 待接入）</Button>
+        <div className="workbench-home__clock">
+          <div className="workbench-home__time">{clock}</div>
+          <div className="workbench-home__date">{dateLabel}</div>
         </div>
       </header>
 
       <div className="workbench-home__stats">
-        <article className="workbench-home__stat">
-          <div>
-            <span>未读消息</span>
-            <strong>{props.notifications?.unreadCount ?? 0}</strong>
-          </div>
-          <ModuleIcon moduleName="notification" />
-          <p>来自通知中心未读数</p>
-        </article>
+        <StatCard
+          footer="来自通知中心未读数"
+          icon={<Icon name="message" />}
+          label="未读消息"
+          tone="purple"
+          value={props.notifications?.unreadCount ?? 0}
+        />
         {placeholderStats.map((stat) => (
-          <article className="workbench-home__stat" key={stat.key}>
-            <div>
-              <span>{stat.title}</span>
-              <strong>待接入</strong>
-            </div>
-            <ModuleIcon moduleName={stat.key} />
-            <p>数据待接入（{stat.milestone}）</p>
-          </article>
+          <StatCard
+            footer={`数据待接入（${stat.milestone}）`}
+            icon={<Icon name={stat.icon} />}
+            key={stat.key}
+            label={stat.title}
+            tone={stat.tone}
+            value="待接入"
+          />
         ))}
       </div>
 
-      <div className="workbench-home__grid">
-        <section className="workbench-home__card">
-          <h2>待处理事项</h2>
-          <EmptyState title="暂无待处理事项" description="审批、待办等聚合来源待接入（M7/M11）。" />
-        </section>
-        <section className="workbench-home__card">
-          <h2>常用应用</h2>
-          {quickEntries.length ? (
-            <div className="workbench-home__apps">
-              {quickEntries.map((entry) => (
-                <NavLink className="workbench-home__app" key={entry.path} to={entry.path}>
-                  <ModuleIcon moduleName={entry.moduleName} />
-                  <span>{entry.title}</span>
-                  <small>{entry.moduleName}</small>
-                </NavLink>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="暂无应用入口" description="当前账号尚无可访问菜单。" />
-          )}
-        </section>
-        <section className="workbench-home__card">
-          <h2>最新消息</h2>
-          {props.notifications?.recent.length ? (
-            <NotificationList compact notifications={props.notifications.recent.slice(0, 5)} />
-          ) : (
-            <EmptyState title="暂无消息" description="暂无通知消息。" />
-          )}
-        </section>
-        <section className="workbench-home__card">
-          <h2>系统动态</h2>
-          <EmptyState title="暂无动态" description="系统动态来源待接入，当前不展示原型演示数据。" />
-        </section>
+      <div className="workbench-home__cols">
+        <div className="workbench-home__col">
+          <Card title="待处理事项">
+            <EmptyState
+              description="审批、待办等聚合来源待接入（M7/M11）。"
+              title="暂无待处理事项"
+            />
+          </Card>
+          <Card flush title="常用应用">
+            {quickEntries.length ? (
+              <div className="work-quick-grid">
+                {quickEntries.map((entry) => (
+                  <NavLink className="work-quick" key={entry.path} to={entry.path}>
+                    <span
+                      aria-hidden="true"
+                      className={`work-quick__icon work-quick__icon--${resolveQuickTone(entry.title, entry.moduleName)}`}
+                    >
+                      <Icon name={resolveMenuIcon(entry.title, entry.moduleName)} />
+                    </span>
+                    <span className="work-quick__label">{entry.title}</span>
+                  </NavLink>
+                ))}
+              </div>
+            ) : (
+              <EmptyState description="当前账号尚无可访问菜单。" title="暂无应用入口" />
+            )}
+          </Card>
+        </div>
+        <div className="workbench-home__col">
+          <Card title="最新消息">
+            {props.notifications?.recent.length ? (
+              <NotificationList compact notifications={props.notifications.recent.slice(0, 5)} />
+            ) : (
+              <EmptyState description="暂无通知消息。" title="暂无消息" />
+            )}
+          </Card>
+          <Card title="系统动态">
+            <EmptyState
+              description="系统动态来源待接入，当前不展示原型演示数据。"
+              title="暂无动态"
+            />
+          </Card>
+        </div>
       </div>
     </section>
   );
@@ -670,13 +798,124 @@ function ShellState(props: { title: string; description: string }) {
   );
 }
 
-function ModuleIcon({ moduleName }: { moduleName: string }) {
-  const label = moduleName.slice(0, 1).toUpperCase();
-  return (
-    <span className={`module-icon module-icon--${moduleName}`} aria-hidden="true">
-      {label}
-    </span>
-  );
+const MODULE_ICONS: Record<string, IconName> = {
+  presence: 'users',
+  platform: 'settings',
+  notification: 'bell',
+  message: 'message',
+  approval: 'approval',
+  report: 'doc',
+  forms: 'doc',
+  files: 'doc',
+  todo: 'todo',
+};
+
+const MODULE_TONES: Record<string, StatTone> = {
+  presence: 'success',
+  platform: 'purple',
+  notification: 'cyan',
+  message: 'cyan',
+  approval: 'warning',
+  report: 'blue',
+};
+
+// Per-menu icons so distinct entries don't all collapse to one module icon
+// (the design gives each nav item its own line icon).
+const MENU_TITLE_ICONS: Record<string, IconName> = {
+  组织架构: 'appbox',
+  员工管理: 'users',
+  角色权限: 'settings',
+  在位看板: 'dashboard',
+  状态登记: 'todo',
+  通知设置: 'bell',
+  消息中心: 'message',
+  我的待办: 'todo',
+  审批中心: 'approval',
+  文档资料: 'doc',
+  应用管理: 'appbox',
+};
+
+function moduleIconName(moduleName: string): IconName {
+  return MODULE_ICONS[moduleName] ?? 'appbox';
+}
+
+function resolveMenuIcon(title: string, moduleName: string): IconName {
+  return MENU_TITLE_ICONS[title] ?? moduleIconName(moduleName);
+}
+
+const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+// Per-menu quick-tile colour so the entry grid reads with a varied palette like
+// the design (instead of one colour per module).
+const MENU_TITLE_QUICK_TONES: Record<string, string> = {
+  组织架构: 'blue',
+  员工管理: 'cyan',
+  角色权限: 'indigo',
+  在位看板: 'success',
+  状态登记: 'warning',
+  通知设置: 'purple',
+};
+
+function resolveQuickTone(title: string, moduleName: string): string {
+  return MENU_TITLE_QUICK_TONES[title] ?? moduleTone(moduleName);
+}
+
+function moduleTone(moduleName: string): StatTone {
+  return MODULE_TONES[moduleName] ?? 'blue';
+}
+
+function isMessagingModule(moduleName: string): boolean {
+  return moduleName === 'notification' || moduleName === 'message';
+}
+
+// Display label for a module-level sidebar section. These are the real module
+// titles (not fabricated features); ideally sourced from each module manifest.
+const MODULE_SECTION_LABELS: Record<string, string> = {
+  platform: '平台管理',
+  presence: '在位管理',
+  notification: '通知中心',
+  approval: '审批',
+  report: '日报',
+  forms: '表单',
+  files: '文件',
+};
+
+function moduleSectionLabel(moduleName: string): string {
+  return MODULE_SECTION_LABELS[moduleName] ?? moduleName;
+}
+
+// Build the two-level sidebar: real parent-grouped menus keep their group title;
+// flat ("ungrouped") menus are merged per module under the module's section label
+// so the nav reads as titled sections instead of one header per item.
+function buildSidebarSections(groups: NavigationGroup[]): NavigationGroup[] {
+  const sections: NavigationGroup[] = [];
+  for (const group of groups) {
+    if (!group.id.startsWith('ungrouped-')) {
+      sections.push(group);
+      continue;
+    }
+    const sectionId = `module-${group.moduleName}`;
+    const existing = sections.find((section) => section.id === sectionId);
+    if (existing) {
+      existing.items.push(...group.items);
+      continue;
+    }
+    sections.push({
+      id: sectionId,
+      moduleName: group.moduleName,
+      title: moduleSectionLabel(group.moduleName),
+      items: [...group.items],
+    });
+  }
+  return sections;
+}
+
+function resolveUserSubtitle(currentUser: CurrentUserDto): string {
+  return currentUser.roles[0] ?? currentUser.departmentName ?? '默认组织';
+}
+
+function ModuleIcon({ moduleName, title }: { moduleName: string; title?: string }) {
+  return <Icon name={title ? resolveMenuIcon(title, moduleName) : moduleIconName(moduleName)} />;
 }
 
 function getGreeting(): string {
