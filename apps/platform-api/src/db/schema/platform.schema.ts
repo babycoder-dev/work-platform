@@ -60,6 +60,7 @@ export const employees = platformSchema.table('employees', {
   mobile: varchar('mobile', { length: 64 }),
   email: varchar('email', { length: 256 }),
   status: varchar('status', { length: 32 }).notNull().default('active'),
+  registrationStatus: varchar('registration_status', { length: 32 }).notNull().default('active'),
   mustChangePassword: boolean('must_change_password').notNull().default(true),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   ...timestamps,
@@ -71,6 +72,10 @@ export const employees = platformSchema.table('employees', {
   ),
   departmentIdx: index('employees_department_idx').on(table.departmentId),
   enterpriseIdx: index('employees_enterprise_idx').on(table.enterpriseId),
+  registrationStatusCheck: check(
+    'employees_registration_status_check',
+    sql`${table.registrationStatus} IN ('active', 'pending')`,
+  ),
 }));
 
 export const localIdentities = platformSchema.table('local_identities', {

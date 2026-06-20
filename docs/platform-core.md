@@ -57,9 +57,27 @@ DELETE /api/platform/departments/:id
 ```text
 GET  /api/platform/employees
 POST /api/platform/employees
+GET  /api/platform/employees/me
+PUT  /api/platform/employees/me/profile
+GET  /api/platform/employees/:id
+PUT  /api/platform/employees/:id/profile
 PUT  /api/platform/employees/:id/status
 PUT  /api/platform/employees/:id/roles
 ```
+
+`POST /api/platform/employees` 的租户边界来自认证用户 `currentUser.enterpriseId`，请求体不得携带
+`enterpriseId`。`GET /employees/me` 与 `PUT /employees/me/profile` 只要求登录态；本人档案写入只允许
+`name`、`title`、`mobile`、`email`。`GET /employees/:id` 需 `platform:employee:view` 且按 `profile`
+数据范围过滤。`PUT /employees/:id/profile` 需 `platform:employee:manage`，目标员工必须落在操作者的
+`profile` 写范围内；越权、跨企业或不存在一律按 404 处理，避免存在性泄露。
+
+档案写入统一收口到 `EmployeeService.updateEmployeeProfile`，按值三态合并：`undefined` 表示保持，
+`null` 表示清空可空字段，字符串表示设置新值。部门、状态、角色、账号、工号等管理字段不得经本人窄 DTO
+写入。M8-2a 仅在该收口处预留 `profile.updated` 事件注释，真实事件发布留 M8-3。
+
+`platform.employees.registration_status` 是 M8-2a 增加的数据库预留列，默认 `active`，check 约束为
+`active | pending`。本期该列恒为 `active`，不进入 `EmployeeDto`、任何写 DTO 或 HTTP 响应，既有
+`updateEmployee` 仓储写入也不得修改该列。
 
 权限与角色：
 

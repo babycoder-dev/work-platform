@@ -6,8 +6,10 @@ import { buildPlatformAuditContext } from '../auth/request-user';
 import {
   AssignEmployeeRolesDto,
   CreateEmployeeDto,
+  UpdateEmployeeProfileDto,
   ResetEmployeePasswordDto,
   UpdateEmployeeStatusDto,
+  UpdateMyProfileDto,
 } from './employee.dto';
 import { EmployeeService } from './employee.service';
 
@@ -33,6 +35,47 @@ export class EmployeeController {
         ...input,
         enterpriseId: request.currentUser!.enterpriseId,
       },
+      buildPlatformAuditContext(request),
+    );
+  }
+
+  @Get('me')
+  getMyProfile(@Req() request: PlatformRequest) {
+    return this.employeeService.getMyProfile(request.currentUser!);
+  }
+
+  @Put('me/profile')
+  updateMyProfile(
+    @Body(dtoValidationPipe(UpdateMyProfileDto)) input: UpdateMyProfileDto,
+    @Req() request: PlatformRequest,
+  ) {
+    return this.employeeService.updateEmployeeProfile(
+      request.currentUser!.id,
+      input,
+      'self',
+      request.currentUser!,
+      buildPlatformAuditContext(request),
+    );
+  }
+
+  @Get(':id')
+  @RequirePermissions('platform:employee:view')
+  getEmployee(@Param('id') id: string, @Req() request: PlatformRequest) {
+    return this.employeeService.getEmployeeById(id, request.currentUser!);
+  }
+
+  @Put(':id/profile')
+  @RequirePermissions('platform:employee:manage')
+  updateEmployeeProfile(
+    @Param('id') id: string,
+    @Body(dtoValidationPipe(UpdateEmployeeProfileDto)) input: UpdateEmployeeProfileDto,
+    @Req() request: PlatformRequest,
+  ) {
+    return this.employeeService.updateEmployeeProfile(
+      id,
+      input,
+      'management',
+      request.currentUser!,
       buildPlatformAuditContext(request),
     );
   }

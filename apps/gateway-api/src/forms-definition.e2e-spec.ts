@@ -192,7 +192,6 @@ describe('forms definition API', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        enterpriseId: 'ent-default',
         employeeNo: account.slice(0, 20),
         account,
         name: account,

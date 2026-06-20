@@ -186,6 +186,69 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     expect(boundedAuditLog.rows[0].ip).toHaveLength(128);
   });
 
+  it('keeps registration_status as a database-only reserved column', async () => {
+    const suffix = Date.now().toString();
+    const employee = await repository.createEmployee({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      employeeNo: `RS${suffix}`,
+      account: `registration-status-${suffix}`,
+      name: 'Registration Status User',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+
+    const stored = await pool.query<{ registration_status: string }>(
+      `
+        SELECT registration_status
+        FROM platform.employees
+        WHERE id = $1
+      `,
+      [employee.id],
+    );
+    expect(stored.rows[0].registration_status).toBe('active');
+    expect(employee).not.toHaveProperty('registrationStatus');
+
+    await expect(
+      pool.query(
+        `
+          INSERT INTO platform.employees (
+            enterprise_id,
+            employee_no,
+            account,
+            name,
+            registration_status
+          )
+          VALUES ($1, $2, $3, $4, 'bogus')
+        `,
+        [
+          DEFAULT_ENTERPRISE_ID,
+          `RS-BAD-${suffix}`,
+          `registration-status-bad-${suffix}`,
+          'Invalid Registration Status User',
+        ],
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+
+    await repository.updateEmployee(
+      {
+        ...employee,
+        title: 'Updated Title',
+      },
+      DEFAULT_ENTERPRISE_ID,
+    );
+    const afterUpdate = await pool.query<{ registration_status: string; title: string }>(
+      `
+        SELECT registration_status, title
+        FROM platform.employees
+        WHERE id = $1
+      `,
+      [employee.id],
+    );
+    expect(afterUpdate.rows[0]).toEqual({
+      registration_status: 'active',
+      title: 'Updated Title',
+    });
+  });
+
   it('lists menus allowed by permission codes', async () => {
     await expect(repository.listMenusByPermissionCodes(['platform:org:view'])).resolves.toEqual([
       expect.objectContaining({

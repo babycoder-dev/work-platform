@@ -196,7 +196,6 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         departmentId,
         employeeNo: input.employeeNo,
         account: input.account,

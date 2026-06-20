@@ -16,6 +16,9 @@
 | 模块 manifest | 业务模块声明自身权限、菜单、API prefix 和 Web entry 的契约。                                                             |
 | 审计日志      | 对登录、平台写操作和关键业务写操作的可追踪记录。                                                                         |
 | 领域事件      | 模块内业务事实发生后的事件，例如 `presence.status.changed`。业务模块只发布可追踪事件，真实通知推送由通知基建（M7）承载。 |
+| 档案写收口    | Platform Core 中唯一负责员工档案写入的 service 方法；本人窄写、管理写、未来注册审核 / 批量导入都必须复用同一授权和审计路径。 |
+| profile 写授权范围 | 使用 `profile` 数据范围决定某次员工档案写操作能否作用于目标员工；越权目标按不存在处理。                              |
+| 注册状态      | `platform.employees.registration_status` 预留列，取值 `active | pending`；M8-2a 本期恒 `active`，不进入 API 契约。       |
 
 ## 2. 在位管理
 

@@ -295,7 +295,6 @@ describe('notification API', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        enterpriseId: 'ent-default',
         employeeNo: employeeNo.slice(0, 20),
         account,
         name: account,

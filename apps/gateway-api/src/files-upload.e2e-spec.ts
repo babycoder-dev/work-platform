@@ -154,7 +154,6 @@ describe('files upload API', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        enterpriseId: 'ent-default',
         employeeNo: `files-${suffix}`,
         account,
         name: 'Files Limited',
@@ -171,7 +170,6 @@ describe('files upload API', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        enterpriseId: 'ent-default',
         employeeNo: `filesu-${suffix}`,
         account,
         name: 'Files User',

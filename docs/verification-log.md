@@ -2,6 +2,81 @@
 
 ## 2026-06-19
 
+### M8-2a Profile Read-Write Backend
+
+Change set:
+
+- Added Platform employee profile read/write endpoints:
+  - `GET /api/platform/employees/me` and `PUT /api/platform/employees/me/profile` require only login state.
+  - `GET /api/platform/employees/:id` requires `platform:employee:view` and applies `profile` data scope.
+  - `PUT /api/platform/employees/:id/profile` requires `platform:employee:manage` and applies `profile` data scope as write authorization.
+- Added `UpdateMyProfileInput` / `UpdateEmployeeProfileInput` contracts and DTOs. The self DTO only allows
+  `name`, `title`, `mobile`, and `email`; management profile writes additionally allow `departmentId`.
+- Removed client-supplied `enterpriseId` from `CreateEmployeeDto`; employee creation now derives tenant from
+  `request.currentUser.enterpriseId` and rejects body `enterpriseId`.
+- Added single write seam `EmployeeService.updateEmployeeProfile`, value-based tri-state merge
+  (`undefined` keep / `null` clear / value set), success/failure audit, and an M8-3 comment seam for
+  future `profile.updated` publication. This slice intentionally does not publish `profile.updated`.
+- Added `platform.employees.registration_status` reserved column via migration
+  `0002_m8_employee_registration_status.sql` and Drizzle schema sync. The column defaults to `active`,
+  has check `active | pending`, and remains outside `EmployeeDto`, write DTOs, HTTP responses, and
+  repository update SET lists.
+
+Validation-exposed fixes:
+
+1. Existing employee creation DTO still trusted client shape by requiring/accepting `enterpriseId`.
+   M8-2a tightened it to the current tenant invariant and updated all affected e2e fixtures to omit the
+   field; a new e2e assertion verifies body `enterpriseId` is rejected with 400.
+
+Security / §16:
+
+- This slice triggers `docs/security-baseline.md §16` because `profile` data scope is now used for write
+  authorization, not just read filtering. The same change updates `docs/security-baseline.md §5.3` to state
+  that data scope governs both read filtering and write authorization.
+- ADR assessment: no new ADR. The data type set, scope kind set, and widest-scope algorithm are unchanged;
+  this is an application of the existing M5 model to profile writes.
+- Security-reviewer: pass, 0 Blocking / 0 Major / 0 Minor. Reviewer confirmed `profile` write scope,
+  self DTO narrowing, single write seam, tenant-derived employee creation, `registration_status` non-exposure,
+  audit coverage, and §16 baseline update; no ADR required.
+
+Validation:
+
+- `pnpm install`: pass; lockfile unchanged.
+- Targeted red / green:
+  - Before implementation, `apps/platform-api/src/users/employee.service.spec.ts` failed 5/5 because
+    `getEmployeeById`, `getMyProfile`, and `updateEmployeeProfile` did not exist.
+  - Before implementation, targeted platform e2e failed because employee creation still required
+    `enterpriseId` and `/employees/me` was not registered.
+  - After implementation, `employee.service.spec.ts`: 1 file / 5 tests passed.
+  - After implementation, targeted platform profile/tenant e2e: 1 file / 2 selected tests passed.
+- `NODE_ENV=test pnpm lint`: pass; standard Nx graph-cache warnings observed in plain recursive lint.
+- `NODE_ENV=test pnpm typecheck`: pass.
+- `NODE_ENV=test pnpm test`: pass.
+  - Unit: 44 files collected; 39 passed / 5 Postgres-gated skipped; 191 passed / 34 skipped.
+  - Web: 32 files / 81 tests passed.
+- `NODE_ENV=test pnpm test:e2e`: pass; 7 files / 47 tests passed.
+- `NODE_ENV=test pnpm build`: pass.
+- `pnpm db:generate`: pass, but Drizzle generated a full snapshot migration (`0000_legal_whizzer.sql`) plus
+  `meta/` because no Drizzle meta history is committed for the hand-written platform migrations. The generated
+  snapshot was inspected, treated as an expected generator artifact rather than the authoritative migration, and
+  removed. The committed migration remains the hand-written idempotent
+  `0002_m8_employee_registration_status.sql`.
+- Postgres setup:
+  - `NODE_ENV=test DATABASE_URL=postgresql://work:work@localhost:5432/work_platform RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true PLATFORM_REPOSITORY_DRIVER=postgres PLATFORM_BOOTSTRAP_ADMIN_PASSWORD=admin123 pnpm db:setup`: pass.
+  - `db:migrate` applied `0002_m8_employee_registration_status.sql`; seed completed with `permissionCount=21`.
+- `NODE_ENV=test ... pnpm verify:full`: pass.
+  - `verify` reran lint, typecheck, test, test:e2e, and build successfully.
+  - `test:db`: 5 files / 34 tests passed; no Postgres-gated skip. `postgres-platform.repository.integration.spec.ts`
+    covered `registration_status` default `active`, check rejection for invalid values, no exposure on returned
+    `EmployeeDto`, and repository update preserving the reserved column.
+  - `test:e2e:postgres`: 3 files / 14 tests passed; no Postgres-gated skip.
+- Security-reviewer: pass, 0 Blocking / 0 Major / 0 Minor.
+
+Follow-up:
+
+- M8-2b first-login guide.
+- M8-3 `profile.updated` event from the single profile write seam.
+
 ### M8-1 Department Management
 
 Change set:

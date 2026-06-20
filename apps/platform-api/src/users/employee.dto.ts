@@ -3,17 +3,24 @@ import type {
   CreateEmployeeInput,
   EmployeeStatus,
   ResetEmployeePasswordInput,
+  UpdateEmployeeProfileInput,
   UpdateEmployeeStatusInput,
+  UpdateMyProfileInput,
 } from '@work/platform-contract';
-import { IsArray, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsEmail,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 
 const EMPLOYEE_STATUSES: EmployeeStatus[] = ['active', 'disabled', 'left'];
 
-export class CreateEmployeeDto implements CreateEmployeeInput {
-  @IsNotEmpty()
-  @IsString()
-  enterpriseId!: string;
-
+export class CreateEmployeeDto implements Omit<CreateEmployeeInput, 'enterpriseId'> {
   @IsNotEmpty()
   @IsString()
   employeeNo!: string;
@@ -47,6 +54,38 @@ export class CreateEmployeeDto implements CreateEmployeeInput {
   @MinLength(8)
   initialPassword!: string;
 
+}
+
+export class UpdateMyProfileDto implements UpdateMyProfileInput {
+  @ValidateIf((_, value) => value !== undefined)
+  @IsString()
+  @IsNotEmpty()
+  name?: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  title?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  mobile?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEmail()
+  email?: string | null;
+}
+
+export class UpdateEmployeeProfileDto
+  extends UpdateMyProfileDto
+  implements UpdateEmployeeProfileInput
+{
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  departmentId?: string | null;
 }
 
 export class UpdateEmployeeStatusDto implements UpdateEmployeeStatusInput {

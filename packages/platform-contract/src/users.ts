@@ -27,6 +27,17 @@ export interface CreateEmployeeInput {
   initialPassword: string;
 }
 
+export interface UpdateMyProfileInput {
+  name?: string;
+  title?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+}
+
+export interface UpdateEmployeeProfileInput extends UpdateMyProfileInput {
+  departmentId?: string | null;
+}
+
 export interface UpdateEmployeeStatusInput {
   status: EmployeeStatus;
 }

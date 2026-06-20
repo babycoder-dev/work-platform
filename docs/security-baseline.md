@@ -254,6 +254,14 @@ company > department_tree > department > self
 不同数据类型互不影响。某类型缺失或为空数组时按 `self` 处理；`custom` 为预留值，仅有
 `custom` 且无有效范围时安全降级为 `self`，并标记 `degradedFromCustom=true`。
 
+数据范围既治理"读过滤"也治理"写授权"。自 M8 起，`profile` 数据范围用于档案写授权：
+
+- 本人改本人档案（`self`）：登录态即可写自身受限字段子集（`name` / `title` / `mobile` / `email`），不得借此修改部门、状态、角色等管理字段。
+- 管理改他人档案（按范围）：须持操作权限（`platform:employee:manage`）且目标员工落在操作者的 `profile` 写范围（`self` / `department` / `department_tree` / `company`）内，逐目标校验；越权按不存在处理。
+- 所有档案写收口到单一 service 方法，未来审核关 / 自助注册 / 批量导入复用同一写授权判定。
+
+近况记录的批量写授权沿用同一 `profile` 写范围规则，逐 subject 校验（见 M8-4）。
+
 ## 6. 审计基线
 
 以下操作必须记录审计日志：

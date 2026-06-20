@@ -176,7 +176,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
       .set('X-Trace-Id', `trace-postgres-employee-${uniqueSuffix}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         departmentId: departmentResponse.body.id,
         employeeNo,
         account,
@@ -297,7 +296,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         employeeNo: `RA${suffix}`,
         account: `pg-role-api-${suffix}`,
         name: 'PG Role API User',
@@ -359,7 +357,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         employeeNo: `PGSEC${suffix}`,
         account: `pg-security-target-${suffix}`,
         name: 'PG Security Target',
@@ -400,7 +397,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .set('Authorization', `Bearer ${token}`)
       .set('X-Trace-Id', `trace-pg-security-department-${suffix}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         departmentId: foreignDepartmentId,
         employeeNo: `PGDEPT${suffix}`,
         account: `pg-security-department-${suffix}`,
@@ -519,7 +515,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${loginResponse.body.accessToken}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         employeeNo: `LK${uniqueSuffix}`,
         account,
         name: 'Lockout Test User',
@@ -881,7 +876,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         employeeNo: `PW${uniqueSuffix}`,
         account,
         name: 'Password Test User',
@@ -979,7 +973,6 @@ describe.skipIf(!runPostgresE2E)('platform-api postgres repository', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        enterpriseId: '00000000-0000-0000-0000-000000000001',
         departmentId: input.departmentId,
         employeeNo: input.employeeNo,
         account: input.account,

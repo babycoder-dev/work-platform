@@ -350,7 +350,6 @@ describe('platform-api', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        enterpriseId: 'ent-default',
         employeeNo: '000099',
         account: 'limited-user',
         name: '受限用户',
@@ -419,6 +418,135 @@ describe('platform-api', () => {
     expect(response.body.message).toContain('unknownField');
   });
 
+  it('creates employees from authenticated tenant and rejects client-supplied enterpriseId', async () => {
+    const token = await loginAsAdmin();
+    const suffix = Date.now().toString();
+
+    const created = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        employeeNo: `TEN${suffix}`,
+        account: `tenant-user-${suffix}`,
+        name: '租户派生员工',
+        initialPassword: 'Passw0rd1',
+      })
+      .expect(201);
+    expect(created.body.enterpriseId).toBe('ent-default');
+
+    const rejected = await request(app.getHttpServer())
+      .post('/api/platform/employees')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        enterpriseId: 'ent-other',
+        employeeNo: `TEN-X-${suffix}`,
+        account: `tenant-user-x-${suffix}`,
+        name: '伪造租户员工',
+        initialPassword: 'Passw0rd1',
+      })
+      .expect(400);
+    expect(rejected.body.message).toContain('enterpriseId');
+  });
+
+  it('reads and updates employee profiles through me and managed routes with profile scope', async () => {
+    await request(app.getHttpServer()).get('/api/platform/employees/me').expect(401);
+
+    const token = await loginAsAdmin();
+    const suffix = Date.now().toString();
+    const department = await createDepartment(token, `PROF-${suffix}`, '档案部门');
+    const outsideDepartment = await createDepartment(token, `PROF-X-${suffix}`, '档案外部部门');
+    const role = await createRoleWithPermissions(
+      token,
+      `profile-manager-${suffix}`,
+      ['platform:employee:view', 'platform:employee:manage'],
+      'department',
+    );
+    const manager = await createEmployee(token, {
+      departmentId: department.body.id,
+      employeeNo: `PM${suffix}`,
+      account: `profile-manager-${suffix}`,
+      name: '档案管理员',
+      roleIds: [role.body.id],
+    });
+    const target = await createEmployee(token, {
+      departmentId: department.body.id,
+      employeeNo: `PT${suffix}`,
+      account: `profile-target-${suffix}`,
+      name: '档案目标',
+      title: '旧职务',
+      mobile: '13800000000',
+      email: 'old-profile@example.com',
+    });
+    const outside = await createEmployee(token, {
+      departmentId: outsideDepartment.body.id,
+      employeeNo: `PO${suffix}`,
+      account: `profile-outside-${suffix}`,
+      name: '档案外部',
+    });
+    const managerToken = (await login(manager.body.account)).body.accessToken as string;
+
+    const self = await request(app.getHttpServer())
+      .get('/api/platform/employees/me')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(self.body.id).toBe(manager.body.id);
+    expect(self.body.registrationStatus).toBeUndefined();
+
+    const rejectedSelfWrite = await request(app.getHttpServer())
+      .put('/api/platform/employees/me/profile')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ departmentId: outsideDepartment.body.id })
+      .expect(400);
+    expect(rejectedSelfWrite.body.message).toContain('departmentId');
+
+    const selfUpdate = await request(app.getHttpServer())
+      .put('/api/platform/employees/me/profile')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({
+        title: null,
+        mobile: '13900000000',
+      })
+      .expect(200);
+    expect(selfUpdate.body.departmentId).toBe(department.body.id);
+    expect(selfUpdate.body.title).toBeUndefined();
+    expect(selfUpdate.body.mobile).toBe('13900000000');
+
+    const managedUpdate = await request(app.getHttpServer())
+      .put(`/api/platform/employees/${target.body.id}/profile`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({
+        name: '档案目标更新',
+        title: null,
+        email: 'new-profile@example.com',
+      })
+      .expect(200);
+    expect(managedUpdate.body).toEqual(
+      expect.objectContaining({
+        id: target.body.id,
+        name: '档案目标更新',
+        email: 'new-profile@example.com',
+      }),
+    );
+    expect(managedUpdate.body.title).toBeUndefined();
+    expect(managedUpdate.body.registrationStatus).toBeUndefined();
+
+    const readManaged = await request(app.getHttpServer())
+      .get(`/api/platform/employees/${target.body.id}`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(readManaged.body.name).toBe('档案目标更新');
+
+    await request(app.getHttpServer())
+      .get(`/api/platform/employees/${outside.body.id}`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(404);
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${outside.body.id}/profile`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ mobile: '13999999999' })
+      .expect(404);
+  });
+
   it('writes audit logs for platform write operations', async () => {
     const token = await loginAsAdmin();
     const suffix = Date.now().toString();
@@ -453,7 +581,6 @@ describe('platform-api', () => {
       .set('Authorization', `Bearer ${token}`)
       .set('X-Trace-Id', `trace-employee-${suffix}`)
       .send({
-        enterpriseId: 'ent-default',
         departmentId: departmentResponse.body.id,
         employeeNo: `AU${suffix}`,
         account: `audit-user-${suffix}`,
@@ -780,7 +907,6 @@ describe('platform-api', () => {
         .post('/api/platform/employees')
         .set('Authorization', `Bearer ${employeeCreatorToken}`)
         .send({
-          enterpriseId: 'ent-default',
           employeeNo: `EI${suffix}`,
           account: `employee-injection-${suffix}`,
           name: 'Employee Injection',
@@ -797,7 +923,6 @@ describe('platform-api', () => {
         .post('/api/platform/employees')
         .set('Authorization', `Bearer ${employeeCreatorToken}`)
         .send({
-          enterpriseId: 'ent-other',
           employeeNo: `ET${suffix}`,
           account: `employee-tenant-${suffix}`,
           name: 'Employee Tenant Boundary',
@@ -815,7 +940,6 @@ describe('platform-api', () => {
         .post('/api/platform/employees')
         .set('Authorization', `Bearer ${employeeCreatorToken}`)
         .send({
-          enterpriseId: 'ent-default',
           departmentId: foreignDepartment.id,
           employeeNo: `ED${suffix}`,
           account: `employee-department-${suffix}`,
@@ -1289,7 +1413,6 @@ describe('platform-api', () => {
         .post('/api/platform/employees')
         .set('Authorization', `Bearer ${changedAdminLogin.body.accessToken}`)
         .send({
-          enterpriseId: 'ent-default',
           employeeNo: `PW${suffix}`,
           account: `password-user-${suffix}`,
           name: '改密测试员工',
@@ -1375,7 +1498,12 @@ describe('platform-api', () => {
       .expect(201);
   }
 
-  function createRoleWithPermissions(token: string, code: string, permissionCodes: string[]) {
+  function createRoleWithPermissions(
+    token: string,
+    code: string,
+    permissionCodes: string[],
+    dataScope: 'self' | 'department' | 'department_tree' | 'company' | 'custom' = 'self',
+  ) {
     return request(app.getHttpServer())
       .post('/api/platform/roles')
       .set('Authorization', `Bearer ${token}`)
@@ -1384,7 +1512,7 @@ describe('platform-api', () => {
         code,
         name: code,
         permissionCodes,
-        dataScopes: [{ dataType: 'profile', scope: 'self' }],
+        dataScopes: [{ dataType: 'profile', scope: dataScope }],
       })
       .expect(201);
   }
@@ -1396,6 +1524,9 @@ describe('platform-api', () => {
       account: string;
       name: string;
       departmentId?: string;
+      title?: string;
+      mobile?: string;
+      email?: string;
       roleIds?: string[];
     },
   ) {
@@ -1403,11 +1534,13 @@ describe('platform-api', () => {
       .post('/api/platform/employees')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        enterpriseId: 'ent-default',
         departmentId: input.departmentId,
         employeeNo: input.employeeNo,
         account: input.account,
         name: input.name,
+        title: input.title,
+        mobile: input.mobile,
+        email: input.email,
         initialPassword: 'Scope1234',
       })
       .expect(201);
