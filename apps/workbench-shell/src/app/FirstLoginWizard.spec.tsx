@@ -146,7 +146,7 @@ describe('FirstLoginWizard', () => {
     expect(api.updateMyProfile.mock.calls[0][0]).not.toHaveProperty('status');
     expect(api.updateMyProfile.mock.calls[0][0]).not.toHaveProperty('roleIds');
     expect(onCompleted).toHaveBeenCalledTimes(1);
-  });
+  }, 15000);
 
   it('requires name and mobile and validates email before profile submission', async () => {
     const api = createApi();

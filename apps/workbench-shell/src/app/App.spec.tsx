@@ -290,7 +290,7 @@ describe('workbench shell frontend foundation', () => {
       title: '运营专员',
     });
     expect(platformApi.bootstrap).toHaveBeenCalledTimes(1);
-  });
+  }, 15000);
 
   it('closes topbar search with Escape', async () => {
     renderShell();

@@ -436,18 +436,18 @@ body {
   align-items: flex-start;
   display: grid;
   gap: var(--sp-3);
-  grid-template-columns: var(--control-height-sm) minmax(0, 1fr);
+  grid-template-columns: var(--control-height-md) minmax(0, 1fr);
 }
 
 .first-login__step-icon {
   align-items: center;
   background: var(--blue-50);
-  border-radius: var(--r-md);
+  border-radius: var(--r-full);
   color: var(--blue-600);
   display: inline-flex;
-  height: var(--control-height-sm);
+  height: var(--control-height-md);
   justify-content: center;
-  width: var(--control-height-sm);
+  width: var(--control-height-md);
 }
 
 .first-login__step-icon .work-icon {
@@ -457,7 +457,7 @@ body {
 
 .first-login__step h3 {
   color: var(--ink-1);
-  font-size: var(--font-size-15);
+  font-size: var(--font-size-16);
   margin: 0 0 var(--sp-1);
 }
 
