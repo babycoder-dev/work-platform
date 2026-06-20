@@ -457,7 +457,7 @@ body {
 
 .first-login__step h3 {
   color: var(--ink-1);
-  font-size: var(--font-size-16);
+  font-size: var(--font-size-15);
   margin: 0 0 var(--sp-1);
 }
 
