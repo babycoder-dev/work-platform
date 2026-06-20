@@ -1,5 +1,14 @@
 import { createHttpClient } from '@work/http-client';
-import type { CurrentUserDto, LoginInput, LoginResult, MenuDto } from '@work/platform-contract';
+import type {
+  ChangePasswordInput,
+  CurrentUserDto,
+  EmployeeDto,
+  LoginInput,
+  LoginResult,
+  MenuDto,
+  PasswordPolicyDto,
+  UpdateMyProfileInput,
+} from '@work/platform-contract';
 
 export interface PlatformSession {
   accessToken: string;
@@ -14,6 +23,10 @@ export interface PlatformBootstrapData {
 export interface PlatformApiClient {
   login(input: LoginInput): Promise<PlatformSession>;
   bootstrap(): Promise<PlatformBootstrapData>;
+  changePassword(input: ChangePasswordInput): Promise<void>;
+  getPasswordPolicy(): Promise<PasswordPolicyDto>;
+  getMyProfile(): Promise<EmployeeDto>;
+  updateMyProfile(input: UpdateMyProfileInput): Promise<EmployeeDto>;
 }
 
 interface MenuListResponse {
@@ -49,6 +62,18 @@ export function createPlatformApiClient(options: {
         currentUser,
         menus: menuResponse.items,
       };
+    },
+    async changePassword(input) {
+      await http.post<{ success: true }, ChangePasswordInput>('auth/change-password', input);
+    },
+    getPasswordPolicy() {
+      return http.get<PasswordPolicyDto>('auth/password-policy');
+    },
+    getMyProfile() {
+      return http.get<EmployeeDto>('employees/me');
+    },
+    updateMyProfile(input) {
+      return http.put<EmployeeDto, UpdateMyProfileInput>('employees/me/profile', input);
     },
   };
 }
