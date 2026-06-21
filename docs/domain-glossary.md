@@ -18,6 +18,7 @@
 | 领域事件      | 模块内业务事实发生后的事件，例如 `presence.status.changed`。业务模块只发布可追踪事件，真实通知推送由通知基建（M7）承载。 |
 | 档案写收口    | Platform Core 中唯一负责员工档案写入的 service 方法；本人窄写、管理写、未来注册审核 / 批量导入都必须复用同一授权和审计路径。 |
 | profile 写授权范围 | 使用 `profile` 数据范围决定某次员工档案写操作能否作用于目标员工；越权目标按不存在处理。                              |
+| `profile.updated` | 员工档案被他人修改且实际字段有变化后由 Platform Core 发布的领域事件；payload 仅包含企业、被改人、修改人和变更字段名集合，不包含字段值。 |
 | 注册状态      | `platform.employees.registration_status` 预留列，取值 `active | pending`；M8-2a 本期恒 `active`，不进入 API 契约。       |
 
 ## 2. 在位管理

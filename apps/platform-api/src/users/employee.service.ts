@@ -1,10 +1,13 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { EVENT_BUS, type EventBus } from '@work/event-bus';
+import { platformEvents } from '@work/platform-contract';
 import type {
   AssignUserRolesInput,
   CreateEmployeeInput,
   CurrentUserDto,
   EmployeeDto,
   PlatformScope,
+  ProfileUpdatedPayload,
   ResetEmployeePasswordInput,
   UpdateEmployeeProfileInput,
   UpdateEmployeeStatusInput,
@@ -20,10 +23,13 @@ type ProfileField = 'name' | 'title' | 'mobile' | 'email' | 'departmentId';
 
 @Injectable()
 export class EmployeeService {
+  private readonly logger = new Logger(EmployeeService.name);
+
   constructor(
     @Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository,
     @Inject(PlatformScopeService)
     private readonly scopeService: PlatformScopeService,
+    @Inject(EVENT_BUS) private readonly eventBus: EventBus,
   ) {}
 
   async listEmployees(currentUser: CurrentUserDto) {
@@ -128,7 +134,25 @@ export class EmployeeService {
       },
     });
 
-    // M8-3: profile.updated should be published from this single write seam.
+    if (saved.id !== currentUser.id && changedFields.length > 0) {
+      try {
+        await this.eventBus.publish<ProfileUpdatedPayload>({
+          type: platformEvents.profileUpdated,
+          source: 'platform.api',
+          traceId: auditContext.traceId,
+          payload: {
+            enterpriseId: currentUser.enterpriseId,
+            subjectUserId: saved.id,
+            changedBy: currentUser.id,
+            changedFields,
+          },
+        });
+      } catch (error) {
+        this.logger.warn(
+          `profile.updated publish failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
     return saved;
   }
 

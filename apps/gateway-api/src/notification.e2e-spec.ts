@@ -232,6 +232,56 @@ describe('notification API', () => {
       .expect(200);
   });
 
+  it('turns third-party profile writes into subject notifications through the shared event bus', async () => {
+    const marker = `${suffix}-${Math.random().toString(36).slice(2, 8)}`;
+    const subject = await createEmployee(`profile-${marker}`, `P${marker}`);
+    const subjectToken = await login(subject.account, 'Passw0rd');
+    const before = await platformNotificationCount(subjectToken);
+
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${subject.id}/profile`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: '新职务' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get('/api/notification')
+      .set('Authorization', `Bearer ${subjectToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              recipientUserId: subject.id,
+              title: '个人信息变更',
+              content: '你的个人信息已被更新，请查看个人档案。',
+              sourceModule: 'platform',
+              sourceId: subject.id,
+            }),
+          ]),
+        );
+      });
+    await expect(platformNotificationCount(subjectToken)).resolves.toBe(before + 1);
+
+    await request(app.getHttpServer())
+      .put('/api/platform/employees/me/profile')
+      .set('Authorization', `Bearer ${subjectToken}`)
+      .send({ mobile: '13900000000' })
+      .expect(200);
+    await expect(platformNotificationCount(subjectToken)).resolves.toBe(before + 1);
+
+    const current = await request(app.getHttpServer())
+      .get(`/api/platform/employees/${subject.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .put(`/api/platform/employees/${subject.id}/profile`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: current.body.name })
+      .expect(200);
+    await expect(platformNotificationCount(subjectToken)).resolves.toBe(before + 1);
+  });
+
   async function login(account: string, password: string): Promise<string> {
     const response = await request(app.getHttpServer())
       .post('/api/platform/auth/login')
@@ -246,6 +296,15 @@ describe('notification API', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     return response.body.count as number;
+  }
+
+  async function platformNotificationCount(token: string): Promise<number> {
+    const response = await request(app.getHttpServer())
+      .get('/api/notification')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    return response.body.items.filter((item: { sourceModule: string }) => item.sourceModule === 'platform')
+      .length as number;
   }
 
   async function createPresenceTeam() {

@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import type { EventBus } from '@work/event-bus';
 import type {
   DepartmentDto,
   EmployeeDto,
@@ -7,6 +8,7 @@ import type {
   UpdateEmployeeProfileInput,
   UpdateMyProfileInput,
 } from '@work/platform-contract';
+import { platformEvents } from '@work/platform-contract';
 import { describe, expect, it, vi } from 'vitest';
 import type { PlatformAuditContext } from '../auth/request-user';
 import type { PlatformRepository } from '../repositories/platform.repository';
@@ -43,7 +45,7 @@ describe('EmployeeService profile read/write', () => {
     const repository = makeRepository({
       findEmployeeById: vi.fn().mockResolvedValue(target),
     });
-    const service = new EmployeeService(
+    const service = makeEmployeeService(
       repository,
       makeScopeService({
         kind: 'department',
@@ -56,7 +58,7 @@ describe('EmployeeService profile read/write', () => {
 
     await expect(service.getEmployeeById(target.id, currentUser)).resolves.toEqual(target);
 
-    const outsideScopeService = new EmployeeService(
+    const outsideScopeService = makeEmployeeService(
       repository,
       makeScopeService({
         kind: 'department',
@@ -76,7 +78,7 @@ describe('EmployeeService profile read/write', () => {
     const repository = makeRepository({
       findEmployeeById: vi.fn().mockResolvedValue(target),
     });
-    const service = new EmployeeService(
+    const service = makeEmployeeService(
       repository,
       makeScopeService({
         kind: 'self',
@@ -102,7 +104,7 @@ describe('EmployeeService profile read/write', () => {
       findEmployeeById: vi.fn().mockResolvedValue(target),
       updateEmployee: vi.fn().mockImplementation(async (next: EmployeeDto) => next),
     });
-    const service = new EmployeeService(
+    const service = makeEmployeeService(
       repository,
       makeScopeService({
         kind: 'self',
@@ -164,7 +166,7 @@ describe('EmployeeService profile read/write', () => {
       findDepartmentById: vi.fn().mockResolvedValue(department),
       updateEmployee: vi.fn().mockImplementation(async (next: EmployeeDto) => next),
     });
-    const service = new EmployeeService(
+    const service = makeEmployeeService(
       repository,
       makeScopeService({
         kind: 'department',
@@ -207,7 +209,7 @@ describe('EmployeeService profile read/write', () => {
     const repository = makeRepository({
       findEmployeeById: vi.fn().mockResolvedValue(target),
     });
-    const service = new EmployeeService(
+    const service = makeEmployeeService(
       repository,
       makeScopeService({
         kind: 'department',
@@ -236,7 +238,138 @@ describe('EmployeeService profile read/write', () => {
       }),
     );
   });
+
+  it('publishes profile.updated only for third-party profile writes with changed field names', async () => {
+    const target = employee({ id: 'employee-target', departmentId: 'dept-1', title: '旧职务' });
+    const repository = makeRepository({
+      findEmployeeById: vi.fn().mockResolvedValue(target),
+      updateEmployee: vi.fn().mockImplementation(async (next: EmployeeDto) => next),
+    });
+    const eventBus = makeEventBus();
+    const service = makeEmployeeService(
+      repository,
+      makeScopeService(makeCompanyScope()),
+      eventBus,
+    );
+
+    await service.updateEmployeeProfile(
+      target.id,
+      { title: '新职务' },
+      'management',
+      currentUser,
+      auditContext,
+    );
+
+    expect(eventBus.publish).toHaveBeenCalledTimes(1);
+    const event = eventBus.publish.mock.calls[0]?.[0];
+    expect(event).toMatchObject({
+      type: platformEvents.profileUpdated,
+      source: 'platform.api',
+      traceId: 'trace-profile',
+      payload: {
+        enterpriseId: 'ent-default',
+        subjectUserId: target.id,
+        changedBy: currentUser.id,
+        changedFields: ['title'],
+      },
+    });
+    expect(Object.keys(event.payload).sort()).toEqual([
+      'changedBy',
+      'changedFields',
+      'enterpriseId',
+      'subjectUserId',
+    ]);
+    expect(event.payload).not.toHaveProperty('title');
+    expect(event.payload).not.toHaveProperty('newValue');
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          changedFields: event.payload.changedFields,
+        }),
+      }),
+    );
+  });
+
+  it('does not publish profile.updated for self writes, management writes to self, or no-op writes', async () => {
+    const self = employee({ id: currentUser.id, title: '旧职务' });
+    const other = employee({ id: 'employee-other', name: '原姓名' });
+    const repository = makeRepository({
+      findEmployeeById: vi.fn().mockImplementation(async (id: string) => {
+        return id === currentUser.id ? self : other;
+      }),
+      updateEmployee: vi.fn().mockImplementation(async (next: EmployeeDto) => next),
+    });
+    const eventBus = makeEventBus();
+    const service = makeEmployeeService(
+      repository,
+      makeScopeService(makeCompanyScope()),
+      eventBus,
+    );
+
+    await service.updateEmployeeProfile(
+      self.id,
+      { title: '新职务' },
+      'self',
+      currentUser,
+      auditContext,
+    );
+    await service.updateEmployeeProfile(
+      other.id,
+      { name: '原姓名' },
+      'management',
+      currentUser,
+      auditContext,
+    );
+    await service.updateEmployeeProfile(
+      self.id,
+      { title: '再次变更' },
+      'management',
+      currentUser,
+      auditContext,
+    );
+
+    expect(eventBus.publish).not.toHaveBeenCalled();
+  });
+
+  it('keeps successful profile writes when profile.updated publish fails', async () => {
+    const target = employee({ id: 'employee-target', departmentId: 'dept-1', title: '旧职务' });
+    const repository = makeRepository({
+      findEmployeeById: vi.fn().mockResolvedValue(target),
+      updateEmployee: vi.fn().mockImplementation(async (next: EmployeeDto) => next),
+    });
+    const eventBus = makeEventBus();
+    eventBus.publish.mockRejectedValue(new Error('bus down'));
+    const service = makeEmployeeService(
+      repository,
+      makeScopeService(makeCompanyScope()),
+      eventBus,
+    );
+
+    await expect(
+      service.updateEmployeeProfile(
+        target.id,
+        { title: '新职务' },
+        'management',
+        currentUser,
+        auditContext,
+      ),
+    ).resolves.toEqual(expect.objectContaining({ title: '新职务' }));
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'platform.employee.profile.update',
+        result: 'success',
+      }),
+    );
+  });
 });
+
+function makeEmployeeService(
+  repository: PlatformRepository,
+  scopeService: PlatformScopeService,
+  eventBus = makeEventBus(),
+): EmployeeService {
+  return new EmployeeService(repository, scopeService, eventBus);
+}
 
 function makeRepository(overrides: Partial<Record<keyof PlatformRepository, ReturnType<typeof vi.fn>>> = {}) {
   return {
@@ -252,6 +385,23 @@ function makeScopeService(scope: PlatformScope): PlatformScopeService {
   return {
     resolveScope: vi.fn().mockResolvedValue(scope),
   } as unknown as PlatformScopeService;
+}
+
+function makeCompanyScope(): PlatformScope {
+  return {
+    kind: 'company',
+    enterpriseId: 'ent-default',
+    userId: currentUser.id,
+    departmentIds: [],
+    degradedFromCustom: false,
+  };
+}
+
+function makeEventBus(): EventBus & { publish: ReturnType<typeof vi.fn> } {
+  return {
+    publish: vi.fn().mockResolvedValue(undefined),
+    subscribe: vi.fn(),
+  } as unknown as EventBus & { publish: ReturnType<typeof vi.fn> };
 }
 
 function employee(overrides: Partial<EmployeeDto> = {}): EmployeeDto {
