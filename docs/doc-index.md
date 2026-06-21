@@ -209,6 +209,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M8 人员 / 组织 / 档案 RFC：`docs/rfc/m8-people-org-profile.md`（核心留 platform 不新建模块、近况记录 `platform.status_logs`、消费 M6 forms `profile.employee` 槽位前端聚合、`profile.updated` 生产+notification 新增订阅、复用 `platform:org:*`、profile scope 首次用于写授权）
 - 设计真源（Claude Design 交接包）：`docs/design/ui-handoff/`（README + `design/` 下 tokens.css + 登录/外壳/工作台/组织成员/消息中心/我的待办/审批中心 设计稿；UI 实现的**只读基准**，要求像素级还原）
 - UI 还原度差距清单：`docs/design/ui-fidelity-gap-foundation.md`（地基三屏 设计 vs 实现逐项差距 L-_/S-_/W-\_ + L1/L2 边界 + 设计还原度门禁立意）
+- UI 还原度差距清单（组件库 Modal）：`docs/design/ui-fidelity-gap-modal.md`（共享 `@work/ui` Modal vs 设计稿居中弹窗 5 处偏差 M-1..M-5；登记于 foundation-progress §7.2）
 - UI 地基还原收口切片任务包：`docs/tasks/ui-foundation-fidelity.md`（M8 前；组件库+登录+外壳+工作台像素级还原 + 还原度门禁 A/B 两层；后续 UI 切片复用该门禁）
 - M8-1 部门管理任务包：`docs/tasks/m8-1-department-management.md`（OrgService update/delete/移动/设负责人 + 占用删除 409 + 环路防护 + 双实现对齐(内存软删态) + `OrganizationPage` 部门树 UI；复用 `platform:org:manage`、无 DDL 迁移、不改数据范围模型、合并前过 security-reviewer）
 - M8-2a 档案读写后端任务包：`docs/tasks/m8-2a-profile-read-write-backend.md`（`:id`/`me` 读 + 本人窄 DTO / 管理 DTO 经写收口 service + `profile` scope **首次用于写授权** + `registration_status` 预留增列；**§16 触发 → 同变更补 security-baseline §5.3**、复用 `platform:employee:{view,manage}`、不发 `profile.updated`(留 M8-3)、强制 security-reviewer）
