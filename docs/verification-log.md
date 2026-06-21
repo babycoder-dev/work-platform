@@ -1,5 +1,65 @@
 # Verification Log
 
+## 2026-06-21
+
+### M8-2b First-Login Wizard
+
+Change set:
+
+- Added a first-login gate in the Workbench Shell. When `currentUser.mustChangePassword` is true,
+  the shell renders a forced two-step wizard instead of the workbench: change password first, then
+  complete the user's own profile. Completion re-runs `bootstrap()` and enters the workbench with
+  the existing session.
+- Added frontend Platform API client methods for `auth/change-password`, `auth/password-policy`,
+  `employees/me`, and `employees/me/profile`.
+- The wizard uses the shared `@work/ui` `Modal` without changing the shared Modal component. The
+  wizard passes a no-op `onClose`, so Escape and scrim clicks do not close it; an explicit
+  "退出登录" action remains available as the escape path.
+- Self-profile submission sends only the narrow allowed fields. `name` and `mobile` are always sent
+  as strings after client-side validation; `title` and `email` preserve the tri-state semantics
+  (`undefined` keep / `null` clear / string set). Management fields such as `departmentId`, `status`,
+  and `roleIds` are never sent.
+
+Design fidelity / review follow-up:
+
+- Added the missing `--font-size-16` token to `packages/ui/src/styles/tokens.css` for the modal
+  step title, matching the handoff modal title size.
+- Aligned `.first-login__step-icon` with the centered modal icon reference: 32px via
+  `--control-height-md`, circular via `--r-full`, and retained the 18px SVG size.
+- Added explicit `.first-login__step h3 { font-weight: 600; }` to avoid falling back to browser
+  default 700.
+- Kept shared `@work/ui` Modal styling unchanged. Shared Modal fidelity follow-up remains tracked
+  in `docs/foundation-progress.md §7.2` and `docs/design/ui-fidelity-gap-modal.md`.
+
+Test / review hardening:
+
+- Replaced slow first-login test input chains (`userEvent.type` / `userEvent.clear`) with synchronous
+  `fireEvent.change` through a small `setFieldValue` helper. This preserves the controlled-input
+  assertions while avoiding full-web-suite timeouts.
+- Removed the temporary 15s timeouts from the first-login tests; the full web suite now passes with
+  default test timeouts.
+
+Validation:
+
+- `NODE_ENV=test pnpm lint`: pass. Plain recursive lint still prints standard Nx ProjectGraph cache
+  warnings; `apps/workbench-shell/src/module-registry/load-remote-module.ts` has the existing
+  `_descriptor` warning. No lint errors.
+- `NODE_ENV=test pnpm typecheck`: pass across 27 of 28 workspace projects.
+- `NODE_ENV=test pnpm test`: pass.
+  - Unit: 45 files collected; 40 passed / 5 Postgres-gated skipped; 192 passed / 34 skipped.
+  - Web: 33 files / 91 tests passed.
+- `NODE_ENV=test pnpm test:e2e`: pass; 7 files / 47 tests passed.
+- `NODE_ENV=test pnpm build`: pass across 27 of 28 workspace projects. Vite emitted the existing
+  large chunk warning for the workbench shell bundle.
+- Design gate self-check: non-token source has no hard-coded hex; touched first-login code has no
+  emoji placeholders; key first-login copy is asserted in `FirstLoginWizard.spec.tsx`; spacing,
+  radius, font size, and icon dimensions use tokens.
+
+Follow-up:
+
+- Shared `@work/ui` Modal fidelity is intentionally deferred to the tracked Modal follow-up.
+- M8-3 `profile.updated` event remains the next backend integration point from the M8 profile seam.
+
 ## 2026-06-19
 
 ### M8-2a Profile Read-Write Backend

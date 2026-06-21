@@ -43,6 +43,7 @@ import {
 } from '../platform/notification-api';
 import { createPlatformApiClient } from '../platform/platform-api';
 import { clearAccessToken, readAccessToken, saveAccessToken } from '../platform/session-storage';
+import { FirstLoginWizard } from './FirstLoginWizard';
 import {
   buildModuleRouteTable,
   buildNavigationGroups,
@@ -83,6 +84,7 @@ export function App() {
   const [isBootstrapping, setIsBootstrapping] = useState(Boolean(session.accessToken));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
+  const mustChangePasswordRef = useRef(Boolean(session.currentUser?.mustChangePassword));
 
   const api = useMemo(
     () =>
@@ -134,6 +136,13 @@ export function App() {
   }, [api, session.accessToken]);
 
   useEffect(() => {
+    mustChangePasswordRef.current = Boolean(session.currentUser?.mustChangePassword);
+  }, [session.currentUser?.mustChangePassword]);
+
+  useEffect(() => {
+    if (mustChangePasswordRef.current) {
+      return;
+    }
     void bootstrap();
   }, [bootstrap]);
 
@@ -171,6 +180,10 @@ export function App() {
     setErrorMessage(undefined);
   }, []);
 
+  const handleFirstLoginCompleted = useCallback(async () => {
+    await bootstrap();
+  }, [bootstrap]);
+
   if (!session.accessToken || !session.currentUser) {
     return (
       <LoginView
@@ -178,6 +191,16 @@ export function App() {
         isBootstrapping={isBootstrapping}
         isSubmitting={isSubmitting}
         onSubmit={handleLogin}
+      />
+    );
+  }
+
+  if (session.currentUser.mustChangePassword) {
+    return (
+      <FirstLoginWizard
+        api={api}
+        onCompleted={handleFirstLoginCompleted}
+        onLogout={handleLogout}
       />
     );
   }

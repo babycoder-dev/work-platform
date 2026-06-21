@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { CurrentUserDto } from '@work/platform-contract';
 import type { NotificationDto } from '@work/notification-contract';
@@ -104,6 +104,7 @@ describe('workbench shell frontend foundation', () => {
     routerMock.navigate.mockReset();
     platformApiMock.createPlatformApiClient.mockReset();
     notificationApiFactoryMock.createNotificationApiClient.mockReset();
+    notificationApiFactoryMock.createNotificationApiClient.mockReturnValue(createNotificationApi());
   });
 
   it('renders the restyled login matching the design copy and preserves submit behavior', async () => {
@@ -209,6 +210,10 @@ describe('workbench shell frontend foundation', () => {
         currentUser,
         menus: [],
       }),
+      changePassword: vi.fn().mockResolvedValue(undefined),
+      getPasswordPolicy: vi.fn().mockResolvedValue(createPasswordPolicy()),
+      getMyProfile: vi.fn().mockResolvedValue(createEmployeeProfile()),
+      updateMyProfile: vi.fn().mockResolvedValue(createEmployeeProfile()),
     };
     const notificationApiFns = createNotificationApi({ count: 0, items: [] });
     platformApiMock.createPlatformApiClient.mockReturnValue(platformApi);
@@ -234,6 +239,57 @@ describe('workbench shell frontend foundation', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '折叠侧栏' }));
     expect(notificationApiFns.stream).toHaveBeenCalledTimes(1);
+  });
+
+  it('gates first-login users into the forced wizard instead of rendering the shell', async () => {
+    const firstLoginUser = { ...currentUser, mustChangePassword: true };
+    const platformApi = createPlatformApiForApp({
+      loginUser: firstLoginUser,
+      bootstrapUser: firstLoginUser,
+    });
+    platformApiMock.createPlatformApiClient.mockReturnValue(platformApi);
+
+    render(<App />);
+
+    await userEvent.type(screen.getByLabelText('账号'), 'admin');
+    await userEvent.type(screen.getByLabelText('密码'), 'secret');
+    await userEvent.click(screen.getByRole('button', { name: '登 录' }));
+
+    expect(await screen.findByText('首次登录设置')).toBeInTheDocument();
+    expect(screen.getByText('第 1/2 步 · 设置新密码')).toBeInTheDocument();
+    expect(screen.queryByText(/晚上好|下午好|早上好/)).not.toBeInTheDocument();
+  });
+
+  it('rebootstraps after first-login completion and enters the shell', async () => {
+    const firstLoginUser = { ...currentUser, mustChangePassword: true };
+    const readyUser = { ...currentUser, mustChangePassword: false };
+    const platformApi = createPlatformApiForApp({
+      loginUser: firstLoginUser,
+      bootstrapUser: readyUser,
+    });
+    platformApiMock.createPlatformApiClient.mockReturnValue(platformApi);
+
+    render(<App />);
+
+    await userEvent.type(screen.getByLabelText('账号'), 'admin');
+    await userEvent.type(screen.getByLabelText('密码'), 'secret');
+    await userEvent.click(screen.getByRole('button', { name: '登 录' }));
+    await fillFirstLoginPasswordStep();
+    expect(await screen.findByText('第 2/2 步 · 完善个人信息')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '完成并进入工作台' }));
+
+    expect(await screen.findByText(/晚上好|下午好|早上好/)).toBeInTheDocument();
+    expect(platformApi.changePassword).toHaveBeenCalledWith({
+      oldPassword: 'old-password1',
+      newPassword: 'new-password1',
+    });
+    expect(platformApi.updateMyProfile).toHaveBeenCalledWith({
+      name: '张三',
+      mobile: '13900000000',
+      email: 'zhangsan@example.com',
+      title: '运营专员',
+    });
+    expect(platformApi.bootstrap).toHaveBeenCalledTimes(1);
   });
 
   it('closes topbar search with Escape', async () => {
@@ -324,6 +380,64 @@ function createNotificationApi({
     markAllRead: ReturnType<typeof vi.fn>;
     stream: ReturnType<typeof vi.fn>;
   };
+}
+
+function createPlatformApiForApp({
+  loginUser = currentUser,
+  bootstrapUser = currentUser,
+}: {
+  loginUser?: CurrentUserDto;
+  bootstrapUser?: CurrentUserDto;
+} = {}) {
+  return {
+    login: vi.fn().mockResolvedValue({
+      accessToken: 'token-001',
+      currentUser: loginUser,
+    }),
+    bootstrap: vi.fn().mockResolvedValue({
+      currentUser: bootstrapUser,
+      menus: [],
+    }),
+    changePassword: vi.fn().mockResolvedValue(undefined),
+    getPasswordPolicy: vi.fn().mockResolvedValue(createPasswordPolicy()),
+    getMyProfile: vi.fn().mockResolvedValue(createEmployeeProfile()),
+    updateMyProfile: vi.fn().mockResolvedValue(createEmployeeProfile()),
+  };
+}
+
+function createPasswordPolicy() {
+  return {
+    minLength: 8,
+    requireNumber: true,
+    requireUppercase: false,
+    requireSpecialChar: false,
+    maxFailedAttempts: 5,
+    lockDurationMinutes: 15,
+  };
+}
+
+function createEmployeeProfile() {
+  return {
+    id: 'user-001',
+    enterpriseId: 'ent-default',
+    employeeNo: 'E001',
+    account: 'admin',
+    name: '张三',
+    title: '运营专员',
+    mobile: '13900000000',
+    email: 'zhangsan@example.com',
+    status: 'active' as const,
+    roleIds: ['role-001'],
+    mustChangePassword: false,
+  };
+}
+
+async function fillFirstLoginPasswordStep() {
+  await screen.findByLabelText('原密码');
+  fireEvent.change(screen.getByLabelText('原密码'), { target: { value: 'old-password1' } });
+  fireEvent.change(screen.getByLabelText('新密码'), { target: { value: 'new-password1' } });
+  fireEvent.change(screen.getByLabelText('确认新密码'), { target: { value: 'new-password1' } });
+  await userEvent.click(screen.getByRole('button', { name: '下一步：完善个人信息' }));
 }
 
 async function waitForInitialNotificationLoad(
