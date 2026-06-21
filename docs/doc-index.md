@@ -213,6 +213,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M8-1 部门管理任务包：`docs/tasks/m8-1-department-management.md`（OrgService update/delete/移动/设负责人 + 占用删除 409 + 环路防护 + 双实现对齐(内存软删态) + `OrganizationPage` 部门树 UI；复用 `platform:org:manage`、无 DDL 迁移、不改数据范围模型、合并前过 security-reviewer）
 - M8-2a 档案读写后端任务包：`docs/tasks/m8-2a-profile-read-write-backend.md`（`:id`/`me` 读 + 本人窄 DTO / 管理 DTO 经写收口 service + `profile` scope **首次用于写授权** + `registration_status` 预留增列；**§16 触发 → 同变更补 security-baseline §5.3**、复用 `platform:employee:{view,manage}`、不发 `profile.updated`(留 M8-3)、强制 security-reviewer）
 - M8-2b 首登向导任务包：`docs/tasks/m8-2b-first-login-wizard.md`（**纯前端**：`mustChangePassword` 前端网关 → **不可关闭 Modal** 两步向导(强制改密 + 强制补全本人档案) → 重 bootstrap 入壳；复用 M8-2a `employees/me(/profile)` + 既有 `auth/change-password`，**不改后端/契约/迁移/权限点**；无专稿→还原基准锚定登录卡+Modal，过设计还原度门禁；非安全敏感面、security-reviewer 非强制）
+- M8-3 `profile.updated` 事件任务包：`docs/tasks/m8-3-profile-updated-event.md`（platform-contract **新建事件契约**(payload 仅 id+变更字段名、零字段值) + platform 接 `EventBusModule` 在 M8-2a 写收口**「他人改且有变更才发」** + notification **新增订阅器**消费(接收人=本人直取、**恒发不经 RecipientResolver/trigger_config**)；点亮 M7 ④；**无迁移/无 schema/无新权限点/不改数据范围模型**，**§16 不触发**(不补 baseline)、仍过 security-reviewer；e2e 双向断言实证 EventBus 单例跨进程)
 
 后续建议补充：
 
