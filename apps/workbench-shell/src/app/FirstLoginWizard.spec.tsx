@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { EmployeeDto, PasswordPolicyDto } from '@work/platform-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -74,33 +74,27 @@ describe('FirstLoginWizard', () => {
     expect(screen.getByText('新密码至少 8 位。')).toBeInTheDocument();
     expect(api.changePassword).not.toHaveBeenCalled();
 
-    await userEvent.clear(screen.getByLabelText('新密码'));
-    await userEvent.type(screen.getByLabelText('新密码'), 'password');
-    await userEvent.clear(screen.getByLabelText('确认新密码'));
-    await userEvent.type(screen.getByLabelText('确认新密码'), 'password');
+    setFieldValue('新密码', 'password');
+    setFieldValue('确认新密码', 'password');
     await userEvent.click(screen.getByRole('button', { name: '下一步：完善个人信息' }));
 
     expect(screen.getByText('新密码需包含数字。')).toBeInTheDocument();
     expect(api.changePassword).not.toHaveBeenCalled();
 
-    await userEvent.clear(screen.getByLabelText('新密码'));
-    await userEvent.type(screen.getByLabelText('新密码'), 'password1');
-    await userEvent.clear(screen.getByLabelText('确认新密码'));
-    await userEvent.type(screen.getByLabelText('确认新密码'), 'password2');
+    setFieldValue('新密码', 'password1');
+    setFieldValue('确认新密码', 'password2');
     await userEvent.click(screen.getByRole('button', { name: '下一步：完善个人信息' }));
 
     expect(screen.getByText('两次输入的新密码不一致。')).toBeInTheDocument();
     expect(api.changePassword).not.toHaveBeenCalled();
 
-    await userEvent.clear(screen.getByLabelText('新密码'));
-    await userEvent.type(screen.getByLabelText('新密码'), 'old-password1');
-    await userEvent.clear(screen.getByLabelText('确认新密码'));
-    await userEvent.type(screen.getByLabelText('确认新密码'), 'old-password1');
+    setFieldValue('新密码', 'old-password1');
+    setFieldValue('确认新密码', 'old-password1');
     await userEvent.click(screen.getByRole('button', { name: '下一步：完善个人信息' }));
 
     expect(screen.getByText('新密码不能与原密码相同。')).toBeInTheDocument();
     expect(api.changePassword).not.toHaveBeenCalled();
-  }, 15000);
+  });
 
   it('shows backend password errors and stays on the password step', async () => {
     const api = createApi({
@@ -129,10 +123,9 @@ describe('FirstLoginWizard', () => {
     expect(screen.getByLabelText('邮箱')).toHaveValue('zhangsan@example.com');
     expect(screen.getByLabelText('职务')).toHaveValue('运营专员');
 
-    await userEvent.clear(screen.getByLabelText('职务'));
-    await userEvent.clear(screen.getByLabelText('邮箱'));
-    await userEvent.clear(screen.getByLabelText('手机'));
-    await userEvent.type(screen.getByLabelText('手机'), '13800000000');
+    setFieldValue('职务', '');
+    setFieldValue('邮箱', '');
+    setFieldValue('手机', '13800000000');
     await userEvent.click(screen.getByRole('button', { name: '完成并进入工作台' }));
 
     await waitFor(() => expect(api.updateMyProfile).toHaveBeenCalled());
@@ -146,7 +139,7 @@ describe('FirstLoginWizard', () => {
     expect(api.updateMyProfile.mock.calls[0][0]).not.toHaveProperty('status');
     expect(api.updateMyProfile.mock.calls[0][0]).not.toHaveProperty('roleIds');
     expect(onCompleted).toHaveBeenCalledTimes(1);
-  }, 15000);
+  });
 
   it('requires name and mobile and validates email before profile submission', async () => {
     const api = createApi();
@@ -155,24 +148,23 @@ describe('FirstLoginWizard', () => {
     await submitValidPasswordStep();
     await screen.findByText('第 2/2 步 · 完善个人信息');
 
-    await userEvent.clear(screen.getByLabelText('姓名'));
+    setFieldValue('姓名', '');
     await userEvent.click(screen.getByRole('button', { name: '完成并进入工作台' }));
     expect(screen.getByText('姓名不能为空。')).toBeInTheDocument();
     expect(api.updateMyProfile).not.toHaveBeenCalled();
 
-    await userEvent.type(screen.getByLabelText('姓名'), '张三');
-    await userEvent.clear(screen.getByLabelText('手机'));
+    setFieldValue('姓名', '张三');
+    setFieldValue('手机', '');
     await userEvent.click(screen.getByRole('button', { name: '完成并进入工作台' }));
     expect(screen.getByText('手机不能为空。')).toBeInTheDocument();
     expect(api.updateMyProfile).not.toHaveBeenCalled();
 
-    await userEvent.type(screen.getByLabelText('手机'), '13800000000');
-    await userEvent.clear(screen.getByLabelText('邮箱'));
-    await userEvent.type(screen.getByLabelText('邮箱'), 'not-email');
+    setFieldValue('手机', '13800000000');
+    setFieldValue('邮箱', 'not-email');
     await userEvent.click(screen.getByRole('button', { name: '完成并进入工作台' }));
     expect(screen.getByText('请输入有效的邮箱地址。')).toBeInTheDocument();
     expect(api.updateMyProfile).not.toHaveBeenCalled();
-  }, 15000);
+  });
 
   it('shows profile preload failure and retries', async () => {
     const api = createApi({
@@ -244,12 +236,10 @@ async function fillPasswordStep({
   newPassword: string;
   confirmPassword: string;
 }) {
-  await userEvent.clear(await screen.findByLabelText('原密码'));
-  await userEvent.type(screen.getByLabelText('原密码'), oldPassword);
-  await userEvent.clear(screen.getByLabelText('新密码'));
-  await userEvent.type(screen.getByLabelText('新密码'), newPassword);
-  await userEvent.clear(screen.getByLabelText('确认新密码'));
-  await userEvent.type(screen.getByLabelText('确认新密码'), confirmPassword);
+  await screen.findByLabelText('原密码');
+  setFieldValue('原密码', oldPassword);
+  setFieldValue('新密码', newPassword);
+  setFieldValue('确认新密码', confirmPassword);
 }
 
 async function submitValidPasswordStep() {
@@ -259,4 +249,8 @@ async function submitValidPasswordStep() {
     confirmPassword: 'new-password1',
   });
   await userEvent.click(screen.getByRole('button', { name: '下一步：完善个人信息' }));
+}
+
+function setFieldValue(label: string, value: string) {
+  fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }

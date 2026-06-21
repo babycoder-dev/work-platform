@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { CurrentUserDto } from '@work/platform-contract';
 import type { NotificationDto } from '@work/notification-contract';
@@ -290,7 +290,7 @@ describe('workbench shell frontend foundation', () => {
       title: '运营专员',
     });
     expect(platformApi.bootstrap).toHaveBeenCalledTimes(1);
-  }, 15000);
+  });
 
   it('closes topbar search with Escape', async () => {
     renderShell();
@@ -433,9 +433,10 @@ function createEmployeeProfile() {
 }
 
 async function fillFirstLoginPasswordStep() {
-  await userEvent.type(await screen.findByLabelText('原密码'), 'old-password1');
-  await userEvent.type(screen.getByLabelText('新密码'), 'new-password1');
-  await userEvent.type(screen.getByLabelText('确认新密码'), 'new-password1');
+  await screen.findByLabelText('原密码');
+  fireEvent.change(screen.getByLabelText('原密码'), { target: { value: 'old-password1' } });
+  fireEvent.change(screen.getByLabelText('新密码'), { target: { value: 'new-password1' } });
+  fireEvent.change(screen.getByLabelText('确认新密码'), { target: { value: 'new-password1' } });
   await userEvent.click(screen.getByRole('button', { name: '下一步：完善个人信息' }));
 }
 
