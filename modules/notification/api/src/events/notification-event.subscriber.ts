@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { EVENT_BUS, type DomainEvent, type EventBus } from '@work/event-bus';
 import { notificationTriggerKeys } from '@work/notification-contract';
+import { platformEvents, type ProfileUpdatedPayload } from '@work/platform-contract';
 import { NOTIFICATION_TRIGGER_CONFIG_REPOSITORY } from '../db/trigger-config-repository.token';
 import type { TriggerConfigRepository } from '../db/trigger-config.repository';
 import { NotificationService } from '../notification/notification.service';
@@ -21,6 +22,7 @@ interface PresenceStatusChangedPayload {
 export class NotificationEventSubscriber implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NotificationEventSubscriber.name);
   private unsubscribePresence?: () => void;
+  private unsubscribeProfile?: () => void;
 
   constructor(
     @Inject(EVENT_BUS) private readonly eventBus: EventBus,
@@ -35,11 +37,17 @@ export class NotificationEventSubscriber implements OnModuleInit, OnModuleDestro
       notificationTriggerKeys.presenceStatusChanged,
       (event) => this.handlePresenceStatusChanged(event),
     );
+    this.unsubscribeProfile = this.eventBus.subscribe<ProfileUpdatedPayload>(
+      platformEvents.profileUpdated,
+      (event) => this.handleProfileUpdated(event),
+    );
   }
 
   onModuleDestroy(): void {
     this.unsubscribePresence?.();
     this.unsubscribePresence = undefined;
+    this.unsubscribeProfile?.();
+    this.unsubscribeProfile = undefined;
   }
 
   private async handlePresenceStatusChanged(
@@ -71,6 +79,23 @@ export class NotificationEventSubscriber implements OnModuleInit, OnModuleDestro
     } catch (error) {
       this.logger.error(
         `Failed to handle notification trigger ${event.type}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async handleProfileUpdated(event: DomainEvent<ProfileUpdatedPayload>): Promise<void> {
+    try {
+      await this.notificationService.create({
+        recipientUserIds: [event.payload.subjectUserId],
+        title: '个人信息变更',
+        content: '你的个人信息已被更新，请查看个人档案。',
+        sourceModule: 'platform',
+        sourceId: event.payload.subjectUserId,
+        channel: 'in_app',
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle ${event.type}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

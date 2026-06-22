@@ -1,6 +1,7 @@
 import type { EventBus } from '@work/event-bus';
 import { MemoryEventBus } from '@work/event-bus';
 import { notificationTriggerKeys } from '@work/notification-contract';
+import { platformEvents, type ProfileUpdatedPayload } from '@work/platform-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TriggerConfigRepository } from '../db/trigger-config.repository';
 import type { NotificationService } from '../notification/notification.service';
@@ -86,6 +87,32 @@ describe('NotificationEventSubscriber', () => {
       expect.objectContaining({ type: notificationTriggerKeys.presenceStatusChanged }),
     );
   });
+
+  it('creates a direct in-app notification for profile.updated without trigger config or resolver', async () => {
+    await publishProfileUpdatedEvent(eventBus, { changedFields: ['title'], subjectUserId: 'user-1' });
+
+    expect(triggerConfigRepository.findTriggerConfig).not.toHaveBeenCalled();
+    expect(recipientResolver.resolve).not.toHaveBeenCalled();
+    expect(notificationService.create).toHaveBeenCalledWith({
+      recipientUserIds: ['user-1'],
+      title: '个人信息变更',
+      content: '你的个人信息已被更新，请查看个人档案。',
+      sourceModule: 'platform',
+      sourceId: 'user-1',
+      channel: 'in_app',
+    });
+    const createInput = notificationService.create.mock.calls[0]?.[0];
+    expect(createInput.content).not.toContain('title');
+    expect(createInput.content).not.toContain('新职务');
+  });
+
+  it('swallows profile.updated notification creation errors', async () => {
+    notificationService.create.mockRejectedValue(new Error('notification store down'));
+
+    await expect(publishProfileUpdatedEvent(eventBus)).resolves.toEqual(
+      expect.objectContaining({ type: platformEvents.profileUpdated }),
+    );
+  });
 });
 
 async function publishPresenceEvent(
@@ -104,6 +131,23 @@ async function publishPresenceEvent(
       endAt: '2026-06-01T08:00:00.000Z',
       changedBy: 'actor-1',
       changeKind: 'created',
+      ...overrides,
+    },
+  });
+}
+
+async function publishProfileUpdatedEvent(
+  eventBus: EventBus,
+  overrides: Partial<ProfileUpdatedPayload> = {},
+) {
+  return eventBus.publish<ProfileUpdatedPayload>({
+    type: platformEvents.profileUpdated,
+    source: 'platform.api',
+    payload: {
+      enterpriseId: 'ent-1',
+      subjectUserId: 'subject-1',
+      changedBy: 'actor-1',
+      changedFields: ['mobile'],
       ...overrides,
     },
   });

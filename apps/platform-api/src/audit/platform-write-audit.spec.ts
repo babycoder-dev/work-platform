@@ -1,3 +1,4 @@
+import type { EventBus } from '@work/event-bus';
 import type { DepartmentDto, EmployeeDto, RoleDto } from '@work/platform-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../auth/auth.service';
@@ -76,7 +77,7 @@ describe('platform write audit coverage', () => {
       recordAuditLog: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformRepository;
     const scopeService = {} as unknown as PlatformScopeService;
-    const service = new EmployeeService(repository, scopeService);
+    const service = new EmployeeService(repository, scopeService, makeEventBus());
 
     await service.createEmployee(
       {
@@ -197,6 +198,7 @@ describe('platform write audit coverage', () => {
     const result = await new EmployeeService(
       repository,
       {} as unknown as PlatformScopeService,
+      makeEventBus(),
     ).resetPassword(
       employee.id,
       {
@@ -257,3 +259,10 @@ describe('platform write audit coverage', () => {
     ).rejects.toThrow('audit unavailable');
   });
 });
+
+function makeEventBus(): EventBus {
+  return {
+    publish: vi.fn().mockResolvedValue(undefined),
+    subscribe: vi.fn(),
+  } as unknown as EventBus;
+}

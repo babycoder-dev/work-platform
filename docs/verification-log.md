@@ -2,6 +2,91 @@
 
 ## 2026-06-21
 
+### M8-3 profile.updated Event
+
+Change set:
+
+- Added the producer-owned `profile.updated` event contract to `@work/platform-contract`.
+  Payload is intentionally limited to `enterpriseId`, `subjectUserId`, `changedBy`, and
+  `changedFields`; it contains field names only and no profile field values.
+- Wired `EventBusModule` into `PlatformModule` and injected `EVENT_BUS` into
+  `EmployeeService`. The single profile write seam now publishes `profile.updated` only when
+  `saved.id !== currentUser.id` and `changedFields.length > 0`.
+- Added best-effort publish isolation: a publish rejection is logged and does not roll back or
+  fail the already-saved profile write and audit record.
+- Added notification-side consumption in the existing `NotificationEventSubscriber`. The handler
+  directly notifies `subjectUserId`, always sends an `in_app` notification, does not call
+  `RecipientResolver`, and does not consult `trigger_config`.
+- Removed the duplicate `profileUpdated` string from `@work/notification-contract`; comments now
+  point to `@work/platform-contract` as the event owner and document that this is not configurable.
+
+Validation:
+
+- TDD red / green:
+  - Before implementation, `apps/platform-api/src/users/employee.service.spec.ts` failed because
+    `eventBus.publish` was not called for a third-party profile write.
+  - Before implementation, `modules/notification/api/src/events/notification-event.subscriber.spec.ts`
+    failed because publishing `profile.updated` produced no notification.
+  - After implementation, `employee.service.spec.ts`: 1 file / 8 tests passed.
+  - After implementation, `notification-event.subscriber.spec.ts`: 1 file / 5 tests passed.
+  - Targeted gateway e2e `notification.e2e-spec.ts`: 1 file / 5 tests passed.
+- `NODE_ENV=test pnpm lint`: pass. Plain recursive lint still prints standard Nx ProjectGraph cache
+  warnings; `apps/workbench-shell/src/module-registry/load-remote-module.ts` keeps the existing
+  `_descriptor` warning. No lint errors.
+- Primed-graph boundary lint:
+  - `pnpm exec nx graph --file=tmp-graph.json`: pass; temporary graph file removed.
+  - `pnpm exec nx run @work/platform-api:lint`: pass with existing non-null assertion warnings.
+  - `pnpm exec nx run @work/notification-api:lint`: pass.
+  - `pnpm exec nx run @work/platform-contract:lint`: pass.
+- `NODE_ENV=test pnpm typecheck`: pass across 27 of 28 workspace projects.
+- `NODE_ENV=test pnpm test`: pass.
+  - Unit: 45 files collected; 40 passed / 5 Postgres-gated skipped; 197 passed / 34 skipped.
+  - Web: 33 files / 91 tests passed.
+- `NODE_ENV=test pnpm test:e2e`: first run hit a Vitest worker IPC transient
+  (`ERR_IPC_CHANNEL_CLOSED`) after passing visible assertions in the early files. Re-running the
+  exact same command passed: 7 files / 48 tests passed.
+- `NODE_ENV=test pnpm build`: pass across 27 of 28 workspace projects. Vite emitted the existing
+  large chunk warning for the workbench shell bundle.
+- `pnpm db:generate`: command completed, but Drizzle generated a full snapshot migration because
+  this repository does not commit Drizzle meta history for the hand-written platform migrations.
+  M8-3 has no schema changes; generated untracked migration/meta files were deleted and no schema
+  diff is included in this PR.
+- `verify:full` / Postgres-gated regression: not run locally because Docker Desktop daemon was not
+  available (`dockerDesktopLinuxEngine` pipe missing). Unit output confirms Postgres-gated specs
+  skipped under the quick path; this slice adds no Postgres-only assertions and relies on CI /
+  M8-6 full verification for local Docker coverage.
+
+EventBus singleton / e2e evidence:
+
+- `apps/gateway-api/src/notification.e2e-spec.ts` now asserts the live path:
+  admin updates another employee's profile through `/api/platform/employees/:id/profile`, then the
+  subject user reads a new `sourceModule='platform'` notification via `/api/notification`.
+- The same e2e asserts the negative paths: self-profile update via `/api/platform/employees/me/profile`
+  does not add a notification, and an admin no-op profile update with the current value does not add
+  a notification.
+- Because the e2e goes through `GatewayModule` with memory drivers and no mocks, this proves
+  platform's publisher and notification's subscriber share the process-level `EVENT_BUS` instance.
+
+Security / §16:
+
+- `docs/security-baseline.md §16` is not triggered. This slice does not change authentication,
+  permission rules, data-scope semantics, token/session behavior, password handling, schema, or
+  sensitive-field definitions. The new cross-module event carries only ids plus field names and no
+  profile values, so no baseline or ADR update is required.
+- `security-reviewer`: pass, 0 Blocking / 0 Major / 0 Minor. Reviewer confirmed payload privacy,
+  publish condition, publish failure isolation, direct subject-only notification, handler isolation,
+  and no security-baseline update requirement.
+- `code-simplifier`: no production-code simplification recommended; one test-only helper was applied
+  to remove repeated company-scope fixtures.
+
+Follow-up:
+
+- M8-4 remains the next slice: `platform.status_logs` and near-activity recording. Per the RFC and
+  notification contract comments, status/activity notes must not notify the subject unless the
+  product decision changes.
+
+## 2026-06-21
+
 ### M8-2b First-Login Wizard
 
 Change set:

@@ -280,6 +280,10 @@ Workbench Shell 通过 `@work/http-client.stream()` 消费该 SSE 端点：Beare
 `modules/notification/web`，经 notification manifest + shell module registry 挂载到
 `/notification/trigger-config`。
 
+M8-3 起，员工档案被他人修改且实际字段有变化时，platform-api 从档案写收口发布
+`profile.updated`；notification 订阅后直接给被改本人生成站内通知。该事件 payload 只携带 id 与
+变更字段名，不携带档案字段值。
+
 ## 5.1 IM Provider
 
 OpenIMServer 作为默认 IM Provider 独立部署，平台通过 `im-adapter-api` 接入。

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PermissionGuard } from '@work/nest-common';
+import { EventBusModule, PermissionGuard } from '@work/nest-common';
 import {
   PLATFORM_AUDIT_SERVICE,
   PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
@@ -31,7 +31,7 @@ import { EmployeeLookupService } from './users/employee-lookup.service';
 import { EmployeeService } from './users/employee.service';
 
 @Module({
-  imports: [DbModule],
+  imports: [DbModule, EventBusModule],
   controllers: [
     HealthController,
     AuthController,

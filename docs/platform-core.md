@@ -73,7 +73,13 @@ PUT  /api/platform/employees/:id/roles
 
 档案写入统一收口到 `EmployeeService.updateEmployeeProfile`，按值三态合并：`undefined` 表示保持，
 `null` 表示清空可空字段，字符串表示设置新值。部门、状态、角色、账号、工号等管理字段不得经本人窄 DTO
-写入。M8-2a 仅在该收口处预留 `profile.updated` 事件注释，真实事件发布留 M8-3。
+写入。
+
+M8-3 起，档案被他人修改成功且实际字段有变化时，Platform Core 在该写收口发布
+`profile.updated` 领域事件。事件契约由 `@work/platform-contract` 拥有，payload 仅包含
+`enterpriseId`、`subjectUserId`、`changedBy` 与 `changedFields` 字段名集合，不携带旧值或新值。
+本人改本人（包括管理员经 `:id/profile` 改自身）和空改均不发事件。Notification 模块订阅该事件后
+恒发一条站内通知给 `subjectUserId` 本人，不经 RecipientResolver，也不受 trigger_config 开关控制。
 
 `platform.employees.registration_status` 是 M8-2a 增加的数据库预留列，默认 `active`，check 约束为
 `active | pending`。本期该列恒为 `active`，不进入 `EmployeeDto`、任何写 DTO 或 HTTP 响应，既有
