@@ -1,5 +1,112 @@
 # Verification Log
 
+## 2026-06-22
+
+### M8-4a Status Logs Backend
+
+Change set:
+
+- Added `@work/platform-contract` status-log DTOs:
+  `StatusLogDto`, `CreateStatusLogsInput`, `ListStatusLogsQuery`, and `ListStatusLogsResult`.
+- Added `platform.status_logs` via hand-written migration `0003_m8_status_logs.sql`, Drizzle schema
+  declaration, and memory / PostgreSQL repository methods for batch create and paged subject list.
+  The table includes the reserved `deleted_at` soft-delete column and an
+  `(enterprise_id, subject_employee_id, created_at desc)` index.
+- Moved the employee scope predicate into `PlatformScopeService.matchesScope` and updated
+  `EmployeeService` to delegate to the shared predicate, preserving the previous read/write scope
+  behavior.
+- Added `StatusLogService` and `StatusLogController`:
+  `POST /api/platform/status-logs` requires `platform:status-log:create`, dedupes
+  `subjectEmployeeIds`, validates every subject with `profile` write scope, and fails the entire
+  batch as 404 without writing if any subject is missing, cross-tenant, or out of scope.
+- Added `GET /api/platform/employees/:id/status-logs` through `EmployeeController`, requiring
+  `platform:employee:view` plus `profile` read-scope visibility on the target employee.
+- Added audit for successful and rejected create attempts. Success metadata records only
+  `subjectEmployeeIds`, `subjectCount`, and `contentLength`; rejected batches omit concrete subject
+  ids. The service does not inject an event bus and does not publish notifications.
+- Added `platform:status-log:create` to the platform manifest so seed grants it through the existing
+  active-manifest permission pipeline.
+
+Validation:
+
+- TDD red / green:
+  - Before implementation, the new status-log service spec failed because
+    `PlatformScopeService.matchesScope` did not exist and `StatusLogService` was missing.
+  - Before implementation, the platform e2e status-log endpoint returned 404 for
+    `/api/platform/status-logs` instead of the expected auth / permission behavior.
+  - After implementation, targeted service + scope + employee service tests passed:
+    3 files / 27 tests.
+  - After adding DTO whitespace validation and auth repository mock parity, targeted tests passed:
+    4 files / 48 tests.
+- Primed-graph boundary lint:
+  - `pnpm exec nx graph --file=tmp-graph.json`: pass; temporary graph file removed.
+  - `pnpm exec nx run @work/platform-api:lint`: pass with existing non-null assertion warnings;
+    no errors. The only new test warning found during development was removed.
+  - `pnpm exec nx run @work/platform-contract:lint`: pass.
+- `NODE_ENV=test pnpm verify`: pass.
+  - `lint`: pass across 27 of 28 workspace projects, warnings only from existing non-null /
+    unused-placeholder patterns.
+  - `typecheck`: pass across 27 of 28 workspace projects.
+  - `test`: pass.
+    - Unit: 41 files passed / 5 Postgres-gated files skipped; 205 tests passed / 35 skipped.
+    - Web: 33 files / 91 tests passed.
+  - `test:e2e`: pass, 7 files / 49 tests. Includes the new platform e2e assertion for
+    create/list status logs, no-token 401, no-permission 403, out-of-scope batch rejection,
+    out-of-scope read 404, DTO validation, and all-or-nothing no-write behavior.
+  - `build`: pass across 27 of 28 workspace projects. Vite emitted the existing workbench-shell
+    large chunk warning.
+- `NODE_ENV=test pnpm test:e2e`: pass when re-run independently, 7 files / 49 tests. This was used
+  to verify a transient `ERR_IPC_CHANNEL_CLOSED` seen in one earlier full `verify` attempt was a
+  Vitest worker IPC transient rather than an assertion failure; the subsequent full `verify` passed.
+- `pnpm db:generate`: command completed and detected 15 platform tables including `status_logs`.
+  As in earlier hand-written platform migrations, Drizzle generated a full snapshot migration/meta
+  because this repository does not commit Drizzle meta history. The generated
+  `0000_large_madame_hydra.sql` and `meta/` directory were deleted; only the hand-written
+  `0003_m8_status_logs.sql` remains in the PR.
+- Postgres-gated verification:
+  - Local Docker was unavailable (`dockerDesktopLinuxEngine` pipe missing).
+  - Direct `db:setup` against `postgresql://work:work@localhost:5432/work_platform` failed at the
+    first platform migration with `ECONNREFUSED` for `::1:5432` and `127.0.0.1:5432`.
+  - Therefore `verify:full` / `test:db` / `test:e2e:postgres` could not run locally. Quick-path unit
+    output explicitly shows the Postgres-gated files skipped, including
+    `apps/platform-api/src/repositories/postgres-platform.repository.integration.spec.ts`
+    (17 skipped). CI or a local Postgres bring-up must cover this gated path before release.
+
+Repository / e2e assertions:
+
+- Memory repository and platform e2e prove the HTTP behavior:
+  - admin can batch create a near-activity note for two subjects and read the note from each
+    subject timeline.
+  - a role without `platform:status-log:create` gets 403 on create.
+  - a department-scoped actor cannot create a batch containing an out-of-scope subject; the entire
+    request returns 404 and no in-scope partial row is written.
+  - a department-scoped actor cannot read an out-of-scope subject's timeline; the target is treated
+    as not found.
+  - invalid body shapes, too many subject ids, and whitespace-only content are rejected.
+- PostgreSQL integration spec was added for the gated path and asserts table / index presence,
+  batch insert ordering by `created_at DESC`, and `deleted_at IS NULL` filtering once
+  `RUN_POSTGRES_INTEGRATION=true` is available.
+
+Security / §16:
+
+- `docs/security-baseline.md §5.3` already contains the M8 rule that near-activity batch writes
+  use `profile` write scope and validate every subject. This slice implements that existing rule;
+  it does not change the data-scope model, token/session/auth rules, RBAC semantics, or sensitive
+  data classifications. No baseline change or ADR is required.
+- Security-sensitive implementation points ready for independent review:
+  enterprise and author ids come only from `currentUser`; cross-tenant / out-of-scope / missing
+  subjects return 404; failure audit omits concrete subject ids; success audit omits the content
+  body; status logs do not emit events or notification triggers.
+- `security-reviewer`: pass, 0 Blocking / 0 Major / 0 Minor. Reviewer confirmed guard wiring,
+  currentUser-derived tenant/scope isolation, all-or-nothing validation before insert, DTO and
+  pagination bounds, audit minimization, parameterized repository queries, memory/postgres parity,
+  and absence of status-log event/notification triggers.
+
+Follow-up:
+
+- M8-4b: person-page frontend timeline UI consuming `GET /api/platform/employees/:id/status-logs`.
+- M8-6 / CI: run Postgres-gated `test:db` and `verify:full` with Docker/Postgres available.
+
 ## 2026-06-21
 
 ### M8-3 profile.updated Event

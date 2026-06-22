@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readPlatformDatabaseConfig } from '../db/db.config';
 import { runMigrations } from '../db/migrate';
@@ -247,6 +248,70 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       registration_status: 'active',
       title: 'Updated Title',
     });
+  });
+
+  it('creates and lists status logs with deleted-at filtering and newest-first ordering', async () => {
+    const suffix = Date.now().toString();
+    const employee = await repository.createEmployee({
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      departmentId: DEFAULT_DEPARTMENT_ID,
+      employeeNo: `SL${suffix}`,
+      account: `status-log-${suffix}`,
+      name: 'Status Log User',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+    const first = {
+      id: randomUUID(),
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      subjectEmployeeId: employee.id,
+      authorEmployeeId: DEFAULT_ADMIN_USER_ID,
+      content: `first-${suffix}`,
+      createdAt: '2026-06-21T00:00:00.000Z',
+    };
+    const second = {
+      id: randomUUID(),
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      subjectEmployeeId: employee.id,
+      authorEmployeeId: DEFAULT_ADMIN_USER_ID,
+      content: `second-${suffix}`,
+      createdAt: '2026-06-22T00:00:00.000Z',
+    };
+    const hidden = {
+      id: randomUUID(),
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      subjectEmployeeId: employee.id,
+      authorEmployeeId: DEFAULT_ADMIN_USER_ID,
+      content: `hidden-${suffix}`,
+      createdAt: '2026-06-23T00:00:00.000Z',
+    };
+
+    await expect(repository.createStatusLogs([first, second, hidden])).resolves.toEqual([
+      expect.objectContaining({ id: first.id, content: first.content }),
+      expect.objectContaining({ id: second.id, content: second.content }),
+      expect.objectContaining({ id: hidden.id, content: hidden.content }),
+    ]);
+    await pool.query('UPDATE platform.status_logs SET deleted_at = now() WHERE id = $1', [
+      hidden.id,
+    ]);
+
+    const listed = await repository.listStatusLogsBySubject(DEFAULT_ENTERPRISE_ID, employee.id, {
+      limit: 10,
+      offset: 0,
+    });
+    expect(listed.total).toBe(2);
+    expect(listed.items.map((item) => item.id)).toEqual([second.id, first.id]);
+    expect(listed.items).not.toContainEqual(expect.objectContaining({ id: hidden.id }));
+
+    const indexResult = await pool.query<{ indexname: string }>(
+      `
+        SELECT indexname
+        FROM pg_indexes
+        WHERE schemaname = 'platform'
+          AND tablename = 'status_logs'
+          AND indexname = 'status_logs_subject_idx'
+      `,
+    );
+    expect(indexResult.rows).toHaveLength(1);
   });
 
   it('lists menus allowed by permission codes', async () => {
@@ -542,15 +607,29 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       }),
     );
     await expect(
-      repository.updateDepartment(child.id, { name: 'Cross Tenant' }, '00000000-0000-0000-0000-00000000ffff'),
+      repository.updateDepartment(
+        child.id,
+        { name: 'Cross Tenant' },
+        '00000000-0000-0000-0000-00000000ffff',
+      ),
     ).resolves.toBeUndefined();
 
-    await expect(repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
+    await expect(
+      repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID),
+    ).resolves.toBe(false);
     await repository.updateDepartment(child.id, { parentId: parent.id }, DEFAULT_ENTERPRISE_ID);
-    await expect(repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
-    await expect(repository.softDeleteDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
-    await expect(repository.softDeleteDepartment(child.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
-    await expect(repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
+    await expect(
+      repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID),
+    ).resolves.toBe(true);
+    await expect(repository.softDeleteDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(
+      false,
+    );
+    await expect(repository.softDeleteDepartment(child.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(
+      true,
+    );
+    await expect(
+      repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID),
+    ).resolves.toBe(false);
     await expect(repository.findDepartmentById(child.id)).resolves.toBeUndefined();
 
     await pool.query(
@@ -569,8 +648,12 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       `,
       [DEFAULT_ENTERPRISE_ID, parent.id, `DUD${suffix}`, `deleted-employee-${suffix}`],
     );
-    await expect(repository.countActiveEmployeesInDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(0);
-    await expect(repository.softDeleteDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(true);
+    await expect(
+      repository.countActiveEmployeesInDepartment(parent.id, DEFAULT_ENTERPRISE_ID),
+    ).resolves.toBe(0);
+    await expect(repository.softDeleteDepartment(parent.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(
+      true,
+    );
 
     const occupied = await repository.createDepartment({
       enterpriseId: DEFAULT_ENTERPRISE_ID,
@@ -585,7 +668,9 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       name: 'Department Occupied Employee',
       initialPassword: TEST_INITIAL_SECRET,
     });
-    await expect(repository.softDeleteDepartment(occupied.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(false);
+    await expect(repository.softDeleteDepartment(occupied.id, DEFAULT_ENTERPRISE_ID)).resolves.toBe(
+      false,
+    );
   });
 
   it('uses a deleted-at-only descendant query for cycle checks without changing active scope traversal', async () => {
@@ -606,7 +691,9 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       'disabled',
     ]);
 
-    await expect(repository.listDescendantDepartmentIds(root.id, DEFAULT_ENTERPRISE_ID)).resolves.not.toContain(disabled.id);
+    await expect(
+      repository.listDescendantDepartmentIds(root.id, DEFAULT_ENTERPRISE_ID),
+    ).resolves.not.toContain(disabled.id);
     await expect(
       repository.listDescendantDepartmentIdsForCycleCheck(root.id, DEFAULT_ENTERPRISE_ID),
     ).resolves.toContain(disabled.id);

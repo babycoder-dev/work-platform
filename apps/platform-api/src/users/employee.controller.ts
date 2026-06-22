@@ -1,8 +1,21 @@
-import { Body, Controller, Get, Inject, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { dtoValidationPipe, PermissionGuard, RequirePermissions } from '@work/nest-common';
 import { PlatformAuthGuard } from '../auth/platform-auth.guard';
 import type { PlatformRequest } from '../auth/request-user';
 import { buildPlatformAuditContext } from '../auth/request-user';
+import { parseStatusLogListQuery } from '../status-log/status-log.dto';
+import { StatusLogService } from '../status-log/status-log.service';
 import {
   AssignEmployeeRolesDto,
   CreateEmployeeDto,
@@ -16,7 +29,10 @@ import { EmployeeService } from './employee.service';
 @Controller('employees')
 @UseGuards(PlatformAuthGuard, PermissionGuard)
 export class EmployeeController {
-  constructor(@Inject(EmployeeService) private readonly employeeService: EmployeeService) {}
+  constructor(
+    @Inject(EmployeeService) private readonly employeeService: EmployeeService,
+    @Inject(StatusLogService) private readonly statusLogService: StatusLogService,
+  ) {}
 
   @Get()
   @RequirePermissions('platform:employee:view')
@@ -55,6 +71,21 @@ export class EmployeeController {
       'self',
       request.currentUser!,
       buildPlatformAuditContext(request),
+    );
+  }
+
+  @Get(':id/status-logs')
+  @RequirePermissions('platform:employee:view')
+  listStatusLogs(
+    @Param('id') id: string,
+    @Query('limit') limit: string | undefined,
+    @Query('offset') offset: string | undefined,
+    @Req() request: PlatformRequest,
+  ) {
+    return this.statusLogService.listStatusLogs(
+      id,
+      parseStatusLogListQuery(limit, offset),
+      request.currentUser!,
     );
   }
 

@@ -89,14 +89,18 @@ describe('AuthService', () => {
     const currentUser = await service.authenticateAccessToken(login.accessToken);
 
     expect(currentUser.id).toBe('user-admin');
-    expect(currentUser.permissions.map((permission) => permission.code)).toContain('platform:org:view');
+    expect(currentUser.permissions.map((permission) => permission.code)).toContain(
+      'platform:org:view',
+    );
   });
 
   it('rejects unknown access tokens', async () => {
     const store = new PlatformMemoryStore();
     const service = new AuthService(store);
 
-    await expect(service.authenticateAccessToken('dev-access-missing')).rejects.toThrow(UnauthorizedException);
+    await expect(service.authenticateAccessToken('dev-access-missing')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('rejects expired access sessions', async () => {
@@ -108,7 +112,9 @@ describe('AuthService', () => {
       expiresAt: '2000-01-01T00:00:00.000Z',
     });
 
-    await expect(service.authenticateAccessToken('dev-access-expired')).rejects.toThrow(UnauthorizedException);
+    await expect(service.authenticateAccessToken('dev-access-expired')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('resets failed attempts after a successful login', async () => {
@@ -146,7 +152,9 @@ describe('AuthService', () => {
     });
     const service = new AuthService(repository);
 
-    await expect(service.login({ account: 'admin', password: 'wrong-password' })).rejects.toThrow('账号或密码错误');
+    await expect(service.login({ account: 'admin', password: 'wrong-password' })).rejects.toThrow(
+      '账号或密码错误',
+    );
 
     expect(repository.updateLocalIdentitySecurityState).toHaveBeenCalledWith(employee.id, {
       failedAttempts: 1,
@@ -239,7 +247,9 @@ describe('AuthService', () => {
     });
     const service = new AuthService(repository);
 
-    await expect(service.login({ account: 'admin', password: 'wrong-password' })).rejects.toThrow('账号或密码错误');
+    await expect(service.login({ account: 'admin', password: 'wrong-password' })).rejects.toThrow(
+      '账号或密码错误',
+    );
 
     expect(repository.updateLocalIdentitySecurityState).toHaveBeenCalledWith(employee.id, {
       failedAttempts: 1,
@@ -261,7 +271,9 @@ describe('AuthService', () => {
     repository.findLocalIdentityByAccount.mockResolvedValue(undefined);
     const service = new AuthService(repository);
 
-    await expect(service.login({ account: 'missing', password: 'wrong-password' })).rejects.toThrow('账号或密码错误');
+    await expect(service.login({ account: 'missing', password: 'wrong-password' })).rejects.toThrow(
+      '账号或密码错误',
+    );
 
     expect(repository.recordAuditLog).not.toHaveBeenCalled();
     expect(repository.updateLocalIdentitySecurityState).not.toHaveBeenCalled();
@@ -282,7 +294,9 @@ describe('AuthService', () => {
     });
     const service = new AuthService(repository);
 
-    await expect(service.login({ account: 'admin', password: 'admin123' })).rejects.toThrow('账号或密码错误');
+    await expect(service.login({ account: 'admin', password: 'admin123' })).rejects.toThrow(
+      '账号或密码错误',
+    );
 
     expect(repository.updateLocalIdentitySecurityState).not.toHaveBeenCalled();
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
@@ -355,10 +369,12 @@ describe('AuthService', () => {
     });
     const service = new AuthService(repository);
 
-    await expect(service.changePassword(employee.id, {
-      oldPassword: 'wrong',
-      newPassword: 'Newpass1',
-    })).rejects.toThrow('原密码错误');
+    await expect(
+      service.changePassword(employee.id, {
+        oldPassword: 'wrong',
+        newPassword: 'Newpass1',
+      }),
+    ).rejects.toThrow('原密码错误');
 
     expect(repository.updatePassword).not.toHaveBeenCalled();
     expect(repository.updateLocalIdentitySecurityState).not.toHaveBeenCalled();
@@ -385,10 +401,12 @@ describe('AuthService', () => {
     });
     const service = new AuthService(repository);
 
-    await expect(service.changePassword(employee.id, {
-      oldPassword: 'admin123',
-      newPassword: 'admin123',
-    })).rejects.toThrow('新密码不能与原密码相同');
+    await expect(
+      service.changePassword(employee.id, {
+        oldPassword: 'admin123',
+        newPassword: 'admin123',
+      }),
+    ).rejects.toThrow('新密码不能与原密码相同');
 
     expect(repository.updatePassword).not.toHaveBeenCalled();
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
@@ -411,10 +429,12 @@ describe('AuthService', () => {
     });
     const service = new AuthService(repository);
 
-    await expect(service.changePassword(employee.id, {
-      oldPassword: 'admin123',
-      newPassword: 'Newpass1',
-    })).rejects.toThrow('登录状态无效');
+    await expect(
+      service.changePassword(employee.id, {
+        oldPassword: 'admin123',
+        newPassword: 'Newpass1',
+      }),
+    ).rejects.toThrow('登录状态无效');
 
     expect(repository.findLocalIdentityByAccount).not.toHaveBeenCalled();
     expect(repository.updatePassword).not.toHaveBeenCalled();
@@ -462,35 +482,38 @@ describe('AuthService', () => {
       ...employee,
       roleIds: ['role-profile', 'role-presence', 'role-disabled', 'role-foreign'],
     });
-    repository.findRoleById.mockImplementation(async (id: string) => ({
-      'role-profile': {
-        ...role,
-        id,
-        code: id,
-        dataScopes: [{ dataType: 'profile', scope: 'company' }],
-      },
-      'role-presence': {
-        ...role,
-        id,
-        code: id,
-        dataScopes: [{ dataType: 'presence', scope: 'department' }],
-      },
-      'role-disabled': {
-        ...role,
-        id,
-        code: id,
-        dataScopes: [{ dataType: 'report', scope: 'company' }],
-        status: 'disabled',
-      },
-      'role-foreign': {
-        ...role,
-        id,
-        code: id,
-        enterpriseId: 'ent-other',
-        permissionCodes: ['platform:employee:create'],
-        dataScopes: [{ dataType: 'report', scope: 'company' }],
-      },
-    })[id]);
+    repository.findRoleById.mockImplementation(
+      async (id: string) =>
+        ({
+          'role-profile': {
+            ...role,
+            id,
+            code: id,
+            dataScopes: [{ dataType: 'profile', scope: 'company' }],
+          },
+          'role-presence': {
+            ...role,
+            id,
+            code: id,
+            dataScopes: [{ dataType: 'presence', scope: 'department' }],
+          },
+          'role-disabled': {
+            ...role,
+            id,
+            code: id,
+            dataScopes: [{ dataType: 'report', scope: 'company' }],
+            status: 'disabled',
+          },
+          'role-foreign': {
+            ...role,
+            id,
+            code: id,
+            enterpriseId: 'ent-other',
+            permissionCodes: ['platform:employee:create'],
+            dataScopes: [{ dataType: 'report', scope: 'company' }],
+          },
+        })[id],
+    );
     const service = new AuthService(repository);
 
     await expect(service.toCurrentUser(employee.id)).resolves.toEqual(
@@ -577,6 +600,8 @@ function createRepositoryMock() {
     deleteRole: vi.fn(),
     countUsersWithRole: vi.fn(),
     setUserRoles: vi.fn(),
+    createStatusLogs: vi.fn(),
+    listStatusLogsBySubject: vi.fn(),
     recordAuditLog: vi.fn().mockResolvedValue(undefined),
   } as PlatformRepository & {
     findLocalIdentityByAccount: ReturnType<typeof vi.fn>;

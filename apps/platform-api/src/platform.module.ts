@@ -25,6 +25,8 @@ import { RoleController } from './rbac/role.controller';
 import { RbacService } from './rbac/rbac.service';
 import { PlatformScopeService } from './scope/platform-scope.service';
 import { PlatformMemoryStore } from './store/platform-memory.store';
+import { StatusLogController } from './status-log/status-log.controller';
+import { StatusLogService } from './status-log/status-log.service';
 import { HealthController } from './system/health.controller';
 import { EmployeeController } from './users/employee.controller';
 import { EmployeeLookupService } from './users/employee-lookup.service';
@@ -37,6 +39,7 @@ import { EmployeeService } from './users/employee.service';
     AuthController,
     EnterpriseController,
     DepartmentController,
+    StatusLogController,
     EmployeeController,
     MenuController,
     ModuleManifestController,
@@ -52,13 +55,16 @@ import { EmployeeService } from './users/employee.service';
         memoryRepository: PlatformMemoryStore,
         postgresRepository: PostgresPlatformRepository,
       ): PlatformRepository => {
-        return readPlatformRepositoryDriver() === 'postgres' ? postgresRepository : memoryRepository;
+        return readPlatformRepositoryDriver() === 'postgres'
+          ? postgresRepository
+          : memoryRepository;
       },
       inject: [PlatformMemoryStore, PostgresPlatformRepository],
     },
     AuthService,
     PlatformAuthGuard,
     OrgService,
+    StatusLogService,
     PlatformOrgLookupService,
     EmployeeService,
     EmployeeLookupService,

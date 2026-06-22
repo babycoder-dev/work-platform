@@ -6,7 +6,6 @@ import type {
   CreateEmployeeInput,
   CurrentUserDto,
   EmployeeDto,
-  PlatformScope,
   ProfileUpdatedPayload,
   ResetEmployeePasswordInput,
   UpdateEmployeeProfileInput,
@@ -35,7 +34,7 @@ export class EmployeeService {
   async listEmployees(currentUser: CurrentUserDto) {
     const scope = await this.scopeService.resolveScope(currentUser, 'profile');
     const all = await this.repository.listEmployees();
-    const items = all.filter((employee) => this.matchScope(employee, scope));
+    const items = all.filter((employee) => this.scopeService.matchesScope(employee, scope));
     return {
       items,
     };
@@ -47,7 +46,7 @@ export class EmployeeService {
       throw new NotFoundException('员工不存在');
     }
     const scope = await this.scopeService.resolveScope(currentUser, 'profile');
-    if (!this.matchScope(employee, scope)) {
+    if (!this.scopeService.matchesScope(employee, scope)) {
       throw new NotFoundException('员工不存在');
     }
     return employee;
@@ -59,23 +58,6 @@ export class EmployeeService {
       throw new NotFoundException('员工不存在');
     }
     return employee;
-  }
-
-  private matchScope(employee: EmployeeDto, scope: PlatformScope): boolean {
-    if (employee.enterpriseId !== scope.enterpriseId) {
-      return false;
-    }
-    switch (scope.kind) {
-      case 'company':
-        return true;
-      case 'self':
-        return employee.id === scope.userId;
-      case 'department':
-      case 'department_tree':
-        return (
-          employee.departmentId !== undefined && scope.departmentIds.includes(employee.departmentId)
-        );
-    }
   }
 
   async updateEmployeeProfile(
@@ -97,7 +79,7 @@ export class EmployeeService {
     }
     if (mode === 'management') {
       const scope = await this.scopeService.resolveScope(currentUser, 'profile');
-      if (!this.matchScope(employee, scope)) {
+      if (!this.scopeService.matchesScope(employee, scope)) {
         await this.recordFailureAudit(action, id, auditContext);
         throw new NotFoundException('员工不存在');
       }
@@ -162,7 +144,9 @@ export class EmployeeService {
     mode: ProfileUpdateMode,
   ): { next: EmployeeDto; changedFields: ProfileField[] } {
     const allowedFields: ProfileField[] =
-      mode === 'self' ? ['name', 'title', 'mobile', 'email'] : ['name', 'title', 'mobile', 'email', 'departmentId'];
+      mode === 'self'
+        ? ['name', 'title', 'mobile', 'email']
+        : ['name', 'title', 'mobile', 'email', 'departmentId'];
     const next: EmployeeDto = { ...employee };
     const changedFields: ProfileField[] = [];
     for (const field of allowedFields) {

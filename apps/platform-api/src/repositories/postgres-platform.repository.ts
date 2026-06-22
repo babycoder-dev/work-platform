@@ -14,6 +14,7 @@ import type {
   PermissionDto,
   RoleDataScope,
   RoleDto,
+  StatusLogDto,
   UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
@@ -25,6 +26,7 @@ import type {
   CreateAccessSessionInput,
   LocalIdentitySecurityState,
   PlatformRepository,
+  NewStatusLog,
   UpdateLocalIdentitySecurityStateInput,
   UpdatePasswordInput,
 } from './platform.repository';
@@ -122,6 +124,15 @@ interface RoleRow {
   data_scopes: RoleDataScope[];
 }
 
+interface StatusLogRow {
+  id: string;
+  enterprise_id: string;
+  subject_employee_id: string;
+  author_employee_id: string;
+  content: string;
+  created_at: Date;
+}
+
 @Injectable()
 export class PostgresPlatformRepository implements PlatformRepository {
   constructor(@Inject(PLATFORM_DB_POOL) private readonly pool: Pool) {}
@@ -135,12 +146,15 @@ export class PostgresPlatformRepository implements PlatformRepository {
   }
 
   async listDepartments(enterpriseId: string): Promise<DepartmentDto[]> {
-    const result = await this.pool.query<DepartmentRow>(`
+    const result = await this.pool.query<DepartmentRow>(
+      `
       SELECT id, enterprise_id, parent_id, manager_user_id, code, name, sort_order, status
       FROM platform.departments
       WHERE enterprise_id = $1 AND deleted_at IS NULL
       ORDER BY sort_order, code
-    `, [enterpriseId]);
+    `,
+      [enterpriseId],
+    );
 
     return result.rows.map(mapDepartment);
   }
@@ -902,6 +916,87 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
+  async createStatusLogs(inputs: NewStatusLog[]): Promise<StatusLogDto[]> {
+    if (inputs.length === 0) {
+      return [];
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const values: unknown[] = [];
+      const placeholders = inputs.map((input, index) => {
+        const base = index * 6;
+        values.push(
+          input.id,
+          input.enterpriseId,
+          input.subjectEmployeeId,
+          input.authorEmployeeId,
+          input.content,
+          input.createdAt,
+        );
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`;
+      });
+      const result = await client.query<StatusLogRow>(
+        `
+          INSERT INTO platform.status_logs (
+            id,
+            enterprise_id,
+            subject_employee_id,
+            author_employee_id,
+            content,
+            created_at
+          )
+          VALUES ${placeholders.join(', ')}
+          RETURNING id, enterprise_id, subject_employee_id, author_employee_id, content, created_at
+        `,
+        values,
+      );
+      await client.query('COMMIT');
+      return result.rows.map(mapStatusLog);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      mapPostgresError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async listStatusLogsBySubject(
+    enterpriseId: string,
+    subjectEmployeeId: string,
+    options: { limit: number; offset: number },
+  ): Promise<{ items: StatusLogDto[]; total: number }> {
+    const [itemsResult, totalResult] = await Promise.all([
+      this.pool.query<StatusLogRow>(
+        `
+          SELECT id, enterprise_id, subject_employee_id, author_employee_id, content, created_at
+          FROM platform.status_logs
+          WHERE enterprise_id = $1
+            AND subject_employee_id = $2
+            AND deleted_at IS NULL
+          ORDER BY created_at DESC
+          LIMIT $3 OFFSET $4
+        `,
+        [enterpriseId, subjectEmployeeId, options.limit, options.offset],
+      ),
+      this.pool.query<{ count: string }>(
+        `
+          SELECT count(*)::text AS count
+          FROM platform.status_logs
+          WHERE enterprise_id = $1
+            AND subject_employee_id = $2
+            AND deleted_at IS NULL
+        `,
+        [enterpriseId, subjectEmployeeId],
+      ),
+    ]);
+
+    return {
+      items: itemsResult.rows.map(mapStatusLog),
+      total: Number(totalResult.rows[0].count),
+    };
+  }
+
   async recordAuditLog(input: CreateAuditLogInput): Promise<void> {
     await this.pool.query(
       `
@@ -1205,5 +1300,16 @@ function mapRole(row: RoleRow): RoleDto {
     dataScopes: row.data_scopes ?? [],
     isSystem: row.is_system,
     status: row.status,
+  };
+}
+
+function mapStatusLog(row: StatusLogRow): StatusLogDto {
+  return {
+    id: row.id,
+    enterpriseId: row.enterprise_id,
+    subjectEmployeeId: row.subject_employee_id,
+    authorEmployeeId: row.author_employee_id,
+    content: row.content,
+    createdAt: row.created_at.toISOString(),
   };
 }

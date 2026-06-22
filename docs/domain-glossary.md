@@ -20,6 +20,8 @@
 | profile 写授权范围 | 使用 `profile` 数据范围决定某次员工档案写操作能否作用于目标员工；越权目标按不存在处理。                              |
 | `profile.updated` | 员工档案被他人修改且实际字段有变化后由 Platform Core 发布的领域事件；payload 仅包含企业、被改人、修改人和变更字段名集合，不包含字段值。 |
 | 注册状态      | `platform.employees.registration_status` 预留列，取值 `active | pending`；M8-2a 本期恒 `active`，不进入 API 契约。       |
+| 近况记录      | `platform.status_logs` 中保存的员工近况脉络。记录为追加式，不在 M8-4a 暴露编辑 / 删除端点；给某人新增近况不通知本人。 |
+| 近况批量写授权 | 新增近况时对去重后的每个 `subjectEmployeeId` 逐一套用 `profile` 写范围；任一 subject 越权、跨企业或不存在则整批拒绝且不落行。 |
 
 ## 2. 在位管理
 

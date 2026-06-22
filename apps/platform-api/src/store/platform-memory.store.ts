@@ -13,6 +13,7 @@ import type {
   ModuleManifestDto,
   PermissionDto,
   RoleDto,
+  StatusLogDto,
   UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
@@ -24,6 +25,7 @@ import type {
   UpdateLocalIdentitySecurityStateInput,
   UpdatePasswordInput,
 } from '../repositories/platform.repository';
+import type { NewStatusLog } from '../repositories/platform.repository';
 import { hashPassword } from '../security/secret-hash';
 import { platformModuleManifests } from '../seeds/seed-data';
 
@@ -38,6 +40,7 @@ interface LocalIdentity {
 }
 
 type StoredDepartment = DepartmentDto & { deletedAt?: string };
+type StoredStatusLog = StatusLogDto & { deletedAt?: string };
 
 @Injectable()
 export class PlatformMemoryStore implements PlatformRepository {
@@ -56,6 +59,7 @@ export class PlatformMemoryStore implements PlatformRepository {
   readonly menus = new Map<string, MenuDto>();
   readonly moduleManifests = new Map<string, ModuleManifestDto>();
   readonly roles = new Map<string, RoleDto>();
+  readonly statusLogs = new Map<string, StoredStatusLog>();
   readonly auditLogs: CreateAuditLogInput[] = [];
 
   constructor() {
@@ -135,7 +139,9 @@ export class PlatformMemoryStore implements PlatformRepository {
       ...(Object.hasOwn(input, 'managerUserId')
         ? { managerUserId: input.managerUserId ?? undefined }
         : {}),
-      ...(Object.hasOwn(input, 'sortOrder') ? { sortOrder: input.sortOrder ?? department.sortOrder } : {}),
+      ...(Object.hasOwn(input, 'sortOrder')
+        ? { sortOrder: input.sortOrder ?? department.sortOrder }
+        : {}),
     };
 
     this.departments.set(id, updated);
@@ -427,6 +433,33 @@ export class PlatformMemoryStore implements PlatformRepository {
     return updated;
   }
 
+  async createStatusLogs(inputs: NewStatusLog[]): Promise<StatusLogDto[]> {
+    const created = inputs.map((input) => ({ ...input }));
+    for (const item of created) {
+      this.statusLogs.set(item.id, item);
+    }
+    return created.map(toStatusLogDto);
+  }
+
+  async listStatusLogsBySubject(
+    enterpriseId: string,
+    subjectEmployeeId: string,
+    options: { limit: number; offset: number },
+  ): Promise<{ items: StatusLogDto[]; total: number }> {
+    const items = Array.from(this.statusLogs.values())
+      .filter(
+        (log) =>
+          log.enterpriseId === enterpriseId &&
+          log.subjectEmployeeId === subjectEmployeeId &&
+          !log.deletedAt,
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return {
+      items: items.slice(options.offset, options.offset + options.limit).map(toStatusLogDto),
+      total: items.length,
+    };
+  }
+
   async updateEmployee(
     employee: EmployeeDto,
     enterpriseId?: string,
@@ -531,5 +564,16 @@ function toDepartmentDto(department: StoredDepartment): DepartmentDto {
     managerUserId: department.managerUserId,
     sortOrder: department.sortOrder,
     status: department.status,
+  };
+}
+
+function toStatusLogDto(statusLog: StoredStatusLog): StatusLogDto {
+  return {
+    id: statusLog.id,
+    enterpriseId: statusLog.enterpriseId,
+    subjectEmployeeId: statusLog.subjectEmployeeId,
+    authorEmployeeId: statusLog.authorEmployeeId,
+    content: statusLog.content,
+    createdAt: statusLog.createdAt,
   };
 }

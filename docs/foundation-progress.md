@@ -296,7 +296,8 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 | M8-2a | 档案读写后端           | Done    | 2026-06-19 完成；详见 verification-log `M8-2a Profile Read-Write Backend`；`:id/me` 读、本人窄 DTO / 管理 DTO 写收口、profile 写授权、`registration_status` 预留列 |
 | M8-2b | 首登向导               | Done    | 2026-06-21 完成；详见 verification-log `M8-2b First-Login Wizard`                                                                                                  |
 | M8-3  | `profile.updated` 事件 | Done    | 2026-06-21 完成；详见 verification-log `M8-3 profile.updated Event`；payload 仅 id + 字段名，notification 恒发本人通知、不经 RecipientResolver / trigger_config      |
-| M8-4  | 近况                   | Pending | 依赖 M8-2a / M8-3；落 `platform.status_logs`                                                                                                                       |
+| M8-4a | 近况后端               | Done    | 2026-06-22 完成；详见 verification-log `M8-4a Status Logs Backend`；`platform.status_logs` + 批量新增 + 按 `profile` 范围逐 subject 授权                         |
+| M8-4b | 近况前端               | Pending | 人页近况脉络 UI；消费 M8-4a `GET /employees/:id/status-logs`                                                                                                      |
 | M8-5  | 自定义字段聚合         | Pending | 依赖 M6 Forms 与 M8 profile 槽位                                                                                                                                   |
 | M8-6  | 交付验证               | Pending | M8 后端 / 前端交付门禁                                                                                                                                             |
 

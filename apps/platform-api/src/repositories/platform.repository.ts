@@ -10,6 +10,7 @@ import type {
   ModuleManifestDto,
   PermissionDto,
   RoleDto,
+  StatusLogDto,
   UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
@@ -44,6 +45,15 @@ export interface UpdateLocalIdentitySecurityStateInput {
 export interface UpdatePasswordInput {
   passwordHash: string;
   mustChangePassword: boolean;
+}
+
+export interface NewStatusLog {
+  id: string;
+  enterpriseId: string;
+  subjectEmployeeId: string;
+  authorEmployeeId: string;
+  content: string;
+  createdAt: string;
 }
 
 export interface PlatformRepository {
@@ -108,6 +118,12 @@ export interface PlatformRepository {
     roleIds: string[],
     enterpriseId: string,
   ): Promise<EmployeeDto | undefined>;
+  createStatusLogs(inputs: NewStatusLog[]): Promise<StatusLogDto[]>;
+  listStatusLogsBySubject(
+    enterpriseId: string,
+    subjectEmployeeId: string,
+    options: { limit: number; offset: number },
+  ): Promise<{ items: StatusLogDto[]; total: number }>;
   recordAuditLog(input: CreateAuditLogInput): Promise<void>;
 }
 
