@@ -119,6 +119,7 @@ AI 每完成一个可交付片段，应执行或说明以下结果：
 
 凡是实现或修改面向用户的界面（壳、登录、业务模块屏），都按对应设计稿做**像素级还原**，并过下面两层门禁。
 依据与边界详见任务包 `docs/tasks/ui-foundation-fidelity.md` §2 与差距清单 `docs/design/ui-fidelity-gap-foundation.md`；
+组件库 Modal 的还原 follow-up 见 `docs/design/ui-fidelity-gap-modal.md`（登记于 `docs/foundation-progress.md` §7.2）。
 设计真源在 `docs/design/ui-handoff/`（只读基准，勿改）。
 
 - **A 类 · 实现方交付前必须自证（可静态/机器核验）：**
