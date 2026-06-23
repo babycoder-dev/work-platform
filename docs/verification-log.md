@@ -145,9 +145,11 @@ Review-fix follow-up:
     committed; this review fix contains no schema change.
   - Local Docker / Postgres remained unavailable (`dockerDesktopLinuxEngine` pipe missing), so
     `verify:full` and the updated PostgreSQL-gated repository assertions did not run locally.
-  - A security-reviewer second-pass was attempted for this review-fix diff, but the subagent failed
-    to start due the Codex usage limit and returned no findings. The initial M8-4a security review
-    result above remains unchanged; a second pass can be rerun when quota is available.
+  - `security-reviewer` second pass for diff `df6f6d15..b3d3345`: pass, 0 Blocking / 0 Major /
+    0 Minor. Reviewer checked DTO malformed-id rejection, batch-fetch authorization, minimal
+    best-effort failure audit, tenant-scoped list query, and stable paging. Reviewer reran targeted
+    status-log unit coverage (21 tests), platform e2e (32 tests), and `git diff --check`; Postgres
+    gated tests were not run by the reviewer and remain the CI/local-Postgres follow-up above.
 
 Follow-up:
 
