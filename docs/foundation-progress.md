@@ -320,6 +320,17 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 | --------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [UI follow-up] 共享 `@work/ui` Modal 未对齐设计稿居中弹窗（M8-2b 复核衍生，5 处） | Pending | `.work-modal`/`.work-scrim` 与原型 `.mscrim`/`.modal`/`.mh`/`.mf` 有 5 处偏差：遮罩 .32 vs .45、容器多一圈边框、标题 18px vs 16px、页脚多分隔线+内距不符、宽度 420 vs 440px。**当前 Modal/ConfirmDialog 在 apps/modules 零消费者（首登向导自绘弹窗），现在对齐零回归**；采纳前修最划算。明细见 `docs/design/ui-fidelity-gap-modal.md`。放 M8 收尾或单独 UI 切片。 |
 
+### 7.3 已知代码质量 Follow-up（M8-4a code-review 衍生）
+
+来源：M8-4a 近况记录后端（PR #23）第二轮 code-review。合并前已修 #1 内存/postgres 排序口径 + #2 索引方向/含 id（见该 PR）。以下为**非阻塞**、留后续清理项：
+
+| 项                                                                                                 | 状态    | 处理                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Quality follow-up] 失败审计 try/catch 吞错策略不统一（StatusLogService 吞、EmployeeService 不吞） | Pending | M8-4a 给 `StatusLogService.recordFailureAudit` 包了 try/catch 仅 warn（审计写失败不掩盖业务 404），但 `EmployeeService.recordFailureAudit` 仍裸 await（审计失败会把 404 变 500）。"审计是否 best-effort" 属横切策略，应统一到审计层（包装器/拦截器统一决定吞错+降级日志），而非每 service 各自 try/catch。涉安全可观测性，放 M8 收尾或安全 follow-up 切片。 |
+| [Quality follow-up] UUID 校验正则散落 ≥3 处且严格度不一                                            | Pending | `status-log.dto.ts`、`postgres-platform.repository.ts` 的 `isUuid`、`files.controller.ts` 各有一份 UUID 正则，口径不一致（有的任意版本、有的限 v1-5）。收敛为统一 `@IsUUID()` / 共享 `isUuid` 常量，避免"过了 DTO 却被 repo 过滤 → 莫名 404"的漂移。                                                                                                           |
+| [Quality follow-up] 分页归一化重复实现                                                             | Pending | `clampLimit`/`normalizeOffset`/`parseNumber` 在 `status-log` 与 `modules/notification` 逐字重复。抽共享分页工具（默认 20、夹 [1,100]、offset≥0），两边引用，防改上限时漏改一处。                                                                                                                                                                               |
+| [Quality follow-up] status-log 列表查询用 3-CTE 而非本库两查询范式                                 | Pending | `listStatusLogsBySubject` 用 `filtered/total/paged + LEFT JOIN ON true` + 全可空行映射，而既有范式（notification repo）是 `Promise.all` 两查询。CTE 多一层防御性 null-guard；后续给 SELECT 加列若漏改 guard，空页会吐 null 字段 DTO。可简化回两查询范式。                                                                                                      |
+
 ## 8. M4 在位管理 MVP
 
 状态：Done
