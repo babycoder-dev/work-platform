@@ -4,4 +4,5 @@ export * from './events';
 export * from './org';
 export * from './rbac';
 export * from './scope';
+export * from './status-log';
 export * from './users';

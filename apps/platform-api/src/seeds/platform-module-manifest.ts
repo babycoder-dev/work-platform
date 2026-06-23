@@ -18,6 +18,7 @@ export const platformModuleManifest: ModuleManifestDto = {
     { code: 'platform:employee:view', name: '查看员工', moduleName: 'platform' },
     { code: 'platform:employee:create', name: '创建员工', moduleName: 'platform' },
     { code: 'platform:employee:manage', name: '管理员工', moduleName: 'platform' },
+    { code: 'platform:status-log:create', name: '新增近况记录', moduleName: 'platform' },
     { code: 'platform:role:view', name: '查看角色', moduleName: 'platform' },
     { code: 'platform:role:manage', name: '管理角色', moduleName: 'platform' },
     { code: 'platform:role:assign', name: '分配用户角色', moduleName: 'platform' },

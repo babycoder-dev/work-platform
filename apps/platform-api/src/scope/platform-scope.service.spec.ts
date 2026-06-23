@@ -1,4 +1,4 @@
-import type { CurrentUserDto } from '@work/platform-contract';
+import type { CurrentUserDto, EmployeeDto, PlatformScope } from '@work/platform-contract';
 import { describe, expect, it, vi } from 'vitest';
 import type { PlatformRepository } from '../repositories/platform.repository';
 import { PlatformScopeService } from './platform-scope.service';
@@ -7,7 +7,12 @@ describe('PlatformScopeService', () => {
   it('resolves company as the effective scope', async () => {
     const { service, repository } = createService();
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes({ profile: ['company'] }) }), 'profile')).resolves.toEqual(
+    await expect(
+      service.resolveScope(
+        currentUser({ dataScopes: scopes({ profile: ['company'] }) }),
+        'profile',
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'company',
         departmentIds: [],
@@ -20,7 +25,12 @@ describe('PlatformScopeService', () => {
   it('expands department_tree with descendants', async () => {
     const { service, repository } = createService(['dept-b', 'dept-c']);
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes({ presence: ['department_tree'] }) }), 'presence')).resolves.toEqual(
+    await expect(
+      service.resolveScope(
+        currentUser({ dataScopes: scopes({ presence: ['department_tree'] }) }),
+        'presence',
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'department_tree',
         departmentIds: ['dept-a', 'dept-b', 'dept-c'],
@@ -33,7 +43,12 @@ describe('PlatformScopeService', () => {
   it('resolves department as the caller department only', async () => {
     const { service, repository } = createService();
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes({ report: ['department'] }) }), 'report')).resolves.toEqual(
+    await expect(
+      service.resolveScope(
+        currentUser({ dataScopes: scopes({ report: ['department'] }) }),
+        'report',
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'department',
         departmentIds: ['dept-a'],
@@ -46,7 +61,9 @@ describe('PlatformScopeService', () => {
   it('resolves self without department filtering', async () => {
     const { service } = createService();
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes({ profile: ['self'] }) }), 'profile')).resolves.toEqual(
+    await expect(
+      service.resolveScope(currentUser({ dataScopes: scopes({ profile: ['self'] }) }), 'profile'),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'self',
         departmentIds: [],
@@ -58,7 +75,9 @@ describe('PlatformScopeService', () => {
   it('degrades custom to self', async () => {
     const { service } = createService();
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes({ profile: ['custom'] }) }), 'profile')).resolves.toEqual(
+    await expect(
+      service.resolveScope(currentUser({ dataScopes: scopes({ profile: ['custom'] }) }), 'profile'),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'self',
         departmentIds: [],
@@ -70,7 +89,9 @@ describe('PlatformScopeService', () => {
   it('degrades empty data scopes to self', async () => {
     const { service } = createService();
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes() }), 'profile')).resolves.toEqual(
+    await expect(
+      service.resolveScope(currentUser({ dataScopes: scopes() }), 'profile'),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'self',
         departmentIds: [],
@@ -82,7 +103,12 @@ describe('PlatformScopeService', () => {
   it('chooses department over custom', async () => {
     const { service } = createService();
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes({ profile: ['custom', 'department'] }) }), 'profile')).resolves.toEqual(
+    await expect(
+      service.resolveScope(
+        currentUser({ dataScopes: scopes({ profile: ['custom', 'department'] }) }),
+        'profile',
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'department',
         departmentIds: ['dept-a'],
@@ -94,7 +120,12 @@ describe('PlatformScopeService', () => {
   it('chooses company as the largest scope', async () => {
     const { service } = createService();
 
-    await expect(service.resolveScope(currentUser({ dataScopes: scopes({ profile: ['self', 'company'] }) }), 'profile')).resolves.toEqual(
+    await expect(
+      service.resolveScope(
+        currentUser({ dataScopes: scopes({ profile: ['self', 'company'] }) }),
+        'profile',
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'company',
         departmentIds: [],
@@ -106,9 +137,14 @@ describe('PlatformScopeService', () => {
   it('does not leak wider scopes across data types', async () => {
     const { service } = createService();
 
-    await expect(service.resolveScope(currentUser({
-      dataScopes: scopes({ profile: ['company'], presence: ['department'] }),
-    }), 'presence')).resolves.toEqual(
+    await expect(
+      service.resolveScope(
+        currentUser({
+          dataScopes: scopes({ profile: ['company'], presence: ['department'] }),
+        }),
+        'presence',
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         kind: 'department',
         departmentIds: ['dept-a'],
@@ -120,10 +156,13 @@ describe('PlatformScopeService', () => {
     const { service, repository } = createService();
 
     await expect(
-      service.resolveScope(currentUser({
-        dataScopes: scopes({ profile: ['department_tree'] }),
-        departmentId: undefined,
-      }), 'profile'),
+      service.resolveScope(
+        currentUser({
+          dataScopes: scopes({ profile: ['department_tree'] }),
+          departmentId: undefined,
+        }),
+        'profile',
+      ),
     ).resolves.toEqual(
       expect.objectContaining({
         kind: 'self',
@@ -138,12 +177,54 @@ describe('PlatformScopeService', () => {
   it('deduplicates department ids after department_tree expansion', async () => {
     const { service } = createService(['dept-a', 'dept-b']);
 
-    const scope = await service.resolveScope(currentUser({
-      dataScopes: scopes({ profile: ['department_tree'] }),
-    }), 'profile');
+    const scope = await service.resolveScope(
+      currentUser({
+        dataScopes: scopes({ profile: ['department_tree'] }),
+      }),
+      'profile',
+    );
 
     expect(scope.departmentIds).toEqual(['dept-a', 'dept-b']);
     expect(scope.departmentIds.filter((id) => id === 'dept-a')).toHaveLength(1);
+  });
+
+  it('matches employees with the same predicate used by profile read and write paths', () => {
+    const { service } = createService();
+    const target = employee({ departmentId: 'dept-a' });
+    const otherDepartment = employee({ id: 'user-b', departmentId: 'dept-b' });
+    const otherEnterprise = employee({
+      id: 'user-c',
+      enterpriseId: 'ent-other',
+      departmentId: 'dept-a',
+    });
+
+    expect(service.matchesScope(target, scope({ kind: 'company' }))).toBe(true);
+    expect(service.matchesScope(target, scope({ kind: 'self', userId: target.id }))).toBe(true);
+    expect(service.matchesScope(otherDepartment, scope({ kind: 'self', userId: target.id }))).toBe(
+      false,
+    );
+    expect(
+      service.matchesScope(target, scope({ kind: 'department', departmentIds: ['dept-a'] })),
+    ).toBe(true);
+    expect(
+      service.matchesScope(
+        otherDepartment,
+        scope({ kind: 'department', departmentIds: ['dept-a'] }),
+      ),
+    ).toBe(false);
+    expect(
+      service.matchesScope(
+        target,
+        scope({ kind: 'department_tree', departmentIds: ['dept-root', 'dept-a'] }),
+      ),
+    ).toBe(true);
+    expect(service.matchesScope(otherEnterprise, scope({ kind: 'company' }))).toBe(false);
+    expect(
+      service.matchesScope(
+        employee({ departmentId: undefined }),
+        scope({ kind: 'department', departmentIds: ['dept-a'] }),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -181,6 +262,32 @@ function scopes(input: Partial<CurrentUserDto['dataScopes']> = {}): CurrentUserD
     profile: [],
     presence: [],
     report: [],
+    ...input,
+  };
+}
+
+function scope(input: Partial<PlatformScope>): PlatformScope {
+  return {
+    kind: 'self',
+    userId: 'user-a',
+    enterpriseId: 'ent-default',
+    departmentId: 'dept-a',
+    departmentIds: [],
+    degradedFromCustom: false,
+    ...input,
+  };
+}
+
+function employee(input: Partial<EmployeeDto> = {}): EmployeeDto {
+  return {
+    id: 'user-a',
+    enterpriseId: 'ent-default',
+    employeeNo: 'U001',
+    account: 'user-a',
+    name: 'User A',
+    status: 'active',
+    roleIds: [],
+    mustChangePassword: false,
     ...input,
   };
 }

@@ -10,6 +10,7 @@ import type {
   ModuleManifestDto,
   PermissionDto,
   RoleDto,
+  StatusLogDto,
   UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
@@ -46,6 +47,15 @@ export interface UpdatePasswordInput {
   mustChangePassword: boolean;
 }
 
+export interface NewStatusLog {
+  id: string;
+  enterpriseId: string;
+  subjectEmployeeId: string;
+  authorEmployeeId: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface PlatformRepository {
   listEnterprises(): Promise<EnterpriseDto[]>;
   listDepartments(enterpriseId: string): Promise<DepartmentDto[]>;
@@ -76,6 +86,7 @@ export interface PlatformRepository {
   listEmployees(): Promise<EmployeeDto[]>;
   createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto>;
   findEmployeeById(id: string): Promise<EmployeeDto | undefined>;
+  findEmployeesByIds(ids: string[]): Promise<EmployeeDto[]>;
   findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined>;
   updateLocalIdentitySecurityState(
     userId: string,
@@ -108,6 +119,12 @@ export interface PlatformRepository {
     roleIds: string[],
     enterpriseId: string,
   ): Promise<EmployeeDto | undefined>;
+  createStatusLogs(inputs: NewStatusLog[]): Promise<StatusLogDto[]>;
+  listStatusLogsBySubject(
+    enterpriseId: string,
+    subjectEmployeeId: string,
+    options: { limit: number; offset: number },
+  ): Promise<{ items: StatusLogDto[]; total: number }>;
   recordAuditLog(input: CreateAuditLogInput): Promise<void>;
 }
 

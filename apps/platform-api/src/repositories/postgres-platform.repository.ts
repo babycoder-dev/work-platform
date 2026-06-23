@@ -14,6 +14,7 @@ import type {
   PermissionDto,
   RoleDataScope,
   RoleDto,
+  StatusLogDto,
   UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
@@ -25,6 +26,7 @@ import type {
   CreateAccessSessionInput,
   LocalIdentitySecurityState,
   PlatformRepository,
+  NewStatusLog,
   UpdateLocalIdentitySecurityStateInput,
   UpdatePasswordInput,
 } from './platform.repository';
@@ -122,6 +124,25 @@ interface RoleRow {
   data_scopes: RoleDataScope[];
 }
 
+interface StatusLogRow {
+  id: string;
+  enterprise_id: string;
+  subject_employee_id: string;
+  author_employee_id: string;
+  content: string;
+  created_at: Date;
+}
+
+interface StatusLogListRow {
+  id: string | null;
+  enterprise_id: string | null;
+  subject_employee_id: string | null;
+  author_employee_id: string | null;
+  content: string | null;
+  created_at: Date | null;
+  total_count: string;
+}
+
 @Injectable()
 export class PostgresPlatformRepository implements PlatformRepository {
   constructor(@Inject(PLATFORM_DB_POOL) private readonly pool: Pool) {}
@@ -135,12 +156,15 @@ export class PostgresPlatformRepository implements PlatformRepository {
   }
 
   async listDepartments(enterpriseId: string): Promise<DepartmentDto[]> {
-    const result = await this.pool.query<DepartmentRow>(`
+    const result = await this.pool.query<DepartmentRow>(
+      `
       SELECT id, enterprise_id, parent_id, manager_user_id, code, name, sort_order, status
       FROM platform.departments
       WHERE enterprise_id = $1 AND deleted_at IS NULL
       ORDER BY sort_order, code
-    `, [enterpriseId]);
+    `,
+      [enterpriseId],
+    );
 
     return result.rows.map(mapDepartment);
   }
@@ -487,6 +511,20 @@ export class PostgresPlatformRepository implements PlatformRepository {
 
   async findEmployeeById(id: string): Promise<EmployeeDto | undefined> {
     return findEmployeeById(this.pool, id);
+  }
+
+  async findEmployeesByIds(ids: string[]): Promise<EmployeeDto[]> {
+    const validIds = ids.filter((id) => isUuid(id));
+    if (validIds.length === 0) {
+      return [];
+    }
+
+    const result = await this.pool.query<EmployeeRow>(
+      employeeSelectSql('WHERE e.id = ANY($1::uuid[]) AND e.deleted_at IS NULL'),
+      [validIds],
+    );
+
+    return result.rows.map(mapEmployee);
   }
 
   async findLocalIdentityByAccount(
@@ -902,6 +940,95 @@ export class PostgresPlatformRepository implements PlatformRepository {
     }
   }
 
+  async createStatusLogs(inputs: NewStatusLog[]): Promise<StatusLogDto[]> {
+    if (inputs.length === 0) {
+      return [];
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const values: unknown[] = [];
+      const placeholders = inputs.map((input, index) => {
+        const base = index * 6;
+        values.push(
+          input.id,
+          input.enterpriseId,
+          input.subjectEmployeeId,
+          input.authorEmployeeId,
+          input.content,
+          input.createdAt,
+        );
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`;
+      });
+      const result = await client.query<StatusLogRow>(
+        `
+          INSERT INTO platform.status_logs (
+            id,
+            enterprise_id,
+            subject_employee_id,
+            author_employee_id,
+            content,
+            created_at
+          )
+          VALUES ${placeholders.join(', ')}
+          RETURNING id, enterprise_id, subject_employee_id, author_employee_id, content, created_at
+        `,
+        values,
+      );
+      await client.query('COMMIT');
+      return result.rows.map(mapStatusLog);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      mapPostgresError(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async listStatusLogsBySubject(
+    enterpriseId: string,
+    subjectEmployeeId: string,
+    options: { limit: number; offset: number },
+  ): Promise<{ items: StatusLogDto[]; total: number }> {
+    const result = await this.pool.query<StatusLogListRow>(
+      `
+        WITH filtered AS (
+          SELECT id, enterprise_id, subject_employee_id, author_employee_id, content, created_at
+          FROM platform.status_logs
+          WHERE enterprise_id = $1
+            AND subject_employee_id = $2
+            AND deleted_at IS NULL
+        ),
+        total AS (
+          SELECT count(*)::text AS total_count FROM filtered
+        ),
+        paged AS (
+          SELECT *
+          FROM filtered
+          ORDER BY created_at DESC, id DESC
+          LIMIT $3 OFFSET $4
+        )
+        SELECT
+          paged.id,
+          paged.enterprise_id,
+          paged.subject_employee_id,
+          paged.author_employee_id,
+          paged.content,
+          paged.created_at,
+          total.total_count
+        FROM total
+        LEFT JOIN paged ON true
+        ORDER BY paged.created_at DESC NULLS LAST, paged.id DESC NULLS LAST
+      `,
+      [enterpriseId, subjectEmployeeId, options.limit, options.offset],
+    );
+
+    return {
+      items: result.rows.map(mapStatusLogListRow).filter((item): item is StatusLogDto => !!item),
+      total: Number(result.rows[0]?.total_count ?? '0'),
+    };
+  }
+
   async recordAuditLog(input: CreateAuditLogInput): Promise<void> {
     await this.pool.query(
       `
@@ -1205,5 +1332,38 @@ function mapRole(row: RoleRow): RoleDto {
     dataScopes: row.data_scopes ?? [],
     isSystem: row.is_system,
     status: row.status,
+  };
+}
+
+function mapStatusLog(row: StatusLogRow): StatusLogDto {
+  return {
+    id: row.id,
+    enterpriseId: row.enterprise_id,
+    subjectEmployeeId: row.subject_employee_id,
+    authorEmployeeId: row.author_employee_id,
+    content: row.content,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
+function mapStatusLogListRow(row: StatusLogListRow): StatusLogDto | undefined {
+  if (
+    !row.id ||
+    !row.enterprise_id ||
+    !row.subject_employee_id ||
+    !row.author_employee_id ||
+    row.content === null ||
+    !row.created_at
+  ) {
+    return undefined;
+  }
+
+  return {
+    id: row.id,
+    enterpriseId: row.enterprise_id,
+    subjectEmployeeId: row.subject_employee_id,
+    authorEmployeeId: row.author_employee_id,
+    content: row.content,
+    createdAt: row.created_at.toISOString(),
   };
 }

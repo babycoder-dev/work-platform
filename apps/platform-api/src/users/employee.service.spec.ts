@@ -68,9 +68,9 @@ describe('EmployeeService profile read/write', () => {
         degradedFromCustom: false,
       }),
     );
-    await expect(outsideScopeService.getEmployeeById(target.id, currentUser)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      outsideScopeService.getEmployeeById(target.id, currentUser),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('reads the current user profile without profile view permission or scope expansion', async () => {
@@ -246,11 +246,7 @@ describe('EmployeeService profile read/write', () => {
       updateEmployee: vi.fn().mockImplementation(async (next: EmployeeDto) => next),
     });
     const eventBus = makeEventBus();
-    const service = makeEmployeeService(
-      repository,
-      makeScopeService(makeCompanyScope()),
-      eventBus,
-    );
+    const service = makeEmployeeService(repository, makeScopeService(makeCompanyScope()), eventBus);
 
     await service.updateEmployeeProfile(
       target.id,
@@ -300,11 +296,7 @@ describe('EmployeeService profile read/write', () => {
       updateEmployee: vi.fn().mockImplementation(async (next: EmployeeDto) => next),
     });
     const eventBus = makeEventBus();
-    const service = makeEmployeeService(
-      repository,
-      makeScopeService(makeCompanyScope()),
-      eventBus,
-    );
+    const service = makeEmployeeService(repository, makeScopeService(makeCompanyScope()), eventBus);
 
     await service.updateEmployeeProfile(
       self.id,
@@ -339,11 +331,7 @@ describe('EmployeeService profile read/write', () => {
     });
     const eventBus = makeEventBus();
     eventBus.publish.mockRejectedValue(new Error('bus down'));
-    const service = makeEmployeeService(
-      repository,
-      makeScopeService(makeCompanyScope()),
-      eventBus,
-    );
+    const service = makeEmployeeService(repository, makeScopeService(makeCompanyScope()), eventBus);
 
     await expect(
       service.updateEmployeeProfile(
@@ -371,7 +359,9 @@ function makeEmployeeService(
   return new EmployeeService(repository, scopeService, eventBus);
 }
 
-function makeRepository(overrides: Partial<Record<keyof PlatformRepository, ReturnType<typeof vi.fn>>> = {}) {
+function makeRepository(
+  overrides: Partial<Record<keyof PlatformRepository, ReturnType<typeof vi.fn>>> = {},
+) {
   return {
     findEmployeeById: vi.fn(),
     findDepartmentById: vi.fn(),
@@ -384,6 +374,25 @@ function makeRepository(overrides: Partial<Record<keyof PlatformRepository, Retu
 function makeScopeService(scope: PlatformScope): PlatformScopeService {
   return {
     resolveScope: vi.fn().mockResolvedValue(scope),
+    matchesScope: vi
+      .fn()
+      .mockImplementation((employee: EmployeeDto, resolvedScope: PlatformScope) => {
+        if (employee.enterpriseId !== resolvedScope.enterpriseId) {
+          return false;
+        }
+        switch (resolvedScope.kind) {
+          case 'company':
+            return true;
+          case 'self':
+            return employee.id === resolvedScope.userId;
+          case 'department':
+          case 'department_tree':
+            return (
+              employee.departmentId !== undefined &&
+              resolvedScope.departmentIds.includes(employee.departmentId)
+            );
+        }
+      }),
   } as unknown as PlatformScopeService;
 }
 

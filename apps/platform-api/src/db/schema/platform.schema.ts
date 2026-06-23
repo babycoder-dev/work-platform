@@ -207,6 +207,23 @@ export const auditLogs = platformSchema.table('audit_logs', {
   createdAtIdx: index('audit_logs_created_at_idx').on(table.createdAt),
 }));
 
+export const statusLogs = platformSchema.table('status_logs', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  enterpriseId: uuid('enterprise_id').notNull().references(() => enterprises.id),
+  subjectEmployeeId: uuid('subject_employee_id').notNull().references(() => employees.id),
+  authorEmployeeId: uuid('author_employee_id').notNull().references(() => employees.id),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (table) => ({
+  subjectIdx: index('status_logs_subject_idx').on(
+    table.enterpriseId,
+    table.subjectEmployeeId,
+    table.createdAt.desc(),
+    table.id.desc(),
+  ),
+}));
+
 export const domainEvents = platformSchema.table('domain_events', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   eventName: varchar('event_name', { length: 128 }).notNull(),

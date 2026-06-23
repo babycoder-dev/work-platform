@@ -5,6 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PlatformModule } from './platform.module';
 import { verifyPassword } from './security/secret-hash';
+import { DEFAULT_ADMIN_USER_ID } from './seeds/seed-data';
 import { PlatformMemoryStore } from './store/platform-memory.store';
 
 describe('platform-api', () => {
@@ -190,8 +191,12 @@ describe('platform-api', () => {
       .get('/api/platform/departments')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    expect(listResponse.body.items).not.toContainEqual(expect.objectContaining({ id: parent.body.id }));
-    expect(listResponse.body.items).not.toContainEqual(expect.objectContaining({ id: child.body.id }));
+    expect(listResponse.body.items).not.toContainEqual(
+      expect.objectContaining({ id: parent.body.id }),
+    );
+    expect(listResponse.body.items).not.toContainEqual(
+      expect.objectContaining({ id: child.body.id }),
+    );
   });
 
   it('derives department tenant from the authenticated user and validates nullable update fields', async () => {
@@ -545,6 +550,202 @@ describe('platform-api', () => {
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ mobile: '13999999999' })
       .expect(404);
+  });
+
+  it('creates and reads status logs with per-subject profile scope authorization', async () => {
+    await request(app.getHttpServer()).post('/api/platform/status-logs').expect(401);
+
+    const adminToken = await loginAsAdmin();
+    const suffix = Date.now().toString();
+    const department = await createDepartment(adminToken, `SLD${suffix}`, '近况部门');
+    const outsideDepartment = await createDepartment(adminToken, `SLX${suffix}`, '近况外部部门');
+    const createRoleResponse = await createRoleWithPermissions(
+      adminToken,
+      `status-log-creator-${suffix}`,
+      ['platform:employee:view', 'platform:status-log:create'],
+      'department',
+    );
+    const viewOnlyRoleResponse = await createRoleWithPermissions(
+      adminToken,
+      `status-log-view-${suffix}`,
+      ['platform:employee:view'],
+      'department',
+    );
+    const creator = await createEmployee(adminToken, {
+      departmentId: department.body.id,
+      employeeNo: `SLC${suffix}`,
+      account: `status-log-creator-${suffix}`,
+      name: '近况记录人',
+      roleIds: [createRoleResponse.body.id],
+    });
+    const viewOnly = await createEmployee(adminToken, {
+      departmentId: department.body.id,
+      employeeNo: `SLV${suffix}`,
+      account: `status-log-view-${suffix}`,
+      name: '近况只读',
+      roleIds: [viewOnlyRoleResponse.body.id],
+    });
+    const insideA = await createEmployee(adminToken, {
+      departmentId: department.body.id,
+      employeeNo: `SLA${suffix}`,
+      account: `status-log-a-${suffix}`,
+      name: '近况对象 A',
+    });
+    const insideB = await createEmployee(adminToken, {
+      departmentId: department.body.id,
+      employeeNo: `SLB${suffix}`,
+      account: `status-log-b-${suffix}`,
+      name: '近况对象 B',
+    });
+    const outside = await createEmployee(adminToken, {
+      departmentId: outsideDepartment.body.id,
+      employeeNo: `SLO${suffix}`,
+      account: `status-log-outside-${suffix}`,
+      name: '近况外部对象',
+    });
+    const creatorToken = (await login(creator.body.account)).body.accessToken as string;
+    const viewOnlyToken = (await login(viewOnly.body.account)).body.accessToken as string;
+    memoryStore.employees.set(DEFAULT_ADMIN_USER_ID, {
+      id: DEFAULT_ADMIN_USER_ID,
+      enterpriseId: 'ent-default',
+      employeeNo: `SLNV${suffix}`,
+      account: `status-log-non-v4-${suffix}`,
+      name: '非 v4 UUID 近况对象',
+      departmentId: department.body.id,
+      status: 'active',
+      roleIds: [],
+      mustChangePassword: false,
+    });
+
+    const created = await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        subjectEmployeeIds: [insideA.body.id, insideB.body.id],
+        content: '完成入职沟通',
+      })
+      .expect(201);
+    expect(created.body).toHaveLength(2);
+    expect(created.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          subjectEmployeeId: insideA.body.id,
+          authorEmployeeId: 'user-admin',
+          content: '完成入职沟通',
+        }),
+        expect.objectContaining({
+          subjectEmployeeId: insideB.body.id,
+          authorEmployeeId: 'user-admin',
+          content: '完成入职沟通',
+        }),
+      ]),
+    );
+
+    const readA = await request(app.getHttpServer())
+      .get(`/api/platform/employees/${insideA.body.id}/status-logs`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(readA.body).toEqual(
+      expect.objectContaining({
+        total: 1,
+        items: [
+          expect.objectContaining({
+            subjectEmployeeId: insideA.body.id,
+            content: '完成入职沟通',
+          }),
+        ],
+      }),
+    );
+
+    const nonV4Created = await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        subjectEmployeeIds: [DEFAULT_ADMIN_USER_ID],
+        content: '合法非 v4 UUID 近况',
+      })
+      .expect(201);
+    expect(nonV4Created.body).toEqual([
+      expect.objectContaining({
+        subjectEmployeeId: DEFAULT_ADMIN_USER_ID,
+        content: '合法非 v4 UUID 近况',
+      }),
+    ]);
+    const nonV4Read = await request(app.getHttpServer())
+      .get(`/api/platform/employees/${DEFAULT_ADMIN_USER_ID}/status-logs`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(nonV4Read.body).toEqual(
+      expect.objectContaining({
+        total: 1,
+        items: [
+          expect.objectContaining({
+            subjectEmployeeId: DEFAULT_ADMIN_USER_ID,
+            content: '合法非 v4 UUID 近况',
+          }),
+        ],
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${viewOnlyToken}`)
+      .send({
+        subjectEmployeeIds: [insideA.body.id],
+        content: '无权限写入',
+      })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .send({
+        subjectEmployeeIds: [insideA.body.id, outside.body.id],
+        content: '包含越权对象',
+      })
+      .expect(404);
+
+    const outsideAfterRejectedBatch = await request(app.getHttpServer())
+      .get(`/api/platform/employees/${outside.body.id}/status-logs`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(outsideAfterRejectedBatch.body.total).toBe(0);
+    const insideAfterRejectedBatch = await request(app.getHttpServer())
+      .get(`/api/platform/employees/${insideA.body.id}/status-logs`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(insideAfterRejectedBatch.body.total).toBe(1);
+
+    await request(app.getHttpServer())
+      .get(`/api/platform/employees/${outside.body.id}/status-logs`)
+      .set('Authorization', `Bearer ${creatorToken}`)
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        subjectEmployeeIds: [insideA.body.id],
+        content: '',
+      })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        subjectEmployeeIds: [insideA.body.id],
+        content: '   ',
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        subjectEmployeeIds: Array.from({ length: 101 }, () => insideA.body.id),
+        content: '超出批量上限',
+      })
+      .expect(400);
   });
 
   it('writes audit logs for platform write operations', async () => {

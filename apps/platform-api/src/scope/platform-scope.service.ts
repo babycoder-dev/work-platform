@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   CurrentUserDto,
+  EmployeeDto,
   PlatformDataType,
   PlatformScope,
   PlatformScopeKind,
@@ -49,7 +50,7 @@ export class PlatformScopeService implements PlatformScopePort {
       } else {
         departmentIds = [
           departmentId,
-          ...await this.repository.listDescendantDepartmentIds(departmentId, user.enterpriseId),
+          ...(await this.repository.listDescendantDepartmentIds(departmentId, user.enterpriseId)),
         ];
       }
     }
@@ -62,5 +63,22 @@ export class PlatformScopeService implements PlatformScopePort {
       departmentIds: Array.from(new Set(departmentIds)),
       degradedFromCustom,
     };
+  }
+
+  matchesScope(employee: EmployeeDto, scope: PlatformScope): boolean {
+    if (employee.enterpriseId !== scope.enterpriseId) {
+      return false;
+    }
+    switch (scope.kind) {
+      case 'company':
+        return true;
+      case 'self':
+        return employee.id === scope.userId;
+      case 'department':
+      case 'department_tree':
+        return (
+          employee.departmentId !== undefined && scope.departmentIds.includes(employee.departmentId)
+        );
+    }
   }
 }

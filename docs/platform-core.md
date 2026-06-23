@@ -60,9 +60,11 @@ POST /api/platform/employees
 GET  /api/platform/employees/me
 PUT  /api/platform/employees/me/profile
 GET  /api/platform/employees/:id
+GET  /api/platform/employees/:id/status-logs
 PUT  /api/platform/employees/:id/profile
 PUT  /api/platform/employees/:id/status
 PUT  /api/platform/employees/:id/roles
+POST /api/platform/status-logs
 ```
 
 `POST /api/platform/employees` 的租户边界来自认证用户 `currentUser.enterpriseId`，请求体不得携带
@@ -84,6 +86,13 @@ M8-3 起，档案被他人修改成功且实际字段有变化时，Platform Cor
 `platform.employees.registration_status` 是 M8-2a 增加的数据库预留列，默认 `active`，check 约束为
 `active | pending`。本期该列恒为 `active`，不进入 `EmployeeDto`、任何写 DTO 或 HTTP 响应，既有
 `updateEmployee` 仓储写入也不得修改该列。
+
+M8-4a 起，近况记录由 Platform Core 持有，落表 `platform.status_logs`。`POST /status-logs` 需要
+`platform:status-log:create`，body 使用 `subjectEmployeeIds[]` 与 `content`，服务端按去重后的每个 subject
+逐一使用 `profile` 写范围校验，任一越权、跨企业或不存在则整批 404 且不落行。成功审计只记录 subject id
+列表、subject 数量与内容长度，不记录近况全文。`GET /employees/:id/status-logs` 需要
+`platform:employee:view`，并按 `profile` 读范围过滤目标员工；越权、跨企业或不存在同样返回 404。
+近况记录只追加，本期不提供编辑 / 删除端点；`deleted_at` 仅为未来软删预留。新增近况不发布领域事件，也不通知本人。
 
 权限与角色：
 
@@ -117,6 +126,7 @@ platform:org:manage
 platform:employee:view
 platform:employee:create
 platform:employee:manage
+platform:status-log:create
 platform:role:view
 platform:role:manage
 platform:permission:view

@@ -85,7 +85,7 @@ const presenceModule = await loadRemoteModule('presence');
 后端初期分为：
 
 - `gateway-api`：当前作为 API 组合宿主内嵌业务模块；服务拆分后退化为纯边缘网关（拆分归 vNext，见 `docs/adr/0005-product-replan-roadmap.md`）。边界见 `docs/adr/0003-gateway-boundary.md`。
-- `platform-api`：平台能力。组织部门、员工、角色、权限和审计均由 Platform Core 持有；业务模块不得复制组织树或绕过平台 API / 只读 port 直接维护人员组织数据。员工档案读写由 Platform Core 单一写收口按 `profile` 数据范围授权，业务模块只消费公开 API / port。
+- `platform-api`：平台能力。组织部门、员工、角色、权限和审计均由 Platform Core 持有；业务模块不得复制组织树或绕过平台 API / 只读 port 直接维护人员组织数据。员工档案读写由 Platform Core 单一写收口按 `profile` 数据范围授权，业务模块只消费公开 API / port。近况记录归 `platform.status_logs`，同样按 `profile` 范围读写，不发布领域事件，前端在人员页聚合展示。
 - `modules/*/api`：业务模块后端。
 
 业务模块后端必须保持自己的 module、controller、service、repository、contract。

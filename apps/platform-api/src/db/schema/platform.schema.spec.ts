@@ -1,4 +1,6 @@
 import { getTableColumns, getTableName } from 'drizzle-orm';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   auditLogs,
@@ -42,6 +44,17 @@ describe('platform schema', () => {
         dataType: expect.anything(),
         scope: expect.anything(),
       }),
+    );
+  });
+
+  it('keeps the status log subject index aligned with stable paging order', () => {
+    const migration = readFileSync(
+      join(__dirname, '..', 'migrations', '0003_m8_status_logs.sql'),
+      'utf8',
+    );
+
+    expect(migration).toContain(
+      'ON platform.status_logs (enterprise_id, subject_employee_id, created_at DESC, id DESC)',
     );
   });
 });
