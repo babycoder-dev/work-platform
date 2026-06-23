@@ -70,14 +70,16 @@ describe('PlatformMemoryStore', () => {
       name: 'Other Tenant',
     });
 
-    await expect(store.createEmployee({
-      enterpriseId: 'ent-default',
-      departmentId: foreignDepartment.id,
-      employeeNo: '000099',
-      account: 'cross-tenant-department',
-      name: 'Cross Tenant Department',
-      initialPassword: TEST_INITIAL_SECRET,
-    })).rejects.toMatchObject({
+    await expect(
+      store.createEmployee({
+        enterpriseId: 'ent-default',
+        departmentId: foreignDepartment.id,
+        employeeNo: '000099',
+        account: 'cross-tenant-department',
+        name: 'Cross Tenant Department',
+        initialPassword: TEST_INITIAL_SECRET,
+      }),
+    ).rejects.toMatchObject({
       code: 'PLATFORM_REFERENCE_NOT_FOUND',
       status: 400,
     });
@@ -161,8 +163,12 @@ describe('PlatformMemoryStore', () => {
         sortOrder: 7,
       }),
     );
-    await expect(store.updateDepartment(department.id, { name: '跨租户' }, 'ent-other')).resolves.toBeUndefined();
-    await expect(store.countActiveEmployeesInDepartment(department.id, 'ent-default')).resolves.toBe(1);
+    await expect(
+      store.updateDepartment(department.id, { name: '跨租户' }, 'ent-other'),
+    ).resolves.toBeUndefined();
+    await expect(
+      store.countActiveEmployeesInDepartment(department.id, 'ent-default'),
+    ).resolves.toBe(1);
     await expect(store.softDeleteDepartment(department.id, 'ent-default')).resolves.toBe(false);
   });
 
@@ -208,15 +214,25 @@ describe('PlatformMemoryStore', () => {
     await store.setUserRoles(employee.id, [role.id], 'ent-default');
 
     await expect(store.countUsersWithRole(role.id)).resolves.toBe(1);
-    await expect(store.listRoles('ent-other')).resolves.not.toContainEqual(expect.objectContaining({ id: role.id }));
-    await expect(store.updateRole(role.id, { name: 'Cross Tenant Update' }, 'ent-other')).resolves.toBeUndefined();
+    await expect(store.listRoles('ent-other')).resolves.not.toContainEqual(
+      expect.objectContaining({ id: role.id }),
+    );
+    await expect(
+      store.updateRole(role.id, { name: 'Cross Tenant Update' }, 'ent-other'),
+    ).resolves.toBeUndefined();
     await expect(store.deleteRole(role.id, 'ent-other')).resolves.toBe(false);
-    await expect(store.updateRole(role.id, {
-      name: 'Updated Role',
-      status: 'disabled',
-      permissionCodes: ['platform:org:view'],
-      dataScopes: [{ dataType: 'report', scope: 'company' }],
-    }, 'ent-default')).resolves.toEqual(
+    await expect(
+      store.updateRole(
+        role.id,
+        {
+          name: 'Updated Role',
+          status: 'disabled',
+          permissionCodes: ['platform:org:view'],
+          dataScopes: [{ dataType: 'report', scope: 'company' }],
+        },
+        'ent-default',
+      ),
+    ).resolves.toEqual(
       expect.objectContaining({
         id: role.id,
         name: 'Updated Role',
@@ -288,6 +304,47 @@ describe('PlatformMemoryStore', () => {
         mustChangePassword: false,
       }),
     );
+  });
+
+  it('lists status logs with stable same-timestamp pagination', async () => {
+    const store = new PlatformMemoryStore();
+    const createdAt = '2026-06-22T00:00:00.000Z';
+    await store.createStatusLogs([
+      {
+        id: '00000000-0000-0000-0000-000000000001',
+        enterpriseId: 'ent-default',
+        subjectEmployeeId: 'user-admin',
+        authorEmployeeId: 'user-admin',
+        content: 'same-time-1',
+        createdAt,
+      },
+      {
+        id: '00000000-0000-0000-0000-000000000002',
+        enterpriseId: 'ent-default',
+        subjectEmployeeId: 'user-admin',
+        authorEmployeeId: 'user-admin',
+        content: 'same-time-2',
+        createdAt,
+      },
+    ]);
+
+    const firstPage = await store.listStatusLogsBySubject('ent-default', 'user-admin', {
+      limit: 1,
+      offset: 0,
+    });
+    const secondPage = await store.listStatusLogsBySubject('ent-default', 'user-admin', {
+      limit: 1,
+      offset: 1,
+    });
+
+    expect(firstPage.total).toBe(2);
+    expect(secondPage.total).toBe(2);
+    expect(firstPage.items.map((item) => item.id)).toEqual([
+      '00000000-0000-0000-0000-000000000002',
+    ]);
+    expect(secondPage.items.map((item) => item.id)).toEqual([
+      '00000000-0000-0000-0000-000000000001',
+    ]);
   });
 
   describe('listDescendantDepartmentIds', () => {

@@ -40,9 +40,7 @@ describe('StatusLogService', () => {
     const targetA = employee({ id: 'employee-a', departmentId: 'dept-a' });
     const targetB = employee({ id: 'employee-b', departmentId: 'dept-b' });
     const repository = makeRepository({
-      findEmployeeById: vi.fn().mockImplementation(async (id: string) => {
-        return id === targetA.id ? targetA : targetB;
-      }),
+      findEmployeesByIds: vi.fn().mockResolvedValue([targetA, targetB]),
       createStatusLogs: vi.fn().mockImplementation(async (inputs: NewStatusLog[]) => {
         return inputs.map(toStatusLogDto);
       }),
@@ -59,6 +57,9 @@ describe('StatusLogService', () => {
     );
 
     expect(repository.createStatusLogs).toHaveBeenCalledTimes(1);
+    expect(repository.findEmployeesByIds).toHaveBeenCalledTimes(1);
+    expect(repository.findEmployeesByIds).toHaveBeenCalledWith([targetA.id, targetB.id]);
+    expect(repository.findEmployeeById).not.toHaveBeenCalled();
     const inserted = repository.createStatusLogs.mock.calls[0]?.[0] as NewStatusLog[];
     expect(inserted).toHaveLength(2);
     expect(inserted.map((item) => item.subjectEmployeeId)).toEqual([targetA.id, targetB.id]);
@@ -96,9 +97,7 @@ describe('StatusLogService', () => {
     const inside = employee({ id: 'employee-inside', departmentId: 'dept-a' });
     const outside = employee({ id: 'employee-outside', departmentId: 'dept-b' });
     const repository = makeRepository({
-      findEmployeeById: vi.fn().mockImplementation(async (id: string) => {
-        return id === inside.id ? inside : outside;
-      }),
+      findEmployeesByIds: vi.fn().mockResolvedValue([inside, outside]),
     });
     const service = makeService(
       repository,
@@ -123,6 +122,7 @@ describe('StatusLogService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
 
     expect(repository.createStatusLogs).not.toHaveBeenCalled();
+    expect(repository.findEmployeesByIds).toHaveBeenCalledWith([inside.id, outside.id]);
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'platform.status-log.create',
@@ -140,7 +140,7 @@ describe('StatusLogService', () => {
   it('rejects cross-enterprise subjects without leaking the failing subject id', async () => {
     const target = employee({ id: 'employee-foreign', enterpriseId: 'ent-other' });
     const repository = makeRepository({
-      findEmployeeById: vi.fn().mockResolvedValue(target),
+      findEmployeesByIds: vi.fn().mockResolvedValue([target]),
     });
     const service = makeService(repository, makeScopeService(makeCompanyScope()));
 
@@ -155,6 +155,7 @@ describe('StatusLogService', () => {
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(repository.createStatusLogs).not.toHaveBeenCalled();
+    expect(repository.findEmployeesByIds).toHaveBeenCalledWith([target.id]);
     expect(repository.recordAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         result: 'failure',
@@ -171,12 +172,44 @@ describe('StatusLogService', () => {
     );
   });
 
+  it('rejects the whole batch when a subject id is missing from the batch fetch', async () => {
+    const inside = employee({ id: 'employee-inside', departmentId: 'dept-a' });
+    const missingId = 'employee-missing';
+    const repository = makeRepository({
+      findEmployeesByIds: vi.fn().mockResolvedValue([inside]),
+    });
+    const service = makeService(repository, makeScopeService(makeCompanyScope()));
+
+    await expect(
+      service.createStatusLogs(
+        {
+          subjectEmployeeIds: [inside.id, missingId],
+          content: '包含不存在对象',
+        },
+        currentUser,
+        auditContext,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(repository.findEmployeesByIds).toHaveBeenCalledWith([inside.id, missingId]);
+    expect(repository.createStatusLogs).not.toHaveBeenCalled();
+    expect(repository.recordAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'failure',
+        metadata: {
+          subjectCount: 2,
+          reason: 'request_rejected',
+        },
+      }),
+    );
+  });
+
   it('lets self-scoped users create logs only for themselves', async () => {
     const self = employee({ id: currentUser.id });
     const other = employee({ id: 'employee-other' });
     const repository = makeRepository({
-      findEmployeeById: vi.fn().mockImplementation(async (id: string) => {
-        return id === currentUser.id ? self : other;
+      findEmployeesByIds: vi.fn().mockImplementation(async (ids: string[]) => {
+        return ids.map((id) => (id === currentUser.id ? self : other));
       }),
       createStatusLogs: vi.fn().mockImplementation(async (inputs: NewStatusLog[]) => {
         return inputs.map(toStatusLogDto);
@@ -269,6 +302,27 @@ describe('StatusLogService', () => {
   it('does not depend on an event bus', () => {
     expect(StatusLogService.toString()).not.toContain('EVENT_BUS');
   });
+
+  it('preserves business 404 when rejected-batch audit storage fails', async () => {
+    const target = employee({ id: 'employee-foreign', enterpriseId: 'ent-other' });
+    const repository = makeRepository({
+      findEmployeesByIds: vi.fn().mockResolvedValue([target]),
+      recordAuditLog: vi.fn().mockRejectedValue(new Error('audit down')),
+    });
+    const service = makeService(repository, makeScopeService(makeCompanyScope()));
+
+    await expect(
+      service.createStatusLogs(
+        {
+          subjectEmployeeIds: [target.id],
+          content: '审计失败仍返回业务 404',
+        },
+        currentUser,
+        auditContext,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(repository.createStatusLogs).not.toHaveBeenCalled();
+  });
 });
 
 function makeService(
@@ -283,12 +337,14 @@ function makeRepository(
 ) {
   return {
     findEmployeeById: vi.fn(),
+    findEmployeesByIds: vi.fn(),
     createStatusLogs: vi.fn(),
     listStatusLogsBySubject: vi.fn(),
     recordAuditLog: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as unknown as PlatformRepository & {
     createStatusLogs: ReturnType<typeof vi.fn>;
+    findEmployeesByIds: ReturnType<typeof vi.fn>;
     listStatusLogsBySubject: ReturnType<typeof vi.fn>;
     recordAuditLog: ReturnType<typeof vi.fn>;
   };

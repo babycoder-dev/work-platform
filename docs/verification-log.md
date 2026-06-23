@@ -102,6 +102,53 @@ Security / §16:
   pagination bounds, audit minimization, parameterized repository queries, memory/postgres parity,
   and absence of status-log event/notification triggers.
 
+Review-fix follow-up:
+
+- Fixed PR review findings before merge:
+  - Status-log subject id validation now accepts any repository-compatible UUID-shaped employee id,
+    not v4-only ids, matching the existing `findEmployeeById` guard and seeded deterministic ids.
+  - Batch create authorization now fetches subject employees once via `findEmployeesByIds`, then
+    validates enterprise and `profile` scope per subject before any insert. Missing, cross-tenant,
+    or out-of-scope subjects still reject the entire batch as 404 and do not reveal which subject
+    failed.
+  - Status-log listing now orders by `created_at DESC, id DESC` in both memory and PostgreSQL, so
+    same-timestamp rows page deterministically without duplicates or gaps.
+  - PostgreSQL status-log list now uses one query round-trip for page rows and total count.
+  - Rejected-create failure audit is best-effort and no longer masks the business 404 if audit
+    storage is unavailable; metadata remains limited to `subjectCount` and `reason`.
+- Added regression coverage:
+  - e2e creates and reads a status log for a valid non-v4 deterministic employee id.
+  - service spec asserts create authorization calls `findEmployeesByIds` exactly once and rejects
+    missing / out-of-scope batches without partial writes.
+  - memory store and PostgreSQL-gated repository specs assert same-timestamp paging by id
+    tiebreaker.
+  - service spec asserts audit storage failure does not mask rejected-batch 404.
+- Review-fix validation:
+  - Targeted unit regression:
+    `NODE_ENV=test pnpm exec vitest run apps/platform-api/src/status-log/status-log.service.spec.ts apps/platform-api/src/store/platform-memory.store.spec.ts apps/platform-api/src/auth/auth.service.spec.ts --config vitest.config.mts`
+    passed, 3 files / 42 tests.
+  - Targeted e2e regression:
+    `NODE_ENV=test pnpm exec vitest run apps/platform-api/src/platform-api.e2e-spec.ts --config vitest.e2e.config.mts`
+    passed, 1 file / 32 tests.
+  - `NODE_ENV=test pnpm lint`: pass across 27 of 28 workspace projects; warnings only from
+    existing non-null / unused-placeholder patterns.
+  - `NODE_ENV=test pnpm typecheck`: pass across 27 of 28 workspace projects.
+  - `NODE_ENV=test pnpm test`: pass.
+    - Unit: 41 files passed / 5 Postgres-gated files skipped; 208 tests passed / 35 skipped.
+    - Web: 33 files / 91 tests passed.
+  - `NODE_ENV=test pnpm test:e2e`: pass, 7 files / 49 tests.
+  - `NODE_ENV=test pnpm build`: pass across 27 of 28 workspace projects. Vite emitted the existing
+    workbench-shell large chunk warning.
+  - `pnpm db:generate`: exited 0, but because this repository does not commit Drizzle meta history
+    for hand-written platform migrations, it generated a full snapshot migration
+    `0000_previous_tomas.sql` and `meta/`. These generated artifacts were deleted and are not
+    committed; this review fix contains no schema change.
+  - Local Docker / Postgres remained unavailable (`dockerDesktopLinuxEngine` pipe missing), so
+    `verify:full` and the updated PostgreSQL-gated repository assertions did not run locally.
+  - A security-reviewer second-pass was attempted for this review-fix diff, but the subagent failed
+    to start due the Codex usage limit and returned no findings. The initial M8-4a security review
+    result above remains unchanged; a second pass can be rerun when quota is available.
+
 Follow-up:
 
 - M8-4b: person-page frontend timeline UI consuming `GET /api/platform/employees/:id/status-logs`.

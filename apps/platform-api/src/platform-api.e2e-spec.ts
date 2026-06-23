@@ -5,6 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PlatformModule } from './platform.module';
 import { verifyPassword } from './security/secret-hash';
+import { DEFAULT_ADMIN_USER_ID } from './seeds/seed-data';
 import { PlatformMemoryStore } from './store/platform-memory.store';
 
 describe('platform-api', () => {
@@ -604,6 +605,17 @@ describe('platform-api', () => {
     });
     const creatorToken = (await login(creator.body.account)).body.accessToken as string;
     const viewOnlyToken = (await login(viewOnly.body.account)).body.accessToken as string;
+    memoryStore.employees.set(DEFAULT_ADMIN_USER_ID, {
+      id: DEFAULT_ADMIN_USER_ID,
+      enterpriseId: 'ent-default',
+      employeeNo: `SLNV${suffix}`,
+      account: `status-log-non-v4-${suffix}`,
+      name: '非 v4 UUID 近况对象',
+      departmentId: department.body.id,
+      status: 'active',
+      roleIds: [],
+      mustChangePassword: false,
+    });
 
     const created = await request(app.getHttpServer())
       .post('/api/platform/status-logs')
@@ -640,6 +652,36 @@ describe('platform-api', () => {
           expect.objectContaining({
             subjectEmployeeId: insideA.body.id,
             content: '完成入职沟通',
+          }),
+        ],
+      }),
+    );
+
+    const nonV4Created = await request(app.getHttpServer())
+      .post('/api/platform/status-logs')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        subjectEmployeeIds: [DEFAULT_ADMIN_USER_ID],
+        content: '合法非 v4 UUID 近况',
+      })
+      .expect(201);
+    expect(nonV4Created.body).toEqual([
+      expect.objectContaining({
+        subjectEmployeeId: DEFAULT_ADMIN_USER_ID,
+        content: '合法非 v4 UUID 近况',
+      }),
+    ]);
+    const nonV4Read = await request(app.getHttpServer())
+      .get(`/api/platform/employees/${DEFAULT_ADMIN_USER_ID}/status-logs`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(nonV4Read.body).toEqual(
+      expect.objectContaining({
+        total: 1,
+        items: [
+          expect.objectContaining({
+            subjectEmployeeId: DEFAULT_ADMIN_USER_ID,
+            content: '合法非 v4 UUID 近况',
           }),
         ],
       }),

@@ -1,5 +1,6 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
+  CreateStatusLogsInput,
   CurrentUserDto,
   ListStatusLogsQuery,
   ListStatusLogsResult,
@@ -16,20 +17,25 @@ import { PlatformScopeService } from '../scope/platform-scope.service';
 
 @Injectable()
 export class StatusLogService {
+  private readonly logger = new Logger(StatusLogService.name);
+
   constructor(
     @Inject(PLATFORM_REPOSITORY) private readonly repository: PlatformRepository,
     @Inject(PlatformScopeService) private readonly scopeService: PlatformScopeService,
   ) {}
 
   async createStatusLogs(
-    input: { subjectEmployeeIds: string[]; content: string },
+    input: CreateStatusLogsInput,
     currentUser: CurrentUserDto,
     auditContext: PlatformAuditContext = {},
   ): Promise<StatusLogDto[]> {
     const subjectEmployeeIds = Array.from(new Set(input.subjectEmployeeIds));
     const scope = await this.scopeService.resolveScope(currentUser, 'profile');
+    const employees = await this.repository.findEmployeesByIds(subjectEmployeeIds);
+    const employeesById = new Map(employees.map((employee) => [employee.id, employee]));
+
     for (const subjectEmployeeId of subjectEmployeeIds) {
-      const employee = await this.repository.findEmployeeById(subjectEmployeeId);
+      const employee = employeesById.get(subjectEmployeeId);
       if (
         !employee ||
         employee.enterpriseId !== currentUser.enterpriseId ||
@@ -96,21 +102,29 @@ export class StatusLogService {
     subjectCount: number,
     auditContext: PlatformAuditContext,
   ): Promise<void> {
-    await this.repository.recordAuditLog({
-      actorUserId: auditContext.actorUserId,
-      actorAccount: auditContext.actorAccount,
-      action: 'platform.status-log.create',
-      resourceType: 'platform.status-log',
-      resourceId: undefined,
-      traceId: auditContext.traceId,
-      ip: auditContext.ip,
-      userAgent: auditContext.userAgent,
-      result: 'failure',
-      metadata: {
-        subjectCount,
-        reason: 'request_rejected',
-      },
-    });
+    try {
+      await this.repository.recordAuditLog({
+        actorUserId: auditContext.actorUserId,
+        actorAccount: auditContext.actorAccount,
+        action: 'platform.status-log.create',
+        resourceType: 'platform.status-log',
+        resourceId: undefined,
+        traceId: auditContext.traceId,
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+        result: 'failure',
+        metadata: {
+          subjectCount,
+          reason: 'request_rejected',
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to record rejected status-log audit: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 }
 

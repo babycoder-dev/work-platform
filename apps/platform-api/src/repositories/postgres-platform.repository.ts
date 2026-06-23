@@ -133,6 +133,16 @@ interface StatusLogRow {
   created_at: Date;
 }
 
+interface StatusLogListRow {
+  id: string | null;
+  enterprise_id: string | null;
+  subject_employee_id: string | null;
+  author_employee_id: string | null;
+  content: string | null;
+  created_at: Date | null;
+  total_count: string;
+}
+
 @Injectable()
 export class PostgresPlatformRepository implements PlatformRepository {
   constructor(@Inject(PLATFORM_DB_POOL) private readonly pool: Pool) {}
@@ -501,6 +511,20 @@ export class PostgresPlatformRepository implements PlatformRepository {
 
   async findEmployeeById(id: string): Promise<EmployeeDto | undefined> {
     return findEmployeeById(this.pool, id);
+  }
+
+  async findEmployeesByIds(ids: string[]): Promise<EmployeeDto[]> {
+    const validIds = ids.filter((id) => isUuid(id));
+    if (validIds.length === 0) {
+      return [];
+    }
+
+    const result = await this.pool.query<EmployeeRow>(
+      employeeSelectSql('WHERE e.id = ANY($1::uuid[]) AND e.deleted_at IS NULL'),
+      [validIds],
+    );
+
+    return result.rows.map(mapEmployee);
   }
 
   async findLocalIdentityByAccount(
@@ -966,34 +990,42 @@ export class PostgresPlatformRepository implements PlatformRepository {
     subjectEmployeeId: string,
     options: { limit: number; offset: number },
   ): Promise<{ items: StatusLogDto[]; total: number }> {
-    const [itemsResult, totalResult] = await Promise.all([
-      this.pool.query<StatusLogRow>(
-        `
+    const result = await this.pool.query<StatusLogListRow>(
+      `
+        WITH filtered AS (
           SELECT id, enterprise_id, subject_employee_id, author_employee_id, content, created_at
           FROM platform.status_logs
           WHERE enterprise_id = $1
             AND subject_employee_id = $2
             AND deleted_at IS NULL
-          ORDER BY created_at DESC
+        ),
+        total AS (
+          SELECT count(*)::text AS total_count FROM filtered
+        ),
+        paged AS (
+          SELECT *
+          FROM filtered
+          ORDER BY created_at DESC, id DESC
           LIMIT $3 OFFSET $4
-        `,
-        [enterpriseId, subjectEmployeeId, options.limit, options.offset],
-      ),
-      this.pool.query<{ count: string }>(
-        `
-          SELECT count(*)::text AS count
-          FROM platform.status_logs
-          WHERE enterprise_id = $1
-            AND subject_employee_id = $2
-            AND deleted_at IS NULL
-        `,
-        [enterpriseId, subjectEmployeeId],
-      ),
-    ]);
+        )
+        SELECT
+          paged.id,
+          paged.enterprise_id,
+          paged.subject_employee_id,
+          paged.author_employee_id,
+          paged.content,
+          paged.created_at,
+          total.total_count
+        FROM total
+        LEFT JOIN paged ON true
+        ORDER BY paged.created_at DESC NULLS LAST, paged.id DESC NULLS LAST
+      `,
+      [enterpriseId, subjectEmployeeId, options.limit, options.offset],
+    );
 
     return {
-      items: itemsResult.rows.map(mapStatusLog),
-      total: Number(totalResult.rows[0].count),
+      items: result.rows.map(mapStatusLogListRow).filter((item): item is StatusLogDto => !!item),
+      total: Number(result.rows[0]?.total_count ?? '0'),
     };
   }
 
@@ -1304,6 +1336,28 @@ function mapRole(row: RoleRow): RoleDto {
 }
 
 function mapStatusLog(row: StatusLogRow): StatusLogDto {
+  return {
+    id: row.id,
+    enterpriseId: row.enterprise_id,
+    subjectEmployeeId: row.subject_employee_id,
+    authorEmployeeId: row.author_employee_id,
+    content: row.content,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
+function mapStatusLogListRow(row: StatusLogListRow): StatusLogDto | undefined {
+  if (
+    !row.id ||
+    !row.enterprise_id ||
+    !row.subject_employee_id ||
+    !row.author_employee_id ||
+    row.content === null ||
+    !row.created_at
+  ) {
+    return undefined;
+  }
+
   return {
     id: row.id,
     enterpriseId: row.enterprise_id,

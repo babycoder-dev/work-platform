@@ -583,6 +583,7 @@ function createRepositoryMock() {
     listEmployees: vi.fn().mockResolvedValue([]),
     createEmployee: vi.fn(),
     findEmployeeById: vi.fn().mockResolvedValue(employee),
+    findEmployeesByIds: vi.fn().mockResolvedValue([]),
     findLocalIdentityByAccount: vi.fn(),
     updateLocalIdentitySecurityState: vi.fn().mockResolvedValue(undefined),
     updatePassword: vi.fn().mockResolvedValue(undefined),
@@ -608,6 +609,7 @@ function createRepositoryMock() {
     updateLocalIdentitySecurityState: ReturnType<typeof vi.fn>;
     updatePassword: ReturnType<typeof vi.fn>;
     findEmployeeById: ReturnType<typeof vi.fn>;
+    findEmployeesByIds: ReturnType<typeof vi.fn>;
     findDepartmentById: ReturnType<typeof vi.fn>;
     listDescendantDepartmentIds: ReturnType<typeof vi.fn>;
     listDescendantDepartmentIdsForCycleCheck: ReturnType<typeof vi.fn>;

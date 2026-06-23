@@ -86,6 +86,7 @@ export interface PlatformRepository {
   listEmployees(): Promise<EmployeeDto[]>;
   createEmployee(input: CreateEmployeeInput): Promise<EmployeeDto>;
   findEmployeeById(id: string): Promise<EmployeeDto | undefined>;
+  findEmployeesByIds(ids: string[]): Promise<EmployeeDto[]>;
   findLocalIdentityByAccount(account: string): Promise<LocalIdentitySecurityState | undefined>;
   updateLocalIdentitySecurityState(
     userId: string,

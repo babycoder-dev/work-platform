@@ -254,6 +254,12 @@ export class PlatformMemoryStore implements PlatformRepository {
     return this.employees.get(id);
   }
 
+  async findEmployeesByIds(ids: string[]): Promise<EmployeeDto[]> {
+    return ids
+      .map((id) => this.employees.get(id))
+      .filter((employee): employee is EmployeeDto => employee !== undefined);
+  }
+
   async findEmployeeByAccount(account: string): Promise<EmployeeDto | undefined> {
     const identity = this.identities.get(account);
     if (!identity) {
@@ -453,7 +459,10 @@ export class PlatformMemoryStore implements PlatformRepository {
           log.subjectEmployeeId === subjectEmployeeId &&
           !log.deletedAt,
       )
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+      .sort(
+        (left, right) =>
+          right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
+      );
     return {
       items: items.slice(options.offset, options.offset + options.limit).map(toStatusLogDto),
       total: items.length,

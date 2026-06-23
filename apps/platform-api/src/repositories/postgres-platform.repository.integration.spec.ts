@@ -252,6 +252,7 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
 
   it('creates and lists status logs with deleted-at filtering and newest-first ordering', async () => {
     const suffix = Date.now().toString();
+    const tieBreakerSuffix = suffix.padStart(12, '0').slice(-12);
     const employee = await repository.createEmployee({
       enterpriseId: DEFAULT_ENTERPRISE_ID,
       departmentId: DEFAULT_DEPARTMENT_ID,
@@ -276,18 +277,38 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       content: `second-${suffix}`,
       createdAt: '2026-06-22T00:00:00.000Z',
     };
+    const sameTimeLowerId = {
+      id: `00000000-0000-0000-0000-${tieBreakerSuffix}`,
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      subjectEmployeeId: employee.id,
+      authorEmployeeId: DEFAULT_ADMIN_USER_ID,
+      content: `same-lower-${suffix}`,
+      createdAt: '2026-06-23T00:00:00.000Z',
+    };
+    const sameTimeHigherId = {
+      id: `00000000-0000-0000-0001-${tieBreakerSuffix}`,
+      enterpriseId: DEFAULT_ENTERPRISE_ID,
+      subjectEmployeeId: employee.id,
+      authorEmployeeId: DEFAULT_ADMIN_USER_ID,
+      content: `same-higher-${suffix}`,
+      createdAt: '2026-06-23T00:00:00.000Z',
+    };
     const hidden = {
       id: randomUUID(),
       enterpriseId: DEFAULT_ENTERPRISE_ID,
       subjectEmployeeId: employee.id,
       authorEmployeeId: DEFAULT_ADMIN_USER_ID,
       content: `hidden-${suffix}`,
-      createdAt: '2026-06-23T00:00:00.000Z',
+      createdAt: '2026-06-24T00:00:00.000Z',
     };
 
-    await expect(repository.createStatusLogs([first, second, hidden])).resolves.toEqual([
+    await expect(
+      repository.createStatusLogs([first, second, sameTimeLowerId, sameTimeHigherId, hidden]),
+    ).resolves.toEqual([
       expect.objectContaining({ id: first.id, content: first.content }),
       expect.objectContaining({ id: second.id, content: second.content }),
+      expect.objectContaining({ id: sameTimeLowerId.id, content: sameTimeLowerId.content }),
+      expect.objectContaining({ id: sameTimeHigherId.id, content: sameTimeHigherId.content }),
       expect.objectContaining({ id: hidden.id, content: hidden.content }),
     ]);
     await pool.query('UPDATE platform.status_logs SET deleted_at = now() WHERE id = $1', [
@@ -298,9 +319,32 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       limit: 10,
       offset: 0,
     });
-    expect(listed.total).toBe(2);
-    expect(listed.items.map((item) => item.id)).toEqual([second.id, first.id]);
+    expect(listed.total).toBe(4);
+    expect(listed.items.map((item) => item.id)).toEqual([
+      sameTimeHigherId.id,
+      sameTimeLowerId.id,
+      second.id,
+      first.id,
+    ]);
     expect(listed.items).not.toContainEqual(expect.objectContaining({ id: hidden.id }));
+
+    const firstPage = await repository.listStatusLogsBySubject(DEFAULT_ENTERPRISE_ID, employee.id, {
+      limit: 2,
+      offset: 0,
+    });
+    const secondPage = await repository.listStatusLogsBySubject(
+      DEFAULT_ENTERPRISE_ID,
+      employee.id,
+      {
+        limit: 2,
+        offset: 2,
+      },
+    );
+    expect(firstPage.items.map((item) => item.id)).toEqual([
+      sameTimeHigherId.id,
+      sameTimeLowerId.id,
+    ]);
+    expect(secondPage.items.map((item) => item.id)).toEqual([second.id, first.id]);
 
     const indexResult = await pool.query<{ indexname: string }>(
       `

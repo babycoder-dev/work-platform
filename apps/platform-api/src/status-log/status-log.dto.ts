@@ -5,7 +5,6 @@ import {
   IsArray,
   IsNotEmpty,
   IsString,
-  IsUUID,
   Matches,
   MaxLength,
 } from 'class-validator';
@@ -14,7 +13,9 @@ export class CreateStatusLogsDto implements CreateStatusLogsInput {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(100)
-  @IsUUID('4', { each: true })
+  @Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
+    each: true,
+  })
   subjectEmployeeIds!: string[];
 
   @IsString()
