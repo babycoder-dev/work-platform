@@ -1,5 +1,10 @@
 import type { HttpClient } from '@work/http-client';
-import type { CreateRoleInput, UpdateDepartmentInput, UpdateRoleInput } from '@work/platform-contract';
+import type {
+  CreateRoleInput,
+  CreateStatusLogsInput,
+  UpdateDepartmentInput,
+  UpdateRoleInput,
+} from '@work/platform-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { createPlatformRolesApiClient } from './platform-roles-api-client';
 
@@ -103,5 +108,23 @@ describe('createPlatformRolesApiClient', () => {
     expect(http.calls).toEqual([
       { method: 'PUT', url: 'employees/user%20id%26id/roles', body: { roleIds: ['role-001'] } },
     ]);
+  });
+
+  it('lists status logs with encoded employee id and pagination query', async () => {
+    const http = makeHttp();
+    await createPlatformRolesApiClient(http).listStatusLogs('employee id&id', { limit: 20, offset: 20 });
+    expect(http.calls).toEqual([
+      { method: 'GET', url: 'employees/employee%20id%26id/status-logs?limit=20&offset=20' },
+    ]);
+  });
+
+  it('creates status logs through the platform status-log endpoint', async () => {
+    const http = makeHttp();
+    const input = {
+      subjectEmployeeIds: ['employee-001', 'employee-002'],
+      content: '完成客户回访',
+    } satisfies CreateStatusLogsInput;
+    await createPlatformRolesApiClient(http).createStatusLogs(input);
+    expect(http.calls).toEqual([{ method: 'POST', url: 'status-logs', body: input }]);
   });
 });

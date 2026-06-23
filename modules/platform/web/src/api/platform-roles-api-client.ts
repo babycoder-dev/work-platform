@@ -1,10 +1,14 @@
 import type { HttpClient } from '@work/http-client';
 import type {
   CreateRoleInput,
+  CreateStatusLogsInput,
   DepartmentDto,
   EmployeeDto,
+  ListStatusLogsQuery,
+  ListStatusLogsResult,
   PermissionDto,
   RoleDto,
+  StatusLogDto,
   UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
@@ -15,6 +19,8 @@ export interface PlatformRolesApiClient {
   updateDepartment(id: string, input: UpdateDepartmentInput): Promise<DepartmentDto>;
   deleteDepartment(id: string): Promise<void>;
   listEmployees(): Promise<EmployeeDto[]>;
+  listStatusLogs(employeeId: string, query?: ListStatusLogsQuery): Promise<ListStatusLogsResult>;
+  createStatusLogs(input: CreateStatusLogsInput): Promise<StatusLogDto[]>;
   listRoles(): Promise<RoleDto[]>;
   getRole(id: string): Promise<RoleDto>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;
@@ -42,6 +48,22 @@ export function createPlatformRolesApiClient(http: HttpClient): PlatformRolesApi
     async listEmployees() {
       const response = await http.get<{ items: EmployeeDto[] }>('employees');
       return response.items;
+    },
+    listStatusLogs(employeeId, query) {
+      const search = new URLSearchParams();
+      if (query?.limit !== undefined) {
+        search.set('limit', String(query.limit));
+      }
+      if (query?.offset !== undefined) {
+        search.set('offset', String(query.offset));
+      }
+      const queryString = search.toString();
+      return http.get<ListStatusLogsResult>(
+        `employees/${encodeURIComponent(employeeId)}/status-logs${queryString ? `?${queryString}` : ''}`,
+      );
+    },
+    createStatusLogs(input) {
+      return http.post<StatusLogDto[], CreateStatusLogsInput>('status-logs', input);
     },
     async listRoles() {
       const response = await http.get<{ items: RoleDto[] }>('roles');
