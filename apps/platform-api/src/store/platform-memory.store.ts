@@ -461,7 +461,8 @@ export class PlatformMemoryStore implements PlatformRepository {
       )
       .sort(
         (left, right) =>
-          right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
+          compareDescending(right.createdAt, left.createdAt) ||
+          compareDescending(right.id, left.id),
       );
     return {
       items: items.slice(options.offset, options.offset + options.limit).map(toStatusLogDto),
@@ -561,6 +562,16 @@ export class PlatformMemoryStore implements PlatformRepository {
       mustChangePassword: true,
     });
   }
+}
+
+function compareDescending(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
 }
 
 function toDepartmentDto(department: StoredDepartment): DepartmentDto {

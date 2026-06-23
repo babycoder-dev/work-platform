@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS platform.status_logs (
 );
 
 CREATE INDEX IF NOT EXISTS status_logs_subject_idx
-  ON platform.status_logs (enterprise_id, subject_employee_id, created_at DESC);
+  ON platform.status_logs (enterprise_id, subject_employee_id, created_at DESC, id DESC);

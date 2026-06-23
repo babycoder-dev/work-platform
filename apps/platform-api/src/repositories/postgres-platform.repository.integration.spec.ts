@@ -346,9 +346,9 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     ]);
     expect(secondPage.items.map((item) => item.id)).toEqual([second.id, first.id]);
 
-    const indexResult = await pool.query<{ indexname: string }>(
+    const indexResult = await pool.query<{ indexname: string; indexdef: string }>(
       `
-        SELECT indexname
+        SELECT indexname, indexdef
         FROM pg_indexes
         WHERE schemaname = 'platform'
           AND tablename = 'status_logs'
@@ -356,6 +356,9 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
       `,
     );
     expect(indexResult.rows).toHaveLength(1);
+    expect(indexResult.rows[0]?.indexdef).toContain(
+      '(enterprise_id, subject_employee_id, created_at DESC, id DESC)',
+    );
   });
 
   it('lists menus allowed by permission codes', async () => {

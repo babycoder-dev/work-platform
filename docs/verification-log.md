@@ -151,6 +151,41 @@ Review-fix follow-up:
     status-log unit coverage (21 tests), platform e2e (32 tests), and `git diff --check`; Postgres
     gated tests were not run by the reviewer and remain the CI/local-Postgres follow-up above.
 
+Ordering / index follow-up:
+
+- Aligned memory status-log sorting with PostgreSQL bytewise ordering by replacing `localeCompare`
+  with plain `<` / `>` comparison for `createdAt DESC, id DESC`.
+- Aligned `status_logs_subject_idx` in both Drizzle schema and hand-written migration with the
+  query order: `(enterprise_id, subject_employee_id, created_at DESC, id DESC)`.
+- Added regressions:
+  - memory store same-timestamp rows with locale-sensitive ids sort by bytewise id descending.
+  - platform schema spec asserts the hand-written migration keeps the status-log subject index
+    aligned with stable paging order.
+  - PostgreSQL-gated repository spec now checks the index definition includes
+    `created_at DESC, id DESC`.
+- TDD red / green:
+  - Before implementation, `platform-memory.store.spec.ts` failed the bytewise tiebreaker test.
+  - Before implementation, `platform.schema.spec.ts` failed because the migration index lacked
+    `id DESC`.
+  - After implementation, targeted
+    `NODE_ENV=test pnpm exec vitest run apps/platform-api/src/store/platform-memory.store.spec.ts apps/platform-api/src/db/schema/platform.schema.spec.ts --config vitest.config.mts`
+    passed, 2 files / 16 tests.
+- Full validation for this follow-up:
+  - `NODE_ENV=test pnpm lint`: pass across 27 of 28 workspace projects; existing warnings only.
+  - `NODE_ENV=test pnpm typecheck`: pass across 27 of 28 workspace projects.
+  - `NODE_ENV=test pnpm test`: initially failed in the web phase on local Node 25 with
+    `window.localStorage.clear is not a function`; rerun with
+    `NODE_OPTIONS=--localstorage-file=<workspace>/.ls-test` passed.
+    - Unit: 41 files passed / 5 Postgres-gated files skipped; 210 tests passed / 35 skipped.
+    - Web: 33 files / 91 tests passed.
+  - `NODE_ENV=test pnpm test:e2e`: pass, 7 files / 49 tests.
+  - `NODE_ENV=test pnpm build`: pass across 27 of 28 workspace projects. Vite emitted the existing
+    workbench-shell large chunk warning.
+  - `pnpm db:generate`: exited 0. Drizzle generated a full snapshot/meta because this repository
+    still does not commit Drizzle meta history for hand-written platform migrations. The generated
+    snapshot included the updated status-log index as `created_at DESC ... id DESC ...`; generated
+    artifacts were deleted and are not committed.
+
 Follow-up:
 
 - M8-4b: person-page frontend timeline UI consuming `GET /api/platform/employees/:id/status-logs`.

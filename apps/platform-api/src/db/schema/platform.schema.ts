@@ -216,7 +216,12 @@ export const statusLogs = platformSchema.table('status_logs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 }, (table) => ({
-  subjectIdx: index('status_logs_subject_idx').on(table.enterpriseId, table.subjectEmployeeId, table.createdAt),
+  subjectIdx: index('status_logs_subject_idx').on(
+    table.enterpriseId,
+    table.subjectEmployeeId,
+    table.createdAt.desc(),
+    table.id.desc(),
+  ),
 }));
 
 export const domainEvents = platformSchema.table('domain_events', {

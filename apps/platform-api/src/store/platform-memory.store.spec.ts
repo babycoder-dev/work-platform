@@ -347,6 +347,39 @@ describe('PlatformMemoryStore', () => {
     ]);
   });
 
+  it('sorts same-timestamp status logs by bytewise id descending instead of locale order', async () => {
+    const store = new PlatformMemoryStore();
+    const createdAt = '2026-06-22T00:00:00.000Z';
+    await store.createStatusLogs([
+      {
+        id: '00000000-0000-0000-0000-00000000000A',
+        enterpriseId: 'ent-default',
+        subjectEmployeeId: 'user-admin',
+        authorEmployeeId: 'user-admin',
+        content: 'uppercase-id',
+        createdAt,
+      },
+      {
+        id: '00000000-0000-0000-0000-00000000000a',
+        enterpriseId: 'ent-default',
+        subjectEmployeeId: 'user-admin',
+        authorEmployeeId: 'user-admin',
+        content: 'lowercase-id',
+        createdAt,
+      },
+    ]);
+
+    const listed = await store.listStatusLogsBySubject('ent-default', 'user-admin', {
+      limit: 2,
+      offset: 0,
+    });
+
+    expect(listed.items.map((item) => item.id)).toEqual([
+      '00000000-0000-0000-0000-00000000000a',
+      '00000000-0000-0000-0000-00000000000A',
+    ]);
+  });
+
   describe('listDescendantDepartmentIds', () => {
     it('expands active descendants within the same enterprise only', async () => {
       const store = new PlatformMemoryStore();
