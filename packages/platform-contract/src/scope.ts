@@ -14,8 +14,15 @@ export interface PlatformScope {
   degradedFromCustom: boolean;
 }
 
+export interface ScopeSubject {
+  id: string;
+  enterpriseId: string;
+  departmentId?: string;
+}
+
 export interface PlatformScopePort {
   resolveScope(user: CurrentUserDto, dataType: PlatformDataType): Promise<PlatformScope>;
+  matchesScope(subject: ScopeSubject, scope: PlatformScope): boolean;
 }
 
 export const PLATFORM_SCOPE_SERVICE = Symbol.for('PLATFORM_SCOPE_SERVICE');

@@ -106,6 +106,12 @@ export interface FormsRepository {
   saveRecordWithValues(input: SaveRecordInput, uow: UnitOfWork): Promise<FormRecordDto>;
   findRecordById(enterpriseId: string, id: string): Promise<FormRecordDto | undefined>;
   findRecordWithValues(enterpriseId: string, id: string): Promise<FormRecordDto | undefined>;
+  findRecordBySubject(
+    enterpriseId: string,
+    slotKey: FormSlotKey,
+    subjectType: string,
+    subjectId: string,
+  ): Promise<FormRecordDto | undefined>;
   createRecordValue(input: CreateFormRecordValueRecordInput): Promise<FormRecordValueDto>;
   listValuesByRecordId(enterpriseId: string, recordId: string): Promise<FormRecordValueDto[]>;
 }

@@ -339,6 +339,7 @@ M8 落在 `apps/platform-api/src/{users,org,repositories}` + 迁移 + 新权限�
 
 > 每切片自包含、独立验收、追加 verification-log；触及安全敏感面的切片合并前过 security-reviewer。
 > M8-2a 拆出后端单独成片（档案写收口 + 写授权 baseline 更新是安全核心），首登向导（M8-2b）为前端片，避免单片过大。
+> M8-5 执行前勘误：规划期实证发现 forms `profile.employee` 记录缺少按 subject 的 HTTP 读/写端点，presence 也缺少按 employeeId 查询当前在位的端点；因此 M8-5 拆为 M8-5a 后端使能（补 forms 读/upsert、presence 按人读、`PlatformScopePort.matchesScope` 端口谓词）与 M8-5b 人页 UI。档案照片下载涉及 files 二进制内容流和跨模块授权链，延后独立切片。
 
 ## 18. 文档影响
 

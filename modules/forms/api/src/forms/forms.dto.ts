@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  Allow,
   IsArray,
   IsBoolean,
   IsIn,
@@ -67,4 +68,25 @@ export class UpdateFormDefinitionDto {
   @ValidateNested({ each: true })
   @Type(() => FormFieldInputDto)
   fields!: FormFieldInputDto[];
+}
+
+export class FormRecordValueInputDto {
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(FORM_FIELD_LIMITS.fieldKeyMaxLength)
+  fieldKey!: string;
+
+  @Allow()
+  value!: unknown;
+}
+
+export class UpsertProfileRecordDto {
+  @IsInt()
+  @Min(0)
+  definitionRevision!: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FormRecordValueInputDto)
+  values!: FormRecordValueInputDto[];
 }

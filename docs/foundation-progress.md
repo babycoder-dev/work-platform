@@ -23,7 +23,7 @@
 | M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done        | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，M7 通知 + 调度已交付                                           |
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done        | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪                 |
 | UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Done        | UI-1→UI-2/UI-3→UI-4 已交付；线性图标集 + Card/StatCard + 登录/外壳/工作台还原 + A 类门禁过；门禁纳入 development-workflow §7 |
-| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | In Progress | M8-1 部门管理、M8-2a 档案读写后端、M8-2b 首登向导、M8-3 profile.updated 已交付，下一步 M8-4 近况；依赖 M5/M6/M7              |
+| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | In Progress | M8-1 部门管理、M8-2a 档案读写后端、M8-2b 首登向导、M8-3 profile.updated、M8-4 近况、M8-5a 聚合后端使能已交付，下一步 M8-5b 人页 UI；依赖 M5/M6/M7 |
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending     | 在 M4 presence 基础上扩展                                                                                                    |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                                                   |
 | M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending     | 简单串签流 + 节点通知 + 联动在位                                                                                             |
@@ -201,7 +201,11 @@ M8: 人员 / 组织 / 档案（RFC docs/rfc/m8-people-org-profile.md 已 Accepte
   └ M8-3 profile.updated 已完成（2026-06-21）：
       platform-contract 新建 profile.updated 契约；platform 写档案收口在他人改且有变更时发布事件；notification 恒发站内通知给本人；
       详见 verification-log「M8-3 profile.updated Event」
-  └ 后续：M8-4 近况 → M8-5 自定义字段聚合 → M8-6 交付验证
+  └ M8-4 近况已完成；M8-5 拆为 M8-5a 后端使能 + M8-5b 人页 UI
+  └ M8-5a 人页聚合数据后端使能已完成（2026-06-24）：
+      PlatformScopePort 暴露 matchesScope；forms profile.employee 按 subject 读/upsert；presence 按 employeeId 取当前在位；
+      详见 verification-log「M8-5a People Aggregation Data Backend」
+  └ 后续：M8-5b 人页 UI → M8-6 交付验证
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -219,7 +223,7 @@ M7-3 已交付 `@nestjs/schedule` 调度基建、`notification.schedule_config`�
 M7-4a 已交付 `GET /api/notification/stream`、进程内连接注册表和 `create()` 最小信号推送；
 M7-4b 已交付 `@work/http-client.stream()`、shell 铃铛 / 工作台通知卡片、断线回退轮询和
 `modules/notification/web` 触发点配置页。M7-5 通知 + 调度交付验证门禁已完成，M7 整段退出。
-M8-1 部门管理、M8-2a 档案读写后端、M8-2b 首登向导与 M8-3 profile.updated 已完成；下一步进入 M8-4 近况记录。
+M8-1 部门管理、M8-2a 档案读写后端、M8-2b 首登向导、M8-3 profile.updated、M8-4 近况记录与 M8-5a 聚合后端使能已完成；下一步进入 M8-5b 人页 UI。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -297,8 +301,9 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 | M8-2b | 首登向导               | Done    | 2026-06-21 完成；详见 verification-log `M8-2b First-Login Wizard`                                                                                                  |
 | M8-3  | `profile.updated` 事件 | Done    | 2026-06-21 完成；详见 verification-log `M8-3 profile.updated Event`；payload 仅 id + 字段名，notification 恒发本人通知、不经 RecipientResolver / trigger_config    |
 | M8-4a | 近况后端               | Done    | 2026-06-22 完成；详见 verification-log `M8-4a Status Logs Backend`；`platform.status_logs` + 批量新增 + 按 `profile` 范围逐 subject 授权                           |
-| M8-4b | 近况前端               | Pending | 人页近况脉络 UI；消费 M8-4a `GET /employees/:id/status-logs`                                                                                                       |
-| M8-5  | 自定义字段聚合         | Pending | 依赖 M6 Forms 与 M8 profile 槽位                                                                                                                                   |
+| M8-4b | 近况前端               | Done    | 2026-06-22 完成；详见 verification-log `M8-4b Status Logs Frontend`；员工列表 + 近况脉络抽屉 + 批量记录近况 Modal                                                  |
+| M8-5a | 人页聚合数据后端使能   | Done    | 2026-06-24 完成；详见 verification-log `M8-5a People Aggregation Data Backend`；forms `profile.employee` 按 subject 读/upsert + presence 按人读                     |
+| M8-5b | 人页 UI 聚合           | Pending | 消费 platform 固定档案、forms 自定义记录、presence 当前在位、status logs；档案照片下载延后独立切片                                                                  |
 | M8-6  | 交付验证               | Pending | M8 后端 / 前端交付门禁                                                                                                                                             |
 
 ## 7. 当前阻塞项
@@ -341,6 +346,12 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 | [Quality follow-up] `readError` helper 在 platform web 重复  | Pending | `readError(error, fallback)` 在 platform web 6 个文件逐字重复（BatchStatusLogModal / EmployeesPage / OrganizationPage / RoleEditor / RolesPage / StatusTimeline）。收敛为 platform web 一处共享 helper，各页引用。                                                                                                                                                                   |
 | [Quality follow-up] `EmployeeStatus` 标签 if-ladder 兜底误标 | Pending | `EmployeesPage.statusLabel` 用 if-ladder，非 `active`/`disabled` 一律落 `'离职'`。当前 `EmployeeStatus = active\|disabled\|left` 恰好正确，但日后新增状态会被静默误标为离职。改为靠近契约的穷举映射（exhaustive switch，新增状态时类型报错提醒补全）。                                                                                                                               |
 | [Quality follow-up] `EmployeePicker.reachedLimit` 计原始 id  | Pending | `reachedLimit = value.length >= maxSelected` 直接数已选 id 数组。若上游传入含列表外 / 失效 id，会在可见有效项不足上限时提前触顶。防御性改为只计当前 `employees` 列表内的有效已选项。                                                                                                                                                                                                 |
+
+### 7.5 已知领域语义 Follow-up（M8-5a planning 衍生）
+
+| 项                                                                                             | 状态    | 处理                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Presence follow-up] 在位数据范围授权使用登记记录的部门快照，员工换部门后可能短暂与实时组织归属不一致 | Pending | M8-5a 的按人查询刻意沿用既有 presence board 口径：`department` / `department_tree` 基于 `presence.status_records.department_id` 快照过滤，不引入 platform employee lookup 或 `matchesScope`。该陈旧风险是 presence 全模块既有性质，待 M9 在位 v2 统一处理。 |
 
 ## 8. M4 在位管理 MVP
 

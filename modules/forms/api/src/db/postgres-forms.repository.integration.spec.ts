@@ -281,6 +281,29 @@ describe.skipIf(!runPostgresIntegration)('PostgresFormsRepository integration', 
       [enterpriseId, subjectId],
     );
     expect(count.rows[0]?.count).toBe('1');
+    await expect(
+      repository.findRecordBySubject(
+        enterpriseId,
+        'profile.employee',
+        'employee',
+        subjectId,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: records[0].id,
+        values: expect.arrayContaining([
+          expect.objectContaining({ fieldKey: 'nickname' }),
+        ]),
+      }),
+    );
+    await expect(
+      repository.findRecordBySubject(
+        enterpriseTwo,
+        'profile.employee',
+        'employee',
+        subjectId,
+      ),
+    ).resolves.toBeUndefined();
   });
 });
 

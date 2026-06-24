@@ -15,6 +15,15 @@ export class PresenceStatusController {
     return this.presenceStatusService.listOwnRecords(request.currentUser as CurrentUserDto);
   }
 
+  @Get('by-employee/:employeeId')
+  @RequirePermissions(presencePermissions.boardView)
+  getEmployeeStatus(@Req() request: RequestWithAuth, @Param('employeeId') employeeId: string) {
+    return this.presenceStatusService.getEmployeeStatus(
+      request.currentUser as CurrentUserDto,
+      employeeId,
+    );
+  }
+
   @Post()
   @RequirePermissions(presencePermissions.statusCreate)
   createRecord(@Req() request: RequestWithAuth, @Body() input: CreatePresenceStatusRecordInput) {

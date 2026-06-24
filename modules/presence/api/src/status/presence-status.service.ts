@@ -50,6 +50,34 @@ export class PresenceStatusService {
     return { items };
   }
 
+  async getEmployeeStatus(
+    currentUser: CurrentUserDto,
+    employeeId: string,
+  ): Promise<{ record: PresenceStatusRecordDto | null }> {
+    const scope = await this.scopeService.resolveScope(currentUser, 'presence');
+    if (scope.kind === 'self' && employeeId !== scope.userId) {
+      return { record: null };
+    }
+
+    const query: {
+      enterpriseId: string;
+      at: string;
+      userIds: string[];
+      departmentIds?: string[];
+    } = {
+      enterpriseId: scope.enterpriseId,
+      at: new Date().toISOString(),
+      userIds: [employeeId],
+    };
+
+    if (scope.kind === 'department' || scope.kind === 'department_tree') {
+      query.departmentIds = scope.departmentIds;
+    }
+
+    const [record] = await this.repository.listActiveRecords(query);
+    return { record: record ?? null };
+  }
+
   async listOwnRecords(currentUser: CurrentUserDto): Promise<{ items: PresenceStatusRecordDto[] }> {
     const items = await this.repository.listUserRecords(currentUser.enterpriseId, currentUser.id);
     return { items };

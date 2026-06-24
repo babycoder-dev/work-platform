@@ -18,6 +18,7 @@ describe('PresenceStatusService', () => {
     repository = createRepositoryMock();
     scopeService = {
       resolveScope: vi.fn(),
+      matchesScope: vi.fn(),
     };
     auditService = {
       record: vi.fn(),
@@ -281,6 +282,63 @@ describe('PresenceStatusService', () => {
     expect(repository.listActiveRecords).toHaveBeenCalledWith(
       expect.objectContaining({
         userIds: ['user-001'],
+      }),
+    );
+  });
+
+  it('returns current employee status for company scope', async () => {
+    const record = createRecord({ userId: 'user-002' });
+    repository.listActiveRecords.mockResolvedValue([record]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record });
+
+    expect(repository.listActiveRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enterpriseId: 'enterprise-001',
+        userIds: ['user-002'],
+      }),
+    );
+    expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
+  });
+
+  it('returns null for other employees under self scope without querying repository', async () => {
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'self',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record: null });
+
+    expect(repository.listActiveRecords).not.toHaveBeenCalled();
+  });
+
+  it('filters employee status by snapshot department for department scope', async () => {
+    repository.listActiveRecords.mockResolvedValue([]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'department_tree',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentId: 'department-001',
+      departmentIds: ['department-001', 'department-002'],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record: null });
+
+    expect(repository.listActiveRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userIds: ['user-002'],
+        departmentIds: ['department-001', 'department-002'],
       }),
     );
   });

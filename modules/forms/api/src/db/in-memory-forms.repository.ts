@@ -219,6 +219,25 @@ export class InMemoryFormsRepository implements FormsRepository {
     };
   }
 
+  async findRecordBySubject(
+    enterpriseId: string,
+    slotKey: FormRecordDto['slotKey'],
+    subjectType: string,
+    subjectId: string,
+  ): Promise<FormRecordDto | undefined> {
+    const record = this.records.find(
+      (candidate) =>
+        candidate.enterpriseId === enterpriseId &&
+        candidate.slotKey === slotKey &&
+        candidate.subjectType === subjectType &&
+        candidate.subjectId === subjectId,
+    );
+    if (!record) {
+      return undefined;
+    }
+    return this.findRecordWithValues(enterpriseId, record.id);
+  }
+
   async reserveRecord(input: ReserveRecordInput, uow: UnitOfWork): Promise<FormRecordDto> {
     this.assertUnitOfWork(uow);
     let record: FormRecordDto | undefined;
@@ -317,7 +336,12 @@ export class InMemoryFormsRepository implements FormsRepository {
   ): Promise<FormRecordValueDto[]> {
     return this.values
       .filter((value) => value.enterpriseId === enterpriseId && value.recordId === recordId)
-      .sort((a, b) => a.sortOrderSnapshot - b.sortOrderSnapshot);
+      .sort((a, b) => a.sortOrderSnapshot - b.sortOrderSnapshot)
+      .map((value) => ({
+        ...value,
+        value: copyJson(value.value),
+        displaySnapshot: copyJson(value.displaySnapshot),
+      }));
   }
   private assertUnitOfWork(uow: UnitOfWork): void {
     if (!this.activeUnitOfWorks.has(uow)) {

@@ -216,6 +216,8 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M8-2b 首登向导任务包：`docs/tasks/m8-2b-first-login-wizard.md`（**纯前端**：`mustChangePassword` 前端网关 → **不可关闭 Modal** 两步向导(强制改密 + 强制补全本人档案) → 重 bootstrap 入壳；复用 M8-2a `employees/me(/profile)` + 既有 `auth/change-password`，**不改后端/契约/迁移/权限点**；无专稿→还原基准锚定登录卡+Modal，过设计还原度门禁；非安全敏感面、security-reviewer 非强制）
 - M8-3 `profile.updated` 事件任务包：`docs/tasks/m8-3-profile-updated-event.md`（platform-contract **新建事件契约**(payload 仅 id+变更字段名、零字段值) + platform 接 `EventBusModule` 在 M8-2a 写收口**「他人改且有变更才发」** + notification **新增订阅器**消费(接收人=本人直取、**恒发不经 RecipientResolver/trigger_config**)；点亮 M7 ④；**无迁移/无 schema/无新权限点/不改数据范围模型**，**§16 不触发**(不补 baseline)、仍过 security-reviewer；e2e 双向断言实证 EventBus 单例跨进程)
 - M8-4a 近况记录后端任务包：`docs/tasks/m8-4a-status-logs-backend.md`（`platform.status_logs` 新表 + `POST /status-logs` 批量新增 + `GET /employees/:id/status-logs` 分页读；新增 `platform:status-log:create` 权限点；读写均按 `profile` 范围校验，写侧逐 subject 全有或全无；近况不发事件、不通知本人；合并前过 security-reviewer）
+- M8-4b 近况记录前端任务包：`docs/tasks/m8-4b-status-logs-frontend.md`（platform web 员工列表 + 近况脉络抽屉 + 批量记录近况 Modal；消费 M8-4a status-log API，不改后端/契约/迁移）
+- M8-5a 人页聚合数据后端使能任务包：`docs/tasks/m8-5a-people-aggregation-backend.md`（forms `profile.employee` 按 subject 读/upsert、presence 按 employeeId 取当前在位、`PlatformScopePort.matchesScope` 暴露给共享模块；纯后端，M8-5b 负责人页 UI，照片下载延后）
 
 后续建议补充：
 

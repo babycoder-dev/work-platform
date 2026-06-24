@@ -2,7 +2,12 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import type { EventBus } from '@work/event-bus';
 import type { FileStoragePort } from '@work/files-contract';
 import { FORM_FIELD_LIMITS, formsPermissions, type FormActorContext } from '@work/forms-contract';
-import type { PlatformAuditPort, PlatformEmployeeLookupPort } from '@work/platform-contract';
+import type {
+  CurrentUserDto,
+  PlatformAuditPort,
+  PlatformEmployeeLookupPort,
+  PlatformScopePort,
+} from '@work/platform-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryFormsRepository } from '../db/in-memory-forms.repository';
 import { FormsService } from './forms.service';
@@ -11,6 +16,7 @@ describe('FormsService', () => {
   let formsRepository: InMemoryFormsRepository;
   let fileStorage: FileStoragePort;
   let employeeLookup: PlatformEmployeeLookupPort;
+  let scopeService: PlatformScopePort;
   let audit: PlatformAuditPort;
   let events: EventBus;
   let service: FormsService;
@@ -50,9 +56,19 @@ describe('FormsService', () => {
           })),
       ),
     };
+    scopeService = {
+      resolveScope: vi.fn(async (user) => ({
+        kind: 'company' as const,
+        userId: user.id,
+        enterpriseId: user.enterpriseId,
+        departmentIds: [],
+        degradedFromCustom: false,
+      })),
+      matchesScope: vi.fn(() => true),
+    };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     events = eventBus();
-    service = new FormsService(formsRepository, fileStorage, employeeLookup, audit, events);
+    service = new FormsService(formsRepository, fileStorage, employeeLookup, scopeService, audit, events);
   });
 
   it('updates definitions with optimistic revision checks', async () => {
@@ -174,6 +190,95 @@ describe('FormsService', () => {
     expect(second.values).toEqual([
       expect.objectContaining({ fieldKey: 'nickname', value: 'second' }),
     ]);
+  });
+
+  it('reads and upserts profile.employee records by authorized subject without emitting domain events', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(events.publish).mockClear();
+    vi.mocked(audit.record).mockClear();
+
+    const created = await service.upsertRecordBySubject(
+      actor(),
+      currentUser(),
+      {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: 'first' }],
+      },
+      { traceId: 'trace-upsert' },
+    );
+    const updated = await service.upsertRecordBySubject(actor(), currentUser(), {
+      slotKey: 'profile.employee',
+      subjectType: 'employee',
+      subjectId: 'employee-1',
+      definitionRevision: 1,
+      values: [{ fieldKey: 'nickname', value: 'second' }],
+    });
+
+    expect(updated.id).toBe(created.id);
+    expect(formsRepository.records).toHaveLength(1);
+    await expect(
+      service.getRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: created.id,
+        values: [expect.objectContaining({ fieldKey: 'nickname', value: 'second' })],
+      }),
+    );
+    expect(scopeService.resolveScope).toHaveBeenCalledWith(currentUser(), 'profile');
+    expect(scopeService.matchesScope).toHaveBeenCalledWith(
+      { id: 'employee-1', enterpriseId: 'ent-default', departmentId: 'dept-1' },
+      expect.objectContaining({ kind: 'company' }),
+    );
+    expect(events.publish).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        resourceId: created.id,
+        traceId: 'trace-upsert',
+        metadata: expect.objectContaining({
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          fieldKeys: ['nickname'],
+        }),
+      }),
+    );
+  });
+
+  it('hides profile.employee subject records when scope denies access', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(scopeService.matchesScope).mockReturnValue(false);
+
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: 'first' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.getRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(formsRepository.records).toHaveLength(0);
   });
 
   it('attaches files to the actual singleton record id on replacement submissions', async () => {
@@ -393,6 +498,26 @@ function actor(): FormActorContext {
     userId: 'user-1',
     account: 'forms-user',
     permissionCodes: [formsPermissions.recordSubmit, formsPermissions.recordView],
+  };
+}
+
+function currentUser(): CurrentUserDto {
+  return {
+    id: 'user-1',
+    account: 'forms-user',
+    employeeNo: 'E001',
+    name: 'Forms User',
+    enterpriseId: 'ent-default',
+    departmentId: 'dept-1',
+    departmentName: '研发部',
+    roles: ['admin'],
+    permissions: [],
+    dataScopes: {
+      profile: ['company'],
+      presence: ['self'],
+      report: ['self'],
+    },
+    mustChangePassword: false,
   };
 }
 
