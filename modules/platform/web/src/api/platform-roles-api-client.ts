@@ -15,7 +15,13 @@ import type {
 
 export interface PlatformRolesApiClient {
   listDepartments(): Promise<DepartmentDto[]>;
-  createDepartment(input: { code: string; name: string; parentId?: string; managerUserId?: string; sortOrder?: number }): Promise<DepartmentDto>;
+  createDepartment(input: {
+    code: string;
+    name: string;
+    parentId?: string;
+    managerUserId?: string;
+    sortOrder?: number;
+  }): Promise<DepartmentDto>;
   updateDepartment(id: string, input: UpdateDepartmentInput): Promise<DepartmentDto>;
   deleteDepartment(id: string): Promise<void>;
   listEmployees(): Promise<EmployeeDto[]>;
@@ -40,7 +46,10 @@ export function createPlatformRolesApiClient(http: HttpClient): PlatformRolesApi
       return http.post<DepartmentDto, typeof input>('departments', input);
     },
     updateDepartment(id, input) {
-      return http.put<DepartmentDto, UpdateDepartmentInput>(`departments/${encodeURIComponent(id)}`, input);
+      return http.put<DepartmentDto, UpdateDepartmentInput>(
+        `departments/${encodeURIComponent(id)}`,
+        input,
+      );
     },
     deleteDepartment(id) {
       return http.delete<void>(`departments/${encodeURIComponent(id)}`);
@@ -86,9 +95,12 @@ export function createPlatformRolesApiClient(http: HttpClient): PlatformRolesApi
       return response.items;
     },
     assignUserRoles(userId, roleIds) {
-      return http.put<unknown, { roleIds: string[] }>(`employees/${encodeURIComponent(userId)}/roles`, {
-        roleIds,
-      });
+      return http.put<unknown, { roleIds: string[] }>(
+        `employees/${encodeURIComponent(userId)}/roles`,
+        {
+          roleIds,
+        },
+      );
     },
   };
 }

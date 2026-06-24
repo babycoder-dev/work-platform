@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Drawer, EmptyState, Pager } from '@work/ui';
 import type { EmployeeDto, ListStatusLogsResult } from '@work/platform-contract';
 import { getPlatformRolesApi } from '../runtime';
@@ -27,34 +27,55 @@ export function StatusTimeline({
 }) {
   const [page, setPage] = useState(1);
   const [state, setState] = useState<TimelineState>({ kind: 'idle' });
+  const [reloadKey, setReloadKey] = useState(0);
   const employeeId = employee?.id;
+  const resetKey = `${employeeId ?? ''}:${refreshKey}`;
+  const lastResetKeyRef = useRef(resetKey);
 
-  const reload = useCallback(async () => {
+  useEffect(() => {
     if (!open || !employeeId) {
       setState({ kind: 'idle' });
-      return;
+      lastResetKeyRef.current = resetKey;
+      return undefined;
     }
+
+    if (lastResetKeyRef.current !== resetKey) {
+      lastResetKeyRef.current = resetKey;
+      if (page !== 1) {
+        setState({ kind: 'loading' });
+        setPage(1);
+        return undefined;
+      }
+    }
+
+    let ignore = false;
     setState({ kind: 'loading' });
-    try {
-      const result = await getPlatformRolesApi().listStatusLogs(employeeId, {
+    void getPlatformRolesApi()
+      .listStatusLogs(employeeId, {
         limit: STATUS_TIMELINE_PAGE_SIZE,
         offset: (page - 1) * STATUS_TIMELINE_PAGE_SIZE,
+      })
+      .then((result) => {
+        if (ignore) {
+          return;
+        }
+        const pageCount = Math.max(1, Math.ceil(result.total / STATUS_TIMELINE_PAGE_SIZE));
+        if (page > pageCount) {
+          setPage(pageCount);
+          return;
+        }
+        setState({ kind: 'ready', result });
+      })
+      .catch((error: unknown) => {
+        if (!ignore) {
+          setState({ kind: 'error', message: readError(error, '加载近况记录失败') });
+        }
       });
-      setState({ kind: 'ready', result });
-    } catch (error) {
-      setState({ kind: 'error', message: readError(error, '加载近况记录失败') });
-    }
-  }, [employeeId, open, page]);
 
-  useEffect(() => {
-    if (open) {
-      setPage(1);
-    }
-  }, [employeeId, open]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload, refreshKey]);
+    return () => {
+      ignore = true;
+    };
+  }, [employeeId, open, page, reloadKey, resetKey]);
 
   if (!employee) {
     return null;
@@ -65,8 +86,12 @@ export function StatusTimeline({
       {state.kind === 'loading' ? <p>加载中…</p> : null}
       {state.kind === 'error' ? (
         <div className="status-timeline__state">
-          <p className="platform-employees__message platform-employees__message--error">{state.message}</p>
-          <Button onClick={() => void reload()} size="sm">重试</Button>
+          <p className="platform-employees__message platform-employees__message--error">
+            {state.message}
+          </p>
+          <Button onClick={() => setReloadKey((current) => current + 1)} size="sm">
+            重试
+          </Button>
         </div>
       ) : null}
       {state.kind === 'ready' && state.result.items.length === 0 ? (
@@ -78,7 +103,9 @@ export function StatusTimeline({
             {state.result.items.map((item) => (
               <li className="status-timeline__item" key={item.id}>
                 <div className="status-timeline__meta">
-                  <strong>{employeeNameById.get(item.authorEmployeeId) ?? item.authorEmployeeId}</strong>
+                  <strong>
+                    {employeeNameById.get(item.authorEmployeeId) ?? item.authorEmployeeId}
+                  </strong>
                   <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
                 </div>
                 <p className="status-timeline__content">{item.content}</p>

@@ -27,7 +27,14 @@ describe('EmployeePicker', () => {
 
   it('disables unselected employees after reaching the maximum', () => {
     const selected = Array.from({ length: 100 }, (_, index) => `selected-${index}`);
-    render(<EmployeePicker employees={employees()} maxSelected={100} onChange={vi.fn()} value={selected} />);
+    render(
+      <EmployeePicker
+        employees={employees()}
+        maxSelected={100}
+        onChange={vi.fn()}
+        value={selected}
+      />,
+    );
 
     expect(screen.getByText('最多选择 100 人')).toBeInTheDocument();
     expect(screen.getByLabelText('张伟（000001）')).toBeDisabled();

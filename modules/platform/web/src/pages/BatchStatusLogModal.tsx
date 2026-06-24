@@ -70,7 +70,7 @@ export function BatchStatusLogModal({
   return (
     <Modal
       description="选择可见范围内的员工，批量追加同一条纯文本近况。"
-      footer={(
+      footer={
         <>
           <Button disabled={submitting} onClick={onClose}>
             取消
@@ -79,7 +79,7 @@ export function BatchStatusLogModal({
             {submitting ? '记录中…' : '记录近况'}
           </Button>
         </>
-      )}
+      }
       onClose={onClose}
       open={open}
       title="批量记录近况"
@@ -99,8 +99,14 @@ export function BatchStatusLogModal({
           rows={5}
           value={content}
         />
-        <p className="batch-status-log__counter">{content.length} / {MAX_CONTENT_LENGTH}</p>
-        {message ? <p className="platform-employees__message platform-employees__message--error">{message}</p> : null}
+        <p className="batch-status-log__counter">
+          {content.length} / {MAX_CONTENT_LENGTH}
+        </p>
+        {message ? (
+          <p className="platform-employees__message platform-employees__message--error">
+            {message}
+          </p>
+        ) : null}
       </div>
     </Modal>
   );

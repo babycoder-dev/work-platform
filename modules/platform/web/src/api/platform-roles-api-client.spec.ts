@@ -9,7 +9,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPlatformRolesApiClient } from './platform-roles-api-client';
 
 describe('createPlatformRolesApiClient', () => {
-  function makeHttp(): HttpClient & { calls: Array<{ method: string; url: string; body?: unknown }> } {
+  function makeHttp(): HttpClient & {
+    calls: Array<{ method: string; url: string; body?: unknown }>;
+  } {
     const calls: Array<{ method: string; url: string; body?: unknown }> = [];
     return {
       calls,
@@ -112,7 +114,10 @@ describe('createPlatformRolesApiClient', () => {
 
   it('lists status logs with encoded employee id and pagination query', async () => {
     const http = makeHttp();
-    await createPlatformRolesApiClient(http).listStatusLogs('employee id&id', { limit: 20, offset: 20 });
+    await createPlatformRolesApiClient(http).listStatusLogs('employee id&id', {
+      limit: 20,
+      offset: 20,
+    });
     expect(http.calls).toEqual([
       { method: 'GET', url: 'employees/employee%20id%26id/status-logs?limit=20&offset=20' },
     ]);

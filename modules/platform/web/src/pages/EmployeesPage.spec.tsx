@@ -56,9 +56,10 @@ describe('EmployeesPage', () => {
 
   it('opens a paged status timeline and falls back to author id when the author is not visible', async () => {
     mockReady();
-    mockStatusLogs([
-      statusLog({ id: 'log-001', authorEmployeeId: 'employee-author', content: '完成客户回访' }),
-    ], 21);
+    mockStatusLogs(
+      [statusLog({ id: 'log-001', authorEmployeeId: 'employee-author', content: '完成客户回访' })],
+      21,
+    );
     render(<EmployeesPage />);
 
     await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
@@ -88,7 +89,9 @@ describe('EmployeesPage', () => {
   it('creates batch status logs with trimmed content and refreshes the open timeline', async () => {
     mockReady();
     mockStatusLogs([]);
-    post.mockResolvedValueOnce([statusLog({ subjectEmployeeId: 'employee-001', content: '完成客户回访' })]);
+    post.mockResolvedValueOnce([
+      statusLog({ subjectEmployeeId: 'employee-001', content: '完成客户回访' }),
+    ]);
     render(<EmployeesPage />);
 
     await userEvent.click(await screen.findByRole('button', { name: '批量记录近况' }));
@@ -104,6 +107,130 @@ describe('EmployeesPage', () => {
     );
     expect(await screen.findByText('已为 1 名员工记录近况。')).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: '批量记录近况' })).not.toBeInTheDocument();
+  });
+
+  it('returns the open timeline to the first page after creating a status log for that employee', async () => {
+    let created = false;
+    get.mockImplementation((url: string) => {
+      if (url === 'employees') {
+        return Promise.resolve({ items: employees() });
+      }
+      if (url === 'departments') {
+        return Promise.resolve({ items: departments() });
+      }
+      if (url === 'employees/employee-001/status-logs?limit=20&offset=0') {
+        return Promise.resolve({
+          items: created
+            ? [statusLog({ id: 'log-new', content: '新记录在第一页' })]
+            : [statusLog({ id: 'log-first', content: '第一页旧记录' })],
+          total: 21,
+        });
+      }
+      if (url === 'employees/employee-001/status-logs?limit=20&offset=20') {
+        return Promise.resolve({
+          items: [statusLog({ id: 'log-second', content: '第二页旧记录' })],
+          total: 21,
+        });
+      }
+      return Promise.reject(new Error(`Unexpected GET ${url}`));
+    });
+    post.mockImplementationOnce(() => {
+      created = true;
+      return Promise.resolve([
+        statusLog({ subjectEmployeeId: 'employee-001', content: '新记录在第一页' }),
+      ]);
+    });
+    render(<EmployeesPage />);
+
+    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    expect(await screen.findByText('第一页旧记录')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '下一页' }));
+    expect(await screen.findByText('第二页旧记录')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '批量记录近况' }));
+    await userEvent.click(screen.getByLabelText('张伟（000001）'));
+    await userEvent.type(screen.getByLabelText('近况内容'), '新记录在第一页');
+    await userEvent.click(screen.getByRole('button', { name: '记录近况' }));
+
+    expect(await screen.findByText('新记录在第一页')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(get).toHaveBeenLastCalledWith('employees/employee-001/status-logs?limit=20&offset=0'),
+    );
+  });
+
+  it('clamps the timeline page when the new total no longer has the current page', async () => {
+    let collapsed = false;
+    get.mockImplementation((url: string) => {
+      if (url === 'employees') {
+        return Promise.resolve({ items: employees() });
+      }
+      if (url === 'departments') {
+        return Promise.resolve({ items: departments() });
+      }
+      if (url === 'employees/employee-001/status-logs?limit=20&offset=0') {
+        return Promise.resolve({
+          items: [
+            statusLog({
+              id: collapsed ? 'log-only' : 'log-first',
+              content: collapsed ? '唯一剩余记录' : '第一页记录',
+            }),
+          ],
+          total: collapsed ? 1 : 21,
+        });
+      }
+      if (url === 'employees/employee-001/status-logs?limit=20&offset=20') {
+        collapsed = true;
+        return Promise.resolve({ items: [], total: 1 });
+      }
+      return Promise.reject(new Error(`Unexpected GET ${url}`));
+    });
+    render(<EmployeesPage />);
+
+    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    expect(await screen.findByText('第一页记录')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '下一页' }));
+
+    expect(await screen.findByText('唯一剩余记录')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(get).toHaveBeenLastCalledWith('employees/employee-001/status-logs?limit=20&offset=0'),
+    );
+  });
+
+  it('opens a different employee timeline on the first page without issuing the stale previous offset', async () => {
+    mockReady();
+    mockEmployeeStatusLogs();
+    render(<EmployeesPage />);
+
+    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    expect(await screen.findByText('张伟第一页')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '下一页' }));
+    expect(await screen.findByText('张伟第二页')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '关闭' }));
+
+    await userEvent.click(screen.getAllByRole('button', { name: '近况' })[1]);
+
+    expect(await screen.findByText('李四第一页')).toBeInTheDocument();
+    expect(get).not.toHaveBeenCalledWith('employees/employee-002/status-logs?limit=20&offset=20');
+  });
+
+  it('clears the success banner when the employee list is refreshed', async () => {
+    mockReady();
+    post.mockResolvedValueOnce([
+      statusLog({ subjectEmployeeId: 'employee-001', content: '完成客户回访' }),
+    ]);
+    render(<EmployeesPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: '批量记录近况' }));
+    await userEvent.click(screen.getByLabelText('张伟（000001）'));
+    await userEvent.type(screen.getByLabelText('近况内容'), '完成客户回访');
+    await userEvent.click(screen.getByRole('button', { name: '记录近况' }));
+    expect(await screen.findByText('已为 1 名员工记录近况。')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '刷新' }));
+
+    await waitFor(() =>
+      expect(screen.queryByText('已为 1 名员工记录近况。')).not.toBeInTheDocument(),
+    );
   });
 
   it('blocks invalid batch input before calling the API', async () => {
@@ -161,7 +288,8 @@ describe('EmployeesPage', () => {
         enterpriseId: 'ent-default',
         permissions: codes.map((code) => ({ code })),
       } as never,
-      createHttpClient: () => ({ get, post, put: vi.fn(), patch: vi.fn(), delete: vi.fn() }) as never,
+      createHttpClient: () =>
+        ({ get, post, put: vi.fn(), patch: vi.fn(), delete: vi.fn() }) as never,
     });
   }
 
@@ -187,6 +315,45 @@ describe('EmployeesPage', () => {
       }
       if (url.startsWith('employees/employee-001/status-logs')) {
         return Promise.resolve({ items, total });
+      }
+      return Promise.reject(new Error(`Unexpected GET ${url}`));
+    });
+  }
+
+  function mockEmployeeStatusLogs() {
+    get.mockImplementation((url: string) => {
+      if (url === 'employees') {
+        return Promise.resolve({ items: employees() });
+      }
+      if (url === 'departments') {
+        return Promise.resolve({ items: departments() });
+      }
+      if (url === 'employees/employee-001/status-logs?limit=20&offset=0') {
+        return Promise.resolve({
+          items: [statusLog({ id: 'zhang-page-1', content: '张伟第一页' })],
+          total: 21,
+        });
+      }
+      if (url === 'employees/employee-001/status-logs?limit=20&offset=20') {
+        return Promise.resolve({
+          items: [statusLog({ id: 'zhang-page-2', content: '张伟第二页' })],
+          total: 21,
+        });
+      }
+      if (url === 'employees/employee-002/status-logs?limit=20&offset=0') {
+        return Promise.resolve({
+          items: [
+            statusLog({
+              id: 'lisi-page-1',
+              subjectEmployeeId: 'employee-002',
+              content: '李四第一页',
+            }),
+          ],
+          total: 1,
+        });
+      }
+      if (url === 'employees/employee-002/status-logs?limit=20&offset=20') {
+        return Promise.resolve({ items: [], total: 1 });
       }
       return Promise.reject(new Error(`Unexpected GET ${url}`));
     });

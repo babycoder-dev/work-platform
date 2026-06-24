@@ -23,11 +23,14 @@ export default function EmployeesPage() {
   const [timelineRefreshKey, setTimelineRefreshKey] = useState(0);
 
   const reload = useCallback(async () => {
+    setMessage(undefined);
     setState({ kind: 'loading' });
     try {
       const api = getPlatformRolesApi();
-      const employees = await api.listEmployees();
-      const departments = await api.listDepartments().catch(() => []);
+      const [employees, departments] = await Promise.all([
+        api.listEmployees(),
+        api.listDepartments().catch(() => []),
+      ]);
       setState({ kind: 'ready', employees, departments });
     } catch (error) {
       setState({ kind: 'error', message: readError(error, '加载员工列表失败') });
@@ -60,13 +63,17 @@ export default function EmployeesPage() {
       key: 'department',
       title: '部门',
       render: (employee) =>
-        employee.departmentId ? departmentNameById.get(employee.departmentId) ?? employee.departmentId : '—',
+        employee.departmentId
+          ? (departmentNameById.get(employee.departmentId) ?? employee.departmentId)
+          : '—',
     },
     { key: 'title', title: '职务', render: (employee) => employee.title ?? '—' },
     {
       key: 'status',
       title: '状态',
-      render: (employee) => <Tag color={statusTagColor(employee.status)}>{statusLabel(employee.status)}</Tag>,
+      render: (employee) => (
+        <Tag color={statusTagColor(employee.status)}>{statusLabel(employee.status)}</Tag>
+      ),
     },
     {
       key: 'actions',
@@ -82,7 +89,10 @@ export default function EmployeesPage() {
   function handleCreated(created: StatusLogDto[]) {
     setBatchOpen(false);
     setMessage(`已为 ${created.length} 名员工记录近况。`);
-    if (selectedEmployee && created.some((item) => item.subjectEmployeeId === selectedEmployee.id)) {
+    if (
+      selectedEmployee &&
+      created.some((item) => item.subjectEmployeeId === selectedEmployee.id)
+    ) {
       setTimelineRefreshKey((current) => current + 1);
     }
   }
@@ -111,7 +121,9 @@ export default function EmployeesPage() {
       {state.kind === 'loading' ? <p>加载中…</p> : null}
       {state.kind === 'error' ? (
         <section className="platform-employees__panel">
-          <p className="platform-employees__message platform-employees__message--error">{state.message}</p>
+          <p className="platform-employees__message platform-employees__message--error">
+            {state.message}
+          </p>
           <Button onClick={() => void reload()}>刷新重试</Button>
         </section>
       ) : null}
