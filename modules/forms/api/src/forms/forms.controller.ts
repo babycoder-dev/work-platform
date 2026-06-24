@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Inject, Param, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Put, Req, UseGuards } from '@nestjs/common';
 import { buildAuthAuditContext, dtoValidationPipe, type RequestWithAuth } from '@work/nest-common';
-import { type FormActorContext, type FormSlotKey } from '@work/forms-contract';
+import { type FormSlotKey } from '@work/forms-contract';
 import {
   FormsDefinitionPermissionGuard,
   RequireFormsDefinitionPermission,
 } from './forms-definition-permission.guard';
+import { toActor } from './form-actor';
 import { UpdateFormDefinitionDto } from './forms.dto';
 import { FormsService } from './forms.service';
 
@@ -33,17 +34,4 @@ export class FormsDefinitionController {
       buildAuthAuditContext(request),
     );
   }
-}
-
-function toActor(request: RequestWithAuth): FormActorContext {
-  const currentUser = request.currentUser;
-  if (!currentUser) {
-    throw new BadRequestException('缺少认证用户');
-  }
-  return {
-    enterpriseId: currentUser.enterpriseId,
-    userId: currentUser.id,
-    account: currentUser.account,
-    permissionCodes: currentUser.permissions.map((permission) => permission.code),
-  };
 }

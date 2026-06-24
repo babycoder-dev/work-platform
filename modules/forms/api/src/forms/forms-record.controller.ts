@@ -1,7 +1,7 @@
-import { BadRequestException, Body, Controller, Get, Inject, Param, Put, Req } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Put, Req } from '@nestjs/common';
 import { buildAuthAuditContext, dtoValidationPipe, RequirePermissions, type RequestWithAuth } from '@work/nest-common';
-import { formsPermissions, type FormActorContext } from '@work/forms-contract';
-import type { CurrentUserDto } from '@work/platform-contract';
+import { formsPermissions } from '@work/forms-contract';
+import { currentUser, toActor } from './form-actor';
 import { UpsertProfileRecordDto } from './forms.dto';
 import { FormsService } from './forms.service';
 
@@ -44,21 +44,4 @@ export class FormsRecordController {
       buildAuthAuditContext(request),
     );
   }
-}
-
-function currentUser(request: RequestWithAuth): CurrentUserDto {
-  if (!request.currentUser) {
-    throw new BadRequestException('缺少认证用户');
-  }
-  return request.currentUser as CurrentUserDto;
-}
-
-function toActor(request: RequestWithAuth): FormActorContext {
-  const user = currentUser(request);
-  return {
-    enterpriseId: user.enterpriseId,
-    userId: user.id,
-    account: user.account,
-    permissionCodes: user.permissions.map((permission) => permission.code),
-  };
 }

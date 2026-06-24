@@ -1,6 +1,11 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { EventBus } from '@work/event-bus';
-import type { CurrentUserDto, PlatformAuditPort, PlatformScopePort } from '@work/platform-contract';
+import type {
+  CurrentUserDto,
+  PlatformAuditPort,
+  PlatformEmployeeLookupPort,
+  PlatformScopePort,
+} from '@work/platform-contract';
 import type { PresenceStatusRecordDto } from '@work/presence-contract';
 import { presenceEvents, presencePermissions } from '@work/presence-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +15,7 @@ import { PresenceStatusService } from './presence-status.service';
 describe('PresenceStatusService', () => {
   let repository: MockPresenceRepository;
   let scopeService: MockPlatformScopePort;
+  let employeeLookup: MockPlatformEmployeeLookupPort;
   let auditService: MockPlatformAuditPort;
   let eventBus: MockEventBus;
   let service: PresenceStatusService;
@@ -19,6 +25,17 @@ describe('PresenceStatusService', () => {
     scopeService = {
       resolveScope: vi.fn(),
       matchesScope: vi.fn(),
+    };
+    employeeLookup = {
+      listEmployeesByIds: vi.fn(async (_enterpriseId, ids) =>
+        ids.map((id: string) => ({
+          id,
+          employeeNo: 'E002',
+          name: 'Bob',
+          departmentId: 'department-002',
+          departmentName: 'Product',
+        })),
+      ),
     };
     auditService = {
       record: vi.fn(),
@@ -31,7 +48,7 @@ describe('PresenceStatusService', () => {
       })),
       subscribe: vi.fn(),
     };
-    service = new PresenceStatusService(repository, scopeService, auditService, eventBus);
+    service = new PresenceStatusService(repository, scopeService, employeeLookup, auditService, eventBus);
   });
 
   it('creates a record and emits audit plus event', async () => {
@@ -289,6 +306,7 @@ describe('PresenceStatusService', () => {
   it('returns current employee status for company scope', async () => {
     const record = createRecord({ userId: 'user-002' });
     repository.listActiveRecords.mockResolvedValue([record]);
+    scopeService.matchesScope.mockReturnValue(true);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'company',
       userId: 'user-001',
@@ -299,6 +317,11 @@ describe('PresenceStatusService', () => {
 
     await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record });
 
+    expect(employeeLookup.listEmployeesByIds).toHaveBeenCalledWith('enterprise-001', ['user-002']);
+    expect(scopeService.matchesScope).toHaveBeenCalledWith(
+      { id: 'user-002', enterpriseId: 'enterprise-001', departmentId: 'department-002' },
+      expect.objectContaining({ kind: 'company' }),
+    );
     expect(repository.listActiveRecords).toHaveBeenCalledWith(
       expect.objectContaining({
         enterpriseId: 'enterprise-001',
@@ -309,6 +332,7 @@ describe('PresenceStatusService', () => {
   });
 
   it('returns null for other employees under self scope without querying repository', async () => {
+    scopeService.matchesScope.mockReturnValue(false);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'self',
       userId: 'user-001',
@@ -319,11 +343,13 @@ describe('PresenceStatusService', () => {
 
     await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record: null });
 
+    expect(employeeLookup.listEmployeesByIds).toHaveBeenCalledWith('enterprise-001', ['user-002']);
+    expect(scopeService.matchesScope).toHaveBeenCalled();
     expect(repository.listActiveRecords).not.toHaveBeenCalled();
   });
 
-  it('filters employee status by snapshot department for department scope', async () => {
-    repository.listActiveRecords.mockResolvedValue([]);
+  it('returns null when the realtime subject department is outside department scope', async () => {
+    scopeService.matchesScope.mockReturnValue(false);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'department_tree',
       userId: 'user-001',
@@ -335,12 +361,59 @@ describe('PresenceStatusService', () => {
 
     await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record: null });
 
+    expect(scopeService.matchesScope).toHaveBeenCalledWith(
+      { id: 'user-002', enterpriseId: 'enterprise-001', departmentId: 'department-002' },
+      expect.objectContaining({ departmentIds: ['department-001', 'department-002'] }),
+    );
+    expect(repository.listActiveRecords).not.toHaveBeenCalled();
+  });
+
+  it('returns current employee status after realtime department scope allows access', async () => {
+    const record = createRecord({ userId: 'user-002', departmentId: 'old-department' });
+    repository.listActiveRecords.mockResolvedValue([record]);
+    scopeService.matchesScope.mockReturnValue(true);
+    employeeLookup.listEmployeesByIds.mockResolvedValue([
+      {
+        id: 'user-002',
+        employeeNo: 'E002',
+        name: 'Bob',
+        departmentId: 'department-001',
+        departmentName: 'Operations',
+      },
+    ]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'department',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentId: 'department-001',
+      departmentIds: ['department-001'],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record });
+
     expect(repository.listActiveRecords).toHaveBeenCalledWith(
       expect.objectContaining({
         userIds: ['user-002'],
-        departmentIds: ['department-001', 'department-002'],
       }),
     );
+    expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
+  });
+
+  it('returns null when the target employee does not exist', async () => {
+    employeeLookup.listEmployeesByIds.mockResolvedValue([]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'missing-user')).resolves.toEqual({ record: null });
+
+    expect(scopeService.matchesScope).not.toHaveBeenCalled();
+    expect(repository.listActiveRecords).not.toHaveBeenCalled();
   });
 });
 
@@ -350,6 +423,11 @@ type MockPresenceRepository = {
 
 interface MockPlatformScopePort extends PlatformScopePort {
   resolveScope: ReturnType<typeof vi.fn>;
+  matchesScope: ReturnType<typeof vi.fn>;
+}
+
+interface MockPlatformEmployeeLookupPort extends PlatformEmployeeLookupPort {
+  listEmployeesByIds: ReturnType<typeof vi.fn>;
 }
 
 interface MockPlatformAuditPort extends PlatformAuditPort {

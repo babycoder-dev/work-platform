@@ -4,7 +4,7 @@
 
 Ready for execution（独立 general sub-agent 二审已完成并修订：2 Blocking + 6 Major + 4 Minor 全部采纳）。
 关键修订：B1 `matchesScope` 端口签名改 `(subject, scope)` 与既有实现同序、**零改调用点**（原稿 `(scope, subject)` + "适配重载" 是错的，已删）；
-B2 forms service/controller 透传 `CurrentUserDto` 的类型与链路写死；M2 presence 按人读**沿用既有 board 快照下推授权**（不引实时部门/不新增 employeeLookup，快照陈旧另记 §7 follow-up）；
+B2 forms service/controller 透传 `CurrentUserDto` 的类型与链路写死；M2 presence 按人读已按 review 修订为**实时员工部门 + `matchesScope` 授权**，避免员工调岗后 by-employee 端点继续按旧登记快照暴露/漏看；
 M3 seed **已实证 admin 开箱可端到端**（不改 seed）；M5 forms 新 controller 对齐 presence 范式（只 `@RequirePermissions`、不 `@UseGuards`）；
 M4 数据门范式取自 employee/status-log service（非照搬 `getRecord`）；M6 含点 slotKey 路由须 e2e 实测命中。二审总评：**改完可执行**。
 
@@ -37,8 +37,8 @@ forms/presence 都能注入；**但范围匹配谓词 `matchesScope` 只活在 `
 **forms 与 platform 自身共用同一份判定**（杜绝 forms 自写第二套）。这是**数据范围模型表面的扩展**（把既有内部谓词暴露成跨模块端口契约），
 按 RFC §13/§16 属安全敏感面，**强制 security-reviewer**，并按 §16 评估是否补 `security-baseline.md`（见 §4）。
 
-> 注：**presence 不消费该谓词**——其按人读端点沿用既有 `getBoard` 的"按 record 部门下推查询"授权口径以保持 presence 内部一致（取舍详见 §2.4）；
-> 故谓词的跨模块消费者本切片只有 forms。
+> 注：review 后修订：**presence 按人读端点也消费该谓词**。`getBoard` 仍沿用 record 部门快照过滤，待 M9 在位 v2 统一；
+> `by-employee` 端点面向人页聚合，必须按 subject 实时部门授权以避免调岗后的过度暴露/漏看。
 
 ### 0.3 已拍板的边界决策（规划期 AskUserQuestion）
 
@@ -188,7 +188,11 @@ postgres 按 `(enterprise_id, slot_key, subject_type, subject_id)` 命中 single
    - 无 → `reserveRecord`（cardinality singleton）+ `replaceRecordValues`（照搬 `createRecord` 的 UoW + `attachFiles` 附件逻辑）。
    - 有 → 同一 UoW 内 `replaceRecordValues`（覆盖值 + 重附附件），`submittedBy` 更新为当前 actor、`definitionRevision` 更新为当前定义版本。
      （**保持 singleton 唯一索引不被违反**：已有则走 replace 而非二次 reserve。）
-7. **审计（action 名钉死为 `forms.record.upsert`，二审 m3）**：成功 → 写审计，action **统一 `forms.record.upsert`**（不在 create/update/upsert 间摇摆，否则 e2e 断言对不上），metadata 记 `slotKey/recordId/subjectType/subjectId/revision`，**不整文落 values**（RFC §14 最小披露）。失败（越权/版本冲突）→ 失败审计（沿用既有失败审计范式，**审计写失败不得把业务结果变成 500**，呼应 §7.3 既有 follow-up）。
+7. **审计 / 事件**：成功 → 写审计。无既有记录时 action=`forms.record.create` 并发布
+   `formsEvents.recordCreated`；已有记录覆盖时 action=`forms.record.update`，本切片不新增
+   update 事件类型。metadata 记 `slotKey/recordId/subjectType/subjectId/revision`，**不整文落
+   values**（RFC §14 最小披露）。失败（越权/版本冲突）→ 失败审计（沿用既有失败审计范式，
+   **审计写失败不得把业务结果变成 500**，呼应 §7.3 既有 follow-up）。
 8. **事件：upsert 一律不发（二审 m2）**——读/写自定义字段值本切片都**不发任何 forms 领域事件、不接 `profile.updated`**（"复用 `recordCreated`" 对 update 路径语义不准，故弃用）。自定义字段被改是否通知本人属 5b / 后续决策，本切片不引入。
 
 **controller**：`PUT /forms/records/:slotKey/subjects/:subjectId`（同 controller），body = `UpsertProfileRecordDto { definitionRevision: number; values: {fieldKey; value}[] }`（`dtoValidationPipe` 校验；`subjectType` 服务端固定）。`@RequirePermissions(formsPermissions.recordSubmit)` 粗门 + service profile 写范围细门。
@@ -209,16 +213,16 @@ postgres 按 `(enterprise_id, slot_key, subject_type, subject_id)` 命中 single
 `getEmployeeStatus(currentUser, employeeId): Promise<{ record: PresenceStatusRecordDto | null }>`：
 
 1. `scope = await scopeService.resolveScope(currentUser, 'presence')`。
-2. **范围判定——与既有 `getBoard` 同款「按 record 部门下推查询」，保持 presence 内部授权口径一致（二审 M2 的取舍）**：
-   既有 `getBoard`（`presence-status.service.ts:36-51`）的授权就是**把 `scope` 推进 record 查询**（`self`→`userIds:[scope.userId]`、`company`→不加部门过滤、`department*`→`departmentIds`），按 **record 行**的归属过滤。本按人端点**沿用同一模型**，`findActiveRecordByUser` 把 scope 下推：
-   - `self`：仅当 `employeeId === scope.userId` 才查，否则 `record:null`。
-   - `company`：直接查 `findActiveRecordByUser(enterpriseId, employeeId, now)`。
-   - `department`/`department_tree`：查 `findActiveRecordByUser(...)` 且记录 `departmentId ∈ scope.departmentIds`，不符 → `record:null`。
-     （**越权与无记录统一返回 `record:null`，不区分二者，防枚举**——presence 看板本就是软信息，null 降级即可，不抛 404。）
-     > **取舍说明（二审 M2）**：reviewer 建议改用 `employeeLookup` 取 subject **实时**部门 + `matchesScope` 授权（与 platform profile 口径一致）。本切片**不采纳**，理由：① 既有 `getBoard` 的 presence 授权本就是 **record 快照部门下推**，按人端点改用实时部门会让**同一 presence 数据类型出现两套授权口径**，更不一致；② 会给 presence 新引 `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` 注入 + 网关装配，扩大改动/风险面。"快照部门可能陈旧"是 **presence 全模块的既有性质**（board 同样如此），**不在本切片单独纠偏**——登记到 `docs/foundation-progress.md` §7 follow-up（presence 在位授权按登记快照部门、换部门后可能短暂错配，待 M9 在位 v2 统一）。故 presence **不新增 employeeLookup 注入**；本端点**不调用 §2.1 的 `matchesScope`**（仅 forms 用谓词；presence 走 board 同款下推）。
-3. `presence:board:view` 作为功能门（controller `@RequirePermissions`）——人页看在位复用看板权限语义；无该权限 → 走 Guard 403（人页 5b 据此不渲染在位区，优雅降级）。
+2. `employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [employeeId])` 读取 subject 实时部门；subject 不存在 → `record:null`。
+3. 用 `scopeService.matchesScope({ id: employeeId, enterpriseId: currentUser.enterpriseId, departmentId: subject.departmentId }, scope)` 授权；false → `record:null`。
+   - `self`：谓词要求 `employeeId === scope.userId`。
+   - `company`：谓词通过后可见。
+   - `department`/`department_tree`：按 subject 实时 `departmentId` 匹配 `scope.departmentIds`。
+   - **越权、subject 不存在、无活动记录统一返回 `record:null`，不区分二者，防枚举**。
+4. 授权通过后按 `enterpriseId + userIds:[employeeId]` 查询当前活动记录，不再把 record 快照 `departmentId` 下推到 by-employee 授权。
+5. `presence:board:view` 作为功能门（controller `@RequirePermissions`）——人页看在位复用看板权限语义；无该权限 → 走 Guard 403（人页 5b 据此不渲染在位区，优雅降级）。
 
-> 注入：`PresenceStatusService` 已注入 `PLATFORM_SCOPE_SERVICE`（`presence-status.service.ts:31`）——本端点**只需复用它 + repository**，**不新增任何注入**（与 board 同依赖面）。
+> 注入：`PresenceStatusService` 新增显式 `@Inject(PLATFORM_EMPLOYEE_LOOKUP_SERVICE)`，provider 由已导入的 `PlatformModule` 导出；同时复用 `PLATFORM_SCOPE_SERVICE.matchesScope`。
 
 **controller**（`presence-status.controller.ts` 增一路由，或新建）：
 `GET /presence/status-records/by-employee/:employeeId`，`@RequirePermissions(presencePermissions.boardView)`，返回 `{ record }`。

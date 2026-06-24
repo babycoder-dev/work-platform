@@ -351,7 +351,8 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 
 | 项                                                                                             | 状态    | 处理                                                                                                                                                                                                                                                                          |
 | ---------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Presence follow-up] 在位数据范围授权使用登记记录的部门快照，员工换部门后可能短暂与实时组织归属不一致 | Pending | M8-5a 的按人查询刻意沿用既有 presence board 口径：`department` / `department_tree` 基于 `presence.status_records.department_id` 快照过滤，不引入 platform employee lookup 或 `matchesScope`。该陈旧风险是 presence 全模块既有性质，待 M9 在位 v2 统一处理。 |
+| [Presence follow-up] `getBoard` 看板仍按登记记录的部门快照过滤，员工换部门后可能短暂与实时组织归属不一致 | Pending | M8-5a review 后，按人查询端点已改为通过 `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` 读取 subject 实时部门并调用 `PlatformScopePort.matchesScope` 授权，不再受登记快照陈旧影响。既有 `GET /presence/board` 仍基于 `presence.status_records.department_id` 快照过滤，待 M9 在位 v2 统一处理。 |
+| [Forms follow-up] `FormsService.getRecord(recordId)` 是内部 port-only 读法，尚未叠加 profile 数据范围门 | Pending | M8-5a 新增的 HTTP subject 读写路径已按 `profile` 范围授权；旧 `getRecord(actor, recordId)` 目前仅用于内部 / 测试路径，代码已加注释，未来若接 HTTP 路由必须先补 slot-specific 数据范围校验。 |
 
 ## 8. M4 在位管理 MVP
 

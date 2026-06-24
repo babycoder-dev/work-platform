@@ -140,7 +140,7 @@ describe('people aggregation API', () => {
       });
   });
 
-  it('returns current presence record by employee through board scope semantics', async () => {
+  it('returns current presence record by employee through realtime subject scope semantics', async () => {
     const limited = await createAndLoginUser(
       ['presence:board:view'],
       [{ dataType: 'presence', scope: 'self' }],

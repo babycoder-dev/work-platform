@@ -225,6 +225,12 @@ export class FormsService {
       throw new ConflictException('表单定义版本已变化');
     }
 
+    const existing = await this.repository.findRecordBySubject(
+      actor.enterpriseId,
+      slot.slotKey,
+      PROFILE_EMPLOYEE_SUBJECT_TYPE,
+      input.subjectId,
+    );
     const record = await this.saveRecord(actor, slot, definition, {
       slotKey: slot.slotKey,
       subjectType: PROFILE_EMPLOYEE_SUBJECT_TYPE,
@@ -236,7 +242,7 @@ export class FormsService {
     await this.auditService.record({
       actorUserId: actor.userId,
       actorAccount: actor.account,
-      action: 'forms.record.upsert',
+      action: existing ? 'forms.record.update' : 'forms.record.create',
       resourceType: 'forms.form_record',
       resourceId: record.id,
       traceId: auditContext.traceId,
@@ -252,9 +258,26 @@ export class FormsService {
         fieldKeys: record.values?.map((value) => value.fieldKey) ?? [],
       },
     });
+    if (!existing) {
+      await this.eventBus.publish<FormsRecordCreatedEvent>({
+        type: formsEvents.recordCreated,
+        source: 'forms.api',
+        traceId: auditContext.traceId,
+        payload: {
+          enterpriseId: actor.enterpriseId,
+          slotKey: slot.slotKey,
+          recordId: record.id,
+          subjectType: record.subjectType,
+          subjectId: record.subjectId,
+          submittedBy: actor.userId,
+          occurredAt: new Date().toISOString(),
+        },
+      });
+    }
     return record;
   }
 
+  // Internal port-only method. Do not expose as HTTP without adding slot-specific data-scope checks.
   async getRecord(actor: FormActorContext, recordId: string): Promise<FormRecordDto> {
     requirePermission(actor, formsPermissions.recordView);
     const record = await this.repository.findRecordWithValues(actor.enterpriseId, recordId);
@@ -320,9 +343,11 @@ export class FormsService {
     currentUser: CurrentUserDto,
     subjectId: string,
   ): Promise<ScopeSubject> {
-    const [employee] = await this.employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [
-      subjectId,
+    const [employees, scope] = await Promise.all([
+      this.employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [subjectId]),
+      this.scopeService.resolveScope(currentUser, 'profile'),
     ]);
+    const [employee] = employees;
     if (!employee) {
       throw new NotFoundException('表单记录不存在');
     }
@@ -331,7 +356,6 @@ export class FormsService {
       enterpriseId: currentUser.enterpriseId,
       departmentId: employee.departmentId,
     };
-    const scope = await this.scopeService.resolveScope(currentUser, 'profile');
     if (!this.scopeService.matchesScope(subject, scope)) {
       throw new NotFoundException('表单记录不存在');
     }

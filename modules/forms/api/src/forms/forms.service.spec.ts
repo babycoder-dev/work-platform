@@ -192,7 +192,7 @@ describe('FormsService', () => {
     ]);
   });
 
-  it('reads and upserts profile.employee records by authorized subject without emitting domain events', async () => {
+  it('reads and upserts profile.employee records by authorized subject with create/update semantics', async () => {
     await service.updateDefinition(actor(), 'profile.employee', {
       revision: 0,
       fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
@@ -239,16 +239,43 @@ describe('FormsService', () => {
       { id: 'employee-1', enterpriseId: 'ent-default', departmentId: 'dept-1' },
       expect.objectContaining({ kind: 'company' }),
     );
-    expect(events.publish).not.toHaveBeenCalled();
+    expect(events.publish).toHaveBeenCalledTimes(1);
+    expect(events.publish).toHaveBeenCalledWith({
+      type: 'forms.record.created',
+      source: 'forms.api',
+      traceId: 'trace-upsert',
+      payload: expect.objectContaining({
+        enterpriseId: 'ent-default',
+        slotKey: 'profile.employee',
+        recordId: created.id,
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        submittedBy: 'user-1',
+      }),
+    });
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'forms.record.upsert',
+        action: 'forms.record.create',
         resourceId: created.id,
         traceId: 'trace-upsert',
         metadata: expect.objectContaining({
           slotKey: 'profile.employee',
           subjectType: 'employee',
           subjectId: 'employee-1',
+          fieldKeys: ['nickname'],
+        }),
+      }),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.update',
+        resourceId: created.id,
+        metadata: expect.objectContaining({
+          slotKey: 'profile.employee',
+          recordId: created.id,
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          revision: 1,
           fieldKeys: ['nickname'],
         }),
       }),
