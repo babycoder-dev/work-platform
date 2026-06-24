@@ -1,20 +1,32 @@
 import type { HttpClient } from '@work/http-client';
 import type {
   CreateRoleInput,
+  CreateStatusLogsInput,
   DepartmentDto,
   EmployeeDto,
+  ListStatusLogsQuery,
+  ListStatusLogsResult,
   PermissionDto,
   RoleDto,
+  StatusLogDto,
   UpdateDepartmentInput,
   UpdateRoleInput,
 } from '@work/platform-contract';
 
 export interface PlatformRolesApiClient {
   listDepartments(): Promise<DepartmentDto[]>;
-  createDepartment(input: { code: string; name: string; parentId?: string; managerUserId?: string; sortOrder?: number }): Promise<DepartmentDto>;
+  createDepartment(input: {
+    code: string;
+    name: string;
+    parentId?: string;
+    managerUserId?: string;
+    sortOrder?: number;
+  }): Promise<DepartmentDto>;
   updateDepartment(id: string, input: UpdateDepartmentInput): Promise<DepartmentDto>;
   deleteDepartment(id: string): Promise<void>;
   listEmployees(): Promise<EmployeeDto[]>;
+  listStatusLogs(employeeId: string, query?: ListStatusLogsQuery): Promise<ListStatusLogsResult>;
+  createStatusLogs(input: CreateStatusLogsInput): Promise<StatusLogDto[]>;
   listRoles(): Promise<RoleDto[]>;
   getRole(id: string): Promise<RoleDto>;
   createRole(input: CreateRoleInput): Promise<RoleDto>;
@@ -34,7 +46,10 @@ export function createPlatformRolesApiClient(http: HttpClient): PlatformRolesApi
       return http.post<DepartmentDto, typeof input>('departments', input);
     },
     updateDepartment(id, input) {
-      return http.put<DepartmentDto, UpdateDepartmentInput>(`departments/${encodeURIComponent(id)}`, input);
+      return http.put<DepartmentDto, UpdateDepartmentInput>(
+        `departments/${encodeURIComponent(id)}`,
+        input,
+      );
     },
     deleteDepartment(id) {
       return http.delete<void>(`departments/${encodeURIComponent(id)}`);
@@ -42,6 +57,22 @@ export function createPlatformRolesApiClient(http: HttpClient): PlatformRolesApi
     async listEmployees() {
       const response = await http.get<{ items: EmployeeDto[] }>('employees');
       return response.items;
+    },
+    listStatusLogs(employeeId, query) {
+      const search = new URLSearchParams();
+      if (query?.limit !== undefined) {
+        search.set('limit', String(query.limit));
+      }
+      if (query?.offset !== undefined) {
+        search.set('offset', String(query.offset));
+      }
+      const queryString = search.toString();
+      return http.get<ListStatusLogsResult>(
+        `employees/${encodeURIComponent(employeeId)}/status-logs${queryString ? `?${queryString}` : ''}`,
+      );
+    },
+    createStatusLogs(input) {
+      return http.post<StatusLogDto[], CreateStatusLogsInput>('status-logs', input);
     },
     async listRoles() {
       const response = await http.get<{ items: RoleDto[] }>('roles');
@@ -64,9 +95,12 @@ export function createPlatformRolesApiClient(http: HttpClient): PlatformRolesApi
       return response.items;
     },
     assignUserRoles(userId, roleIds) {
-      return http.put<unknown, { roleIds: string[] }>(`employees/${encodeURIComponent(userId)}/roles`, {
-        roleIds,
-      });
+      return http.put<unknown, { roleIds: string[] }>(
+        `employees/${encodeURIComponent(userId)}/roles`,
+        {
+          roleIds,
+        },
+      );
     },
   };
 }
