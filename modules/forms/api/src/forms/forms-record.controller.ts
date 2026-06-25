@@ -1,6 +1,5 @@
 import { Body, Controller, Get, Inject, Param, Put, Req } from '@nestjs/common';
-import { buildAuthAuditContext, dtoValidationPipe, RequirePermissions, type RequestWithAuth } from '@work/nest-common';
-import { formsPermissions } from '@work/forms-contract';
+import { buildAuthAuditContext, dtoValidationPipe, type RequestWithAuth } from '@work/nest-common';
 import { currentUser, toActor } from './form-actor';
 import { UpsertProfileRecordDto } from './forms.dto';
 import { FormsService } from './forms.service';
@@ -10,7 +9,6 @@ export class FormsRecordController {
   constructor(@Inject(FormsService) private readonly formsService: FormsService) {}
 
   @Get(':slotKey/subjects/:subjectId')
-  @RequirePermissions(formsPermissions.recordView)
   getRecordBySubject(
     @Param('slotKey') slotKey: string,
     @Param('subjectId') subjectId: string,
@@ -24,7 +22,6 @@ export class FormsRecordController {
   }
 
   @Put(':slotKey/subjects/:subjectId')
-  @RequirePermissions(formsPermissions.recordSubmit)
   upsertRecordBySubject(
     @Param('slotKey') slotKey: string,
     @Param('subjectId') subjectId: string,

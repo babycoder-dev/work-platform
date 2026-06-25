@@ -71,6 +71,11 @@ describe('people aggregation API', () => {
       [{ dataType: 'profile', scope: 'self' }],
       `people-other-${suffix}`,
     );
+    const noFormsPermissions = await createAndLoginUser(
+      [],
+      [],
+      `people-no-forms-${suffix}`,
+    );
 
     await request(app.getHttpServer())
       .put('/api/forms/definitions/profile.employee')
@@ -121,11 +126,25 @@ describe('people aggregation API', () => {
       .expect(404);
 
     await request(app.getHttpServer())
+      .get(`/api/forms/records/profile.employee/subjects/${target.employeeId}`)
+      .set('Authorization', `Bearer ${noFormsPermissions.token}`)
+      .expect(404);
+
+    await request(app.getHttpServer())
       .put(`/api/forms/records/profile.employee/subjects/${target.employeeId}`)
       .set('Authorization', `Bearer ${other.token}`)
       .send({
         definitionRevision: 1,
         values: [{ fieldKey: 'nickname', value: '越权' }],
+      })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .put(`/api/forms/records/profile.employee/subjects/${target.employeeId}`)
+      .set('Authorization', `Bearer ${noFormsPermissions.token}`)
+      .send({
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: '无权限' }],
       })
       .expect(404);
 
@@ -146,13 +165,14 @@ describe('people aggregation API', () => {
       [{ dataType: 'presence', scope: 'self' }],
       `people-presence-${suffix}`,
     );
+    const now = Date.now();
     const created = await request(app.getHttpServer())
       .post('/api/presence/status-records')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         status: 'working',
-        startAt: '2026-06-24T00:00:00.000Z',
-        endAt: '2026-06-25T00:00:00.000Z',
+        startAt: new Date(now - 60_000).toISOString(),
+        endAt: new Date(now + 60_000).toISOString(),
       })
       .expect(201);
 

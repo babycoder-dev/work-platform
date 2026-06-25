@@ -287,6 +287,7 @@ describe('FormsService', () => {
       revision: 0,
       fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
     });
+    vi.mocked(audit.record).mockClear();
     vi.mocked(scopeService.matchesScope).mockReturnValue(false);
 
     await expect(
@@ -306,6 +307,154 @@ describe('FormsService', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(formsRepository.records).toHaveLength(0);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          reason: 'not_found_or_out_of_scope',
+        },
+      }),
+    );
+  });
+
+  it('audits rejected subject upserts without leaking values', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(audit.record).mockClear();
+
+    await expect(
+      service.upsertRecordBySubject(
+        actor([formsPermissions.recordView]),
+        currentUser(),
+        {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          definitionRevision: 1,
+          values: [{ fieldKey: 'nickname', value: 'secret' }],
+        },
+        { traceId: 'trace-permission-denied' },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        traceId: 'trace-permission-denied',
+        metadata: {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          reason: 'permission_denied',
+        },
+      }),
+    );
+    expect(audit.record).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ values: expect.anything() }),
+      }),
+    );
+
+    vi.mocked(audit.record).mockClear();
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 0,
+        values: [{ fieldKey: 'nickname', value: 'secret' }],
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: expect.objectContaining({
+          reason: 'definition_revision_conflict',
+          subjectId: 'employee-1',
+        }),
+      }),
+    );
+
+    vi.mocked(audit.record).mockClear();
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'unknown', value: 'secret' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: expect.objectContaining({
+          reason: 'record_validation_failed',
+          subjectId: 'employee-1',
+        }),
+      }),
+    );
+  });
+
+  it('bounds rejected upsert failure audit metadata from route parameters', async () => {
+    const longSubjectId = 'employee-'.padEnd(180, 'x');
+
+    await expect(
+      service.upsertRecordBySubject(
+        actor([formsPermissions.recordView]),
+        currentUser(),
+        {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: longSubjectId,
+          definitionRevision: 1,
+          values: [{ fieldKey: 'nickname', value: 'secret' }],
+        },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: expect.objectContaining({
+          subjectId: longSubjectId.slice(0, 128),
+          reason: 'permission_denied',
+        }),
+      }),
+    );
+    expect(audit.record).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ subjectId: longSubjectId }),
+      }),
+    );
+  });
+
+  it('preserves business errors when rejected upsert failure audit fails', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(scopeService.matchesScope).mockReturnValue(false);
+    vi.mocked(audit.record).mockRejectedValueOnce(new Error('audit down'));
+
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: 'first' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('attaches files to the actual singleton record id on replacement submissions', async () => {
@@ -519,12 +668,14 @@ describe('FormsService', () => {
   });
 });
 
-function actor(): FormActorContext {
+function actor(
+  permissionCodes: string[] = [formsPermissions.recordSubmit, formsPermissions.recordView],
+): FormActorContext {
   return {
     enterpriseId: 'ent-default',
     userId: 'user-1',
     account: 'forms-user',
-    permissionCodes: [formsPermissions.recordSubmit, formsPermissions.recordView],
+    permissionCodes,
   };
 }
 

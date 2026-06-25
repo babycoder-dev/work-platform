@@ -12,9 +12,10 @@ Change set:
 - Added Forms subject record access for `profile.employee`:
   - `GET /api/forms/records/profile.employee/subjects/:id`
   - `PUT /api/forms/records/profile.employee/subjects/:id`
-  Both endpoints derive tenant / actor context from `request.currentUser`, use the existing
-  `forms:record:view` / `forms:record:submit` permissions, and apply `profile` data-scope checks
-  through the platform scope port before reading or upserting the singleton record.
+  Both endpoints derive tenant / actor context from `request.currentUser`, enforce the existing
+  `forms:record:view` / `forms:record:submit` permissions inside `FormsService` as 404-hide
+  functional gates, and apply `profile` data-scope checks through the platform scope port before
+  reading or upserting the singleton record.
 - Added Forms repository support for `findRecordBySubject` in memory and PostgreSQL drivers, with
   values assembled through the existing record-value path and no cross-schema join.
 - Added Presence current status by employee:
@@ -37,6 +38,12 @@ Validation:
     pass, 1 file / 2 tests. One fixture issue was caught during development: the out-of-scope
     writer initially lacked `forms:record:submit` and got 403 before the intended scope check; the
     fixture now includes submit permission so the test proves the 404 data-scope denial.
+  - Third-round targeted regressions:
+    - `NODE_ENV=test NODE_OPTIONS=--localstorage-file=.ls-test pnpm exec vitest run --config vitest.config.mts modules/forms/api/src/forms/forms.service.spec.ts`:
+      pass, 1 file / 11 tests.
+    - `NODE_ENV=test NODE_OPTIONS=--localstorage-file=.ls-test pnpm exec vitest run --config vitest.e2e.config.mts apps/gateway-api/src/people-aggregation.e2e-spec.ts`:
+      pass, 1 file / 2 tests. This also fixed the e2e fixture's fixed presence `endAt`, which had
+      expired on 2026-06-25 and made the current-status assertion time-dependent.
 - Targeted package typecheck:
   - `pnpm --filter @work/forms-api typecheck`: pass.
   - `pnpm --filter @work/presence-api typecheck`: pass.
@@ -45,7 +52,7 @@ Validation:
   - `lint`: pass across 27 of 28 workspace projects; existing Nx graph-cache warnings only.
   - `typecheck`: pass across 27 of 28 workspace projects.
   - `test`: pass.
-    - Unit: 41 files passed / 5 Postgres-gated files skipped; 219 tests passed / 35 skipped.
+    - Unit: 41 files passed / 5 Postgres-gated files skipped; 222 tests passed / 35 skipped.
     - Web: 35 files / 107 tests passed.
   - `test:e2e`: pass, 8 files / 51 tests. Includes the new people aggregation e2e.
   - `build`: pass across 27 of 28 workspace projects; existing workbench-shell Vite large chunk
@@ -60,8 +67,8 @@ Validation:
   - Local PostgreSQL refused connections on both `::1:5432` and `127.0.0.1:5432`, so
     `pnpm test:db` could not run the gated suites locally. The command loaded the five gated files
     but failed in suite setup before executing tests; the quick-path unit run shows those suites
-    skipped as expected. The new PostgreSQL `findRecordBySubject` assertion still needs CI or a
-    local Postgres bring-up.
+    skipped as expected. The third-round rerun reproduced the same `ECONNREFUSED` on 2026-06-25,
+    so PostgreSQL-gated coverage still needs CI or a local Postgres bring-up.
 - Primed-graph boundary lint:
   - `pnpm exec nx graph --file=tmp-graph.json`: generated the project graph; temporary graph file
     removed.
@@ -92,6 +99,17 @@ Review follow-up fixes:
   minimal and excludes values.
 - F7: Forms subject authorization now runs employee lookup and `resolveScope(currentUser,'profile')`
   in parallel with `Promise.all`.
+- Third-round A: Forms subject-record HTTP endpoints no longer attach `@RequirePermissions`; missing
+  `forms:record:view` / `forms:record:submit`, data-scope denial, missing subjects, and missing
+  records now all reach service-layer 404-hide semantics instead of leaking a 403 from
+  `PermissionGuard`. Gateway e2e covers GET without `forms:record:view` and PUT without
+  `forms:record:submit`.
+- Third-round B: Rejected `profile.employee` upserts now write bounded failure audit entries with
+  `action=forms.record.upsert`, `result=failure`, `slotKey` / `subjectType` / `subjectId`, and a
+  reason code. Failure audit excludes values, bounds route-derived metadata strings to 128
+  characters, and swallows audit-write errors so the original 404 / 409 / 400 business result
+  remains stable. Unit tests cover permission denial, profile scope denial, revision conflict,
+  validation failure, bounded metadata, and audit sink failure.
 - Optional cleanups: `forms.controller.ts` and `forms-record.controller.ts` now share a local
   `form-actor.ts` helper; the internal `getRecord(recordId)` method is annotated as port-only and
   unsafe to expose as HTTP without slot-specific data-scope checks. The related follow-up is
@@ -107,9 +125,10 @@ Spec pitfall checks:
 - M2/F1: Presence by-employee now calls platform employee lookup and `matchesScope` against the
   subject's realtime department. `GET /presence/board` still uses record snapshot department
   filtering and is tracked separately for M9.
-- M5: The new Forms controller follows the presence-style controller pattern with only
-  `@RequirePermissions(...)`; there is no custom guard or route-local `@UseGuards`. Constructor
-  injections use explicit `@Inject(...)`.
+- M5: The new Forms controller keeps only the global auth guard path and no route-local
+  `@UseGuards`; subject-record functional permissions are enforced inside `FormsService` so missing
+  permission gets the same 404-hide response as data-scope denial. Constructor injections use
+  explicit `@Inject(...)`.
 - M6: The in-memory gateway e2e exercises the dotted route segment
   `/api/forms/records/profile.employee/subjects/:id`, proving Nest routing does not truncate the
   slot key.

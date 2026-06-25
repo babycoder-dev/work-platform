@@ -4,8 +4,8 @@
 
 Ready for execution（独立 general sub-agent 二审已完成并修订：2 Blocking + 6 Major + 4 Minor 全部采纳）。
 关键修订：B1 `matchesScope` 端口签名改 `(subject, scope)` 与既有实现同序、**零改调用点**（原稿 `(scope, subject)` + "适配重载" 是错的，已删）；
-B2 forms service/controller 透传 `CurrentUserDto` 的类型与链路写死；M2 presence 按人读已按 review 修订为**实时员工部门 + `matchesScope` 授权**，避免员工调岗后 by-employee 端点继续按旧登记快照暴露/漏看；
-M3 seed **已实证 admin 开箱可端到端**（不改 seed）；M5 forms 新 controller 对齐 presence 范式（只 `@RequirePermissions`、不 `@UseGuards`）；
+B2 forms service/controller 透传 `CurrentUserDto` 的类型与链路写死，forms 记录 HTTP 端点不挂 `@RequirePermissions`，功能门在 service 内走 404-hide；M2 presence 按人读已按 review 修订为**实时员工部门 + `matchesScope` 授权**，避免员工调岗后 by-employee 端点继续按旧登记快照暴露/漏看；
+M3 seed **已实证 admin 开箱可端到端**（不改 seed）；M5 forms 新 controller 不写 `@UseGuards`，subject-record 功能门下沉 service 以统一 404-hide；
 M4 数据门范式取自 employee/status-log service（非照搬 `getRecord`）；M6 含点 slotKey 路由须 e2e 实测命中。二审总评：**改完可执行**。
 
 ## 0. 任务定位（含 RFC 前提勘误 —— 必读）
@@ -161,10 +161,10 @@ postgres 按 `(enterprise_id, slot_key, subject_type, subject_id)` 命中 single
 > - controller 里从 `request.currentUser`（如 presence 范式 `presence-status.controller.ts`）取 `CurrentUserDto` 透给 service。
 
 **controller**（新增 `modules/forms/api/src/forms/forms-record.controller.ts`，`@Controller('forms/records')`）：
-**对齐 presence 范式——只用 `@RequirePermissions(...)`，不写 `@UseGuards`**（gateway 已全局挂 `PlatformAuthGuard`+`PermissionGuard`，对每条嵌入路由生效；既有 `presence-status.controller.ts` 即如此，**勿照搬 `forms.controller.ts` 的自定义 `FormsDefinitionPermissionGuard`/`@UseGuards`**——那是 definition 专用、本切片不需要）。构造注入显式 `@Inject(FormsService)`。
+**不写 `@UseGuards`，也不挂 `@RequirePermissions`**。gateway 已全局挂 `PlatformAuthGuard`，端点保持登录态；功能权限在 service 内通过 `requirePermission` 统一转 404，避免缺功能权限时被 `PermissionGuard` 提前 403 泄露授权状态。构造注入显式 `@Inject(FormsService)`。
 
 - `GET /:slotKey/subjects/:subjectId` → `getRecordBySubject(toActor(request), request.currentUser, {...})`。`subjectType` 对 `profile.employee` **固定为服务端常量 `'employee'`**（不从客户端读）。
-  `@RequirePermissions(formsPermissions.recordView)` 作为粗门 + service 内 profile 范围细门（双门）。
+  service 内 `requirePermission(formsPermissions.recordView)` 作为功能门 + profile 范围细门（双门），两者拒绝均为 404。
   > 注（二审 M6）：路径段 `:slotKey` 取值 `profile.employee` **含点号**。Nest/Express path 参数可吃点号，但 gateway 前缀拼装下须**实测路由命中**（仓库现有带点 slot 的 HTTP 路由无先例）；e2e 必须真打 `/api/forms/records/profile.employee/subjects/:id` 验证不被截断。若实测有问题，回退为固定子路径 `forms/records/profile-employee/subjects/:id`（slotKey 服务端固定，不再做 path 参数）。
 
 **断言**：
@@ -195,7 +195,7 @@ postgres 按 `(enterprise_id, slot_key, subject_type, subject_id)` 命中 single
    **审计写失败不得把业务结果变成 500**，呼应 §7.3 既有 follow-up）。
 8. **事件：upsert 一律不发（二审 m2）**——读/写自定义字段值本切片都**不发任何 forms 领域事件、不接 `profile.updated`**（"复用 `recordCreated`" 对 update 路径语义不准，故弃用）。自定义字段被改是否通知本人属 5b / 后续决策，本切片不引入。
 
-**controller**：`PUT /forms/records/:slotKey/subjects/:subjectId`（同 controller），body = `UpsertProfileRecordDto { definitionRevision: number; values: {fieldKey; value}[] }`（`dtoValidationPipe` 校验；`subjectType` 服务端固定）。`@RequirePermissions(formsPermissions.recordSubmit)` 粗门 + service profile 写范围细门。
+**controller**：`PUT /forms/records/:slotKey/subjects/:subjectId`（同 controller），body = `UpsertProfileRecordDto { definitionRevision: number; values: {fieldKey; value}[] }`（`dtoValidationPipe` 校验；`subjectType` 服务端固定）。service 内 `requirePermission(formsPermissions.recordSubmit)` 功能门 + profile 写范围细门，拒绝统一 404-hide。
 
 **断言**：
 

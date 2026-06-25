@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EVENT_BUS, type EventBus } from '@work/event-bus';
 import { FILE_STORAGE_SERVICE, type FileActorContext, type FileStoragePort } from '@work/files-contract';
 import {
@@ -37,9 +37,12 @@ import type { FormFieldInputDto, UpdateFormDefinitionDto } from './forms.dto';
 
 const PROFILE_EMPLOYEE_SLOT_KEY = 'profile.employee';
 const PROFILE_EMPLOYEE_SUBJECT_TYPE = 'employee';
+const FAILURE_AUDIT_TEXT_MAX_LENGTH = 128;
 
 @Injectable()
 export class FormsService {
+  private readonly logger = new Logger(FormsService.name);
+
   constructor(
     @Inject(FORMS_REPOSITORY) private readonly repository: FormsRepository,
     @Inject(FILE_STORAGE_SERVICE) private readonly fileStorage: FileStoragePort,
@@ -214,30 +217,44 @@ export class FormsService {
     },
     auditContext: FormAuditContext = {},
   ): Promise<FormRecordDto> {
-    requirePermission(actor, formsPermissions.recordSubmit);
-    const slot = assertProfileEmployeeSlot(input.slotKey, input.subjectType);
-    await this.loadAuthorizedProfileSubject(currentUser, input.subjectId);
-    const definition = await this.repository.findDefinitionWithFields(actor.enterpriseId, slot.slotKey);
-    if (!definition || definition.status !== 'active') {
-      throw new NotFoundException('表单定义不存在');
-    }
-    if (input.definitionRevision !== definition.revision) {
-      throw new ConflictException('表单定义版本已变化');
-    }
+    let existing: FormRecordDto | undefined;
+    let record: FormRecordDto;
+    try {
+      if (!actor.permissionCodes.includes(formsPermissions.recordSubmit)) {
+        throw new UpsertPermissionDeniedException();
+      }
+      const slot = assertProfileEmployeeSlot(input.slotKey, input.subjectType);
+      await this.loadAuthorizedProfileSubject(currentUser, input.subjectId);
+      const definition = await this.repository.findDefinitionWithFields(actor.enterpriseId, slot.slotKey);
+      if (!definition || definition.status !== 'active') {
+        throw new NotFoundException('表单定义不存在');
+      }
+      if (input.definitionRevision !== definition.revision) {
+        throw new ConflictException('表单定义版本已变化');
+      }
 
-    const existing = await this.repository.findRecordBySubject(
-      actor.enterpriseId,
-      slot.slotKey,
-      PROFILE_EMPLOYEE_SUBJECT_TYPE,
-      input.subjectId,
-    );
-    const record = await this.saveRecord(actor, slot, definition, {
-      slotKey: slot.slotKey,
-      subjectType: PROFILE_EMPLOYEE_SUBJECT_TYPE,
-      subjectId: input.subjectId,
-      definitionRevision: input.definitionRevision,
-      values: input.values,
-    });
+      existing = await this.repository.findRecordBySubject(
+        actor.enterpriseId,
+        slot.slotKey,
+        PROFILE_EMPLOYEE_SUBJECT_TYPE,
+        input.subjectId,
+      );
+      record = await this.saveRecord(actor, slot, definition, {
+        slotKey: slot.slotKey,
+        subjectType: PROFILE_EMPLOYEE_SUBJECT_TYPE,
+        subjectId: input.subjectId,
+        definitionRevision: input.definitionRevision,
+        values: input.values,
+      });
+    } catch (error) {
+      await this.recordUpsertFailureAudit(
+        actor,
+        input,
+        auditContext,
+        classifyUpsertFailureReason(error),
+      );
+      throw error;
+    }
 
     await this.auditService.record({
       actorUserId: actor.userId,
@@ -250,7 +267,7 @@ export class FormsService {
       userAgent: auditContext.userAgent,
       result: 'success',
       metadata: {
-        slotKey: slot.slotKey,
+        slotKey: record.slotKey,
         recordId: record.id,
         subjectType: record.subjectType,
         subjectId: record.subjectId,
@@ -265,7 +282,7 @@ export class FormsService {
         traceId: auditContext.traceId,
         payload: {
           enterpriseId: actor.enterpriseId,
-          slotKey: slot.slotKey,
+          slotKey: record.slotKey,
           recordId: record.id,
           subjectType: record.subjectType,
           subjectId: record.subjectId,
@@ -275,6 +292,39 @@ export class FormsService {
       });
     }
     return record;
+  }
+
+  private async recordUpsertFailureAudit(
+    actor: FormActorContext,
+    input: { slotKey: string; subjectType: string; subjectId: string },
+    auditContext: FormAuditContext,
+    reason: string,
+  ): Promise<void> {
+    try {
+      await this.auditService.record({
+        actorUserId: actor.userId,
+        actorAccount: actor.account,
+        action: 'forms.record.upsert',
+        resourceType: 'forms.form_record',
+        resourceId: input.subjectId,
+        traceId: auditContext.traceId,
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+        result: 'failure',
+        metadata: {
+          slotKey: boundedAuditText(input.slotKey),
+          subjectType: boundedAuditText(input.subjectType),
+          subjectId: boundedAuditText(input.subjectId),
+          reason: boundedAuditText(reason),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to record rejected forms upsert audit: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   // Internal port-only method. Do not expose as HTTP without adding slot-specific data-scope checks.
@@ -615,6 +665,35 @@ function isSelectField(type: FormFieldType): boolean {
 function requirePermission(actor: FormActorContext, permission: string): void {
   if (!actor.permissionCodes.includes(permission)) {
     throw new NotFoundException('表单资源不存在');
+  }
+}
+
+function classifyUpsertFailureReason(error: unknown): string {
+  if (error instanceof UpsertPermissionDeniedException) {
+    return 'permission_denied';
+  }
+  if (error instanceof ConflictException) {
+    return 'definition_revision_conflict';
+  }
+  if (error instanceof BadRequestException) {
+    return 'record_validation_failed';
+  }
+  if (error instanceof NotFoundException) {
+    return 'not_found_or_out_of_scope';
+  }
+  return 'request_rejected';
+}
+
+function boundedAuditText(value: string): string {
+  if (value.length <= FAILURE_AUDIT_TEXT_MAX_LENGTH) {
+    return value;
+  }
+  return value.slice(0, FAILURE_AUDIT_TEXT_MAX_LENGTH);
+}
+
+class UpsertPermissionDeniedException extends NotFoundException {
+  constructor() {
+    super('表单资源不存在');
   }
 }
 
