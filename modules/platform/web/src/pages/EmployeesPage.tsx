@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, EmptyState, Table, Tag, type TableColumn } from '@work/ui';
-import type { DepartmentDto, EmployeeDto, StatusLogDto } from '@work/platform-contract';
+import type { DepartmentDto, EmployeeDto, RoleDto, StatusLogDto } from '@work/platform-contract';
 import { getPlatformCurrentUser, getPlatformRolesApi } from '../runtime';
 import { BatchStatusLogModal } from './BatchStatusLogModal';
-import { StatusTimeline } from './StatusTimeline';
+import { EmployeeProfileDrawer } from './EmployeeProfileDrawer';
 import '../styles.css';
 
 type LoadState =
   | { kind: 'loading' }
-  | { kind: 'ready'; employees: EmployeeDto[]; departments: DepartmentDto[] }
+  | { kind: 'ready'; employees: EmployeeDto[]; departments: DepartmentDto[]; roles: RoleDto[] }
   | { kind: 'error'; message: string };
 
 export default function EmployeesPage() {
@@ -27,11 +27,12 @@ export default function EmployeesPage() {
     setState({ kind: 'loading' });
     try {
       const api = getPlatformRolesApi();
-      const [employees, departments] = await Promise.all([
+      const [employees, departments, roles] = await Promise.all([
         api.listEmployees(),
         api.listDepartments().catch(() => []),
+        api.listRoles().catch(() => []),
       ]);
-      setState({ kind: 'ready', employees, departments });
+      setState({ kind: 'ready', employees, departments, roles });
     } catch (error) {
       setState({ kind: 'error', message: readError(error, '加载员工列表失败') });
     }
@@ -53,6 +54,13 @@ export default function EmployeesPage() {
       return new Map<string, string>();
     }
     return new Map(state.employees.map((employee) => [employee.id, employee.name]));
+  }, [state]);
+
+  const roleNameById = useMemo(() => {
+    if (state.kind !== 'ready') {
+      return new Map<string, string>();
+    }
+    return new Map(state.roles.map((role) => [role.id, role.name]));
   }, [state]);
 
   const columns: Array<TableColumn<EmployeeDto>> = [
@@ -80,7 +88,7 @@ export default function EmployeesPage() {
       title: '操作',
       render: (employee) => (
         <Button onClick={() => setSelectedEmployee(employee)} size="sm">
-          近况
+          查看详情
         </Button>
       ),
     },
@@ -138,12 +146,21 @@ export default function EmployeesPage() {
         </section>
       ) : null}
 
-      <StatusTimeline
+      <EmployeeProfileDrawer
+        departmentName={
+          selectedEmployee?.departmentId
+            ? (departmentNameById.get(selectedEmployee.departmentId) ??
+              selectedEmployee.departmentId)
+            : undefined
+        }
         employee={selectedEmployee}
         employeeNameById={employeeNameById}
         onClose={() => setSelectedEmployee(null)}
         open={Boolean(selectedEmployee)}
         refreshKey={timelineRefreshKey}
+        roleNames={
+          selectedEmployee?.roleIds.map((roleId) => roleNameById.get(roleId) ?? roleId) ?? []
+        }
       />
 
       {state.kind === 'ready' ? (

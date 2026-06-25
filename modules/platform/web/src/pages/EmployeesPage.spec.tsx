@@ -46,9 +46,9 @@ describe('EmployeesPage', () => {
     expect(await screen.findByText('张伟')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '批量记录近况' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getAllByRole('button', { name: '近况' })[0]);
+    await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]);
 
-    expect(await screen.findByText('张伟 的近况脉络')).toBeInTheDocument();
+    expect(await screen.findByText('成员详情')).toBeInTheDocument();
     await waitFor(() =>
       expect(get).toHaveBeenCalledWith('employees/employee-001/status-logs?limit=20&offset=0'),
     );
@@ -62,9 +62,9 @@ describe('EmployeesPage', () => {
     );
     render(<EmployeesPage />);
 
-    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    await userEvent.click((await screen.findAllByRole('button', { name: '查看详情' }))[0]);
 
-    expect(await screen.findByText('张伟 的近况脉络')).toBeInTheDocument();
+    expect(await screen.findByText('成员详情')).toBeInTheDocument();
     expect(screen.getByText('employee-author')).toBeInTheDocument();
     expect(screen.getByText('完成客户回访')).toBeInTheDocument();
 
@@ -80,7 +80,7 @@ describe('EmployeesPage', () => {
     mockStatusLogs([]);
     render(<EmployeesPage />);
 
-    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    await userEvent.click((await screen.findAllByRole('button', { name: '查看详情' }))[0]);
 
     expect(await screen.findByText('暂无近况记录')).toBeInTheDocument();
     expect(screen.getByText('该员工还没有近况记录。')).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe('EmployeesPage', () => {
     });
     render(<EmployeesPage />);
 
-    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    await userEvent.click((await screen.findAllByRole('button', { name: '查看详情' }))[0]);
     expect(await screen.findByText('第一页旧记录')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '下一页' }));
     expect(await screen.findByText('第二页旧记录')).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe('EmployeesPage', () => {
     });
     render(<EmployeesPage />);
 
-    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    await userEvent.click((await screen.findAllByRole('button', { name: '查看详情' }))[0]);
     expect(await screen.findByText('第一页记录')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '下一页' }));
 
@@ -201,13 +201,13 @@ describe('EmployeesPage', () => {
     mockEmployeeStatusLogs();
     render(<EmployeesPage />);
 
-    await userEvent.click((await screen.findAllByRole('button', { name: '近况' }))[0]);
+    await userEvent.click((await screen.findAllByRole('button', { name: '查看详情' }))[0]);
     expect(await screen.findByText('张伟第一页')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '下一页' }));
     expect(await screen.findByText('张伟第二页')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '关闭' }));
 
-    await userEvent.click(screen.getAllByRole('button', { name: '近况' })[1]);
+    await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[1]);
 
     expect(await screen.findByText('李四第一页')).toBeInTheDocument();
     expect(get).not.toHaveBeenCalledWith('employees/employee-002/status-logs?limit=20&offset=20');
