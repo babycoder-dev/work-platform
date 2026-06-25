@@ -395,6 +395,35 @@ export class PostgresFormsRepository implements FormsRepository {
     };
   }
 
+  async findRecordBySubject(
+    enterpriseId: string,
+    slotKey: FormRecordDto['slotKey'],
+    subjectType: string,
+    subjectId: string,
+  ): Promise<FormRecordDto | undefined> {
+    const result = await this.pool.query<FormRecordRow>(
+      `
+        SELECT ${FORM_RECORD_COLUMNS}
+        FROM forms.form_records
+        WHERE enterprise_id = $1
+          AND slot_key = $2
+          AND subject_type = $3
+          AND subject_id = $4
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+      `,
+      [enterpriseId, slotKey, subjectType, subjectId],
+    );
+    const record = result.rows[0] ? mapRecord(result.rows[0]) : undefined;
+    if (!record) {
+      return undefined;
+    }
+    return {
+      ...record,
+      values: await this.listValuesByRecordId(enterpriseId, record.id),
+    };
+  }
+
   async reserveRecord(input: ReserveRecordInput, uow: UnitOfWork): Promise<FormRecordDto> {
     const executor = requireExecutor(uow);
     let record: FormRecordDto | undefined;

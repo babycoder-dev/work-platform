@@ -259,6 +259,12 @@ company > department_tree > department > self
 - 本人改本人档案（`self`）：登录态即可写自身受限字段子集（`name` / `title` / `mobile` / `email`），不得借此修改部门、状态、角色等管理字段。
 - 管理改他人档案（按范围）：须持操作权限（`platform:employee:manage`）且目标员工落在操作者的 `profile` 写范围（`self` / `department` / `department_tree` / `company`）内，逐目标校验；越权按不存在处理。
 - 所有档案写收口到单一 service 方法，未来审核关 / 自助注册 / 批量导入复用同一写授权判定。
+- 跨模块消费同一数据范围谓词时，必须经 `@work/platform-contract` 的
+  `PLATFORM_SCOPE_SERVICE` / `PlatformScopePort.matchesScope(subject, scope)`；`subject`
+  只包含 id、enterpriseId、departmentId 等授权所需最小字段。forms 的
+  `profile.employee` 记录读写用该谓词套用 `profile` 范围；presence 按人读端点先通过
+  platform employee lookup 读取 subject 实时部门，再用该谓词套用 `presence` 范围。既有
+  `presence/board` 看板仍按在位记录的部门快照过滤，待 M9 在位 v2 统一。
 
 近况记录的批量写授权沿用同一 `profile` 写范围规则，逐 subject 校验（见 M8-4）。
 

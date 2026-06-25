@@ -2,7 +2,12 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import type { EventBus } from '@work/event-bus';
 import type { FileStoragePort } from '@work/files-contract';
 import { FORM_FIELD_LIMITS, formsPermissions, type FormActorContext } from '@work/forms-contract';
-import type { PlatformAuditPort, PlatformEmployeeLookupPort } from '@work/platform-contract';
+import type {
+  CurrentUserDto,
+  PlatformAuditPort,
+  PlatformEmployeeLookupPort,
+  PlatformScopePort,
+} from '@work/platform-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InMemoryFormsRepository } from '../db/in-memory-forms.repository';
 import { FormsService } from './forms.service';
@@ -11,6 +16,7 @@ describe('FormsService', () => {
   let formsRepository: InMemoryFormsRepository;
   let fileStorage: FileStoragePort;
   let employeeLookup: PlatformEmployeeLookupPort;
+  let scopeService: PlatformScopePort;
   let audit: PlatformAuditPort;
   let events: EventBus;
   let service: FormsService;
@@ -50,9 +56,19 @@ describe('FormsService', () => {
           })),
       ),
     };
+    scopeService = {
+      resolveScope: vi.fn(async (user) => ({
+        kind: 'company' as const,
+        userId: user.id,
+        enterpriseId: user.enterpriseId,
+        departmentIds: [],
+        degradedFromCustom: false,
+      })),
+      matchesScope: vi.fn(() => true),
+    };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     events = eventBus();
-    service = new FormsService(formsRepository, fileStorage, employeeLookup, audit, events);
+    service = new FormsService(formsRepository, fileStorage, employeeLookup, scopeService, audit, events);
   });
 
   it('updates definitions with optimistic revision checks', async () => {
@@ -174,6 +190,271 @@ describe('FormsService', () => {
     expect(second.values).toEqual([
       expect.objectContaining({ fieldKey: 'nickname', value: 'second' }),
     ]);
+  });
+
+  it('reads and upserts profile.employee records by authorized subject with create/update semantics', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(events.publish).mockClear();
+    vi.mocked(audit.record).mockClear();
+
+    const created = await service.upsertRecordBySubject(
+      actor(),
+      currentUser(),
+      {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: 'first' }],
+      },
+      { traceId: 'trace-upsert' },
+    );
+    const updated = await service.upsertRecordBySubject(actor(), currentUser(), {
+      slotKey: 'profile.employee',
+      subjectType: 'employee',
+      subjectId: 'employee-1',
+      definitionRevision: 1,
+      values: [{ fieldKey: 'nickname', value: 'second' }],
+    });
+
+    expect(updated.id).toBe(created.id);
+    expect(formsRepository.records).toHaveLength(1);
+    await expect(
+      service.getRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: created.id,
+        values: [expect.objectContaining({ fieldKey: 'nickname', value: 'second' })],
+      }),
+    );
+    expect(scopeService.resolveScope).toHaveBeenCalledWith(currentUser(), 'profile');
+    expect(scopeService.matchesScope).toHaveBeenCalledWith(
+      { id: 'employee-1', enterpriseId: 'ent-default', departmentId: 'dept-1' },
+      expect.objectContaining({ kind: 'company' }),
+    );
+    expect(events.publish).toHaveBeenCalledTimes(1);
+    expect(events.publish).toHaveBeenCalledWith({
+      type: 'forms.record.created',
+      source: 'forms.api',
+      traceId: 'trace-upsert',
+      payload: expect.objectContaining({
+        enterpriseId: 'ent-default',
+        slotKey: 'profile.employee',
+        recordId: created.id,
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        submittedBy: 'user-1',
+      }),
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.create',
+        resourceId: created.id,
+        traceId: 'trace-upsert',
+        metadata: expect.objectContaining({
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          fieldKeys: ['nickname'],
+        }),
+      }),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.update',
+        resourceId: created.id,
+        metadata: expect.objectContaining({
+          slotKey: 'profile.employee',
+          recordId: created.id,
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          revision: 1,
+          fieldKeys: ['nickname'],
+        }),
+      }),
+    );
+  });
+
+  it('hides profile.employee subject records when scope denies access', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(audit.record).mockClear();
+    vi.mocked(scopeService.matchesScope).mockReturnValue(false);
+
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: 'first' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.getRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(formsRepository.records).toHaveLength(0);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          reason: 'not_found_or_out_of_scope',
+        },
+      }),
+    );
+  });
+
+  it('audits rejected subject upserts without leaking values', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(audit.record).mockClear();
+
+    await expect(
+      service.upsertRecordBySubject(
+        actor([formsPermissions.recordView]),
+        currentUser(),
+        {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          definitionRevision: 1,
+          values: [{ fieldKey: 'nickname', value: 'secret' }],
+        },
+        { traceId: 'trace-permission-denied' },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        traceId: 'trace-permission-denied',
+        metadata: {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: 'employee-1',
+          reason: 'permission_denied',
+        },
+      }),
+    );
+    expect(audit.record).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ values: expect.anything() }),
+      }),
+    );
+
+    vi.mocked(audit.record).mockClear();
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 0,
+        values: [{ fieldKey: 'nickname', value: 'secret' }],
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: expect.objectContaining({
+          reason: 'definition_revision_conflict',
+          subjectId: 'employee-1',
+        }),
+      }),
+    );
+
+    vi.mocked(audit.record).mockClear();
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'unknown', value: 'secret' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: expect.objectContaining({
+          reason: 'record_validation_failed',
+          subjectId: 'employee-1',
+        }),
+      }),
+    );
+  });
+
+  it('bounds rejected upsert failure audit metadata from route parameters', async () => {
+    const longSubjectId = 'employee-'.padEnd(180, 'x');
+
+    await expect(
+      service.upsertRecordBySubject(
+        actor([formsPermissions.recordView]),
+        currentUser(),
+        {
+          slotKey: 'profile.employee',
+          subjectType: 'employee',
+          subjectId: longSubjectId,
+          definitionRevision: 1,
+          values: [{ fieldKey: 'nickname', value: 'secret' }],
+        },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'forms.record.upsert',
+        result: 'failure',
+        metadata: expect.objectContaining({
+          subjectId: longSubjectId.slice(0, 128),
+          reason: 'permission_denied',
+        }),
+      }),
+    );
+    expect(audit.record).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ subjectId: longSubjectId }),
+      }),
+    );
+  });
+
+  it('preserves business errors when rejected upsert failure audit fails', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+    });
+    vi.mocked(scopeService.matchesScope).mockReturnValue(false);
+    vi.mocked(audit.record).mockRejectedValueOnce(new Error('audit down'));
+
+    await expect(
+      service.upsertRecordBySubject(actor(), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: 'first' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('attaches files to the actual singleton record id on replacement submissions', async () => {
@@ -387,12 +668,34 @@ describe('FormsService', () => {
   });
 });
 
-function actor(): FormActorContext {
+function actor(
+  permissionCodes: string[] = [formsPermissions.recordSubmit, formsPermissions.recordView],
+): FormActorContext {
   return {
     enterpriseId: 'ent-default',
     userId: 'user-1',
     account: 'forms-user',
-    permissionCodes: [formsPermissions.recordSubmit, formsPermissions.recordView],
+    permissionCodes,
+  };
+}
+
+function currentUser(): CurrentUserDto {
+  return {
+    id: 'user-1',
+    account: 'forms-user',
+    employeeNo: 'E001',
+    name: 'Forms User',
+    enterpriseId: 'ent-default',
+    departmentId: 'dept-1',
+    departmentName: '研发部',
+    roles: ['admin'],
+    permissions: [],
+    dataScopes: {
+      profile: ['company'],
+      presence: ['self'],
+      report: ['self'],
+    },
+    mustChangePassword: false,
   };
 }
 

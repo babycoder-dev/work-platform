@@ -2,10 +2,15 @@ import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundExce
 import { EVENT_BUS, type EventBus } from '@work/event-bus';
 import type {
   CurrentUserDto,
+  PlatformEmployeeLookupPort,
   PlatformAuditPort,
   PlatformScopePort,
 } from '@work/platform-contract';
-import { PLATFORM_AUDIT_SERVICE, PLATFORM_SCOPE_SERVICE } from '@work/platform-contract';
+import {
+  PLATFORM_AUDIT_SERVICE,
+  PLATFORM_EMPLOYEE_LOOKUP_SERVICE,
+  PLATFORM_SCOPE_SERVICE,
+} from '@work/platform-contract';
 import type {
   CreatePresenceStatusRecordInput,
   PresenceStatusRecordDto,
@@ -29,6 +34,8 @@ export class PresenceStatusService {
   constructor(
     @Inject(PRESENCE_REPOSITORY) private readonly repository: PresenceRepository,
     @Inject(PLATFORM_SCOPE_SERVICE) private readonly scopeService: PlatformScopePort,
+    @Inject(PLATFORM_EMPLOYEE_LOOKUP_SERVICE)
+    private readonly employeeLookup: PlatformEmployeeLookupPort,
     @Inject(PLATFORM_AUDIT_SERVICE) private readonly auditService: PlatformAuditPort,
     @Inject(EVENT_BUS) private readonly eventBus: EventBus,
   ) {}
@@ -48,6 +55,37 @@ export class PresenceStatusService {
 
     const items = await this.repository.listActiveRecords(query);
     return { items };
+  }
+
+  async getEmployeeStatus(
+    currentUser: CurrentUserDto,
+    employeeId: string,
+  ): Promise<{ record: PresenceStatusRecordDto | null }> {
+    const scope = await this.scopeService.resolveScope(currentUser, 'presence');
+    const [subject] = await this.employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [employeeId]);
+    if (!subject) {
+      return { record: null };
+    }
+
+    if (
+      !this.scopeService.matchesScope(
+        {
+          id: employeeId,
+          enterpriseId: currentUser.enterpriseId,
+          departmentId: subject.departmentId,
+        },
+        scope,
+      )
+    ) {
+      return { record: null };
+    }
+
+    const [record] = await this.repository.listActiveRecords({
+      enterpriseId: scope.enterpriseId,
+      at: new Date().toISOString(),
+      userIds: [employeeId],
+    });
+    return { record: record ?? null };
   }
 
   async listOwnRecords(currentUser: CurrentUserDto): Promise<{ items: PresenceStatusRecordDto[] }> {

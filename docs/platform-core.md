@@ -94,6 +94,10 @@ M8-4a 起，近况记录由 Platform Core 持有，落表 `platform.status_logs`
 `platform:employee:view`，并按 `profile` 读范围过滤目标员工；越权、跨企业或不存在同样返回 404。
 近况记录只追加，本期不提供编辑 / 删除端点；`deleted_at` 仅为未来软删预留。新增近况不发布领域事件，也不通知本人。
 
+M8-5a 起，Platform Core 通过 `PlatformScopePort.matchesScope(subject, scope)` 暴露同一套
+profile 范围谓词给共享模块使用。`subject` 是最小授权快照（id、enterpriseId、departmentId），业务模块不得自行解析
+`currentUser.dataScopes` 或复制部门树判定逻辑。
+
 权限与角色：
 
 ```text
@@ -216,7 +220,7 @@ kind === 'department' | 'department_tree' → employee.departmentId ∈ scope.de
 
 - `GET /api/platform/employees`（M3.5-E 起）
 
-业务模块的接入计划见各业务 RFC（M4 起 presence board 接入）。业务模块通过 `@work/platform-contract` 导出的 `PLATFORM_SCOPE_SERVICE` token + `PlatformScopePort` interface 注入（M4-2 起，详见 `docs/module-contract.md §7.1.6`）。
+业务模块的接入计划见各业务 RFC（M4 起 presence board 接入）。业务模块通过 `@work/platform-contract` 导出的 `PLATFORM_SCOPE_SERVICE` token + `PlatformScopePort` interface 注入（M4-2 起，详见 `docs/module-contract.md §7.1.6`）。M8-5a 后，跨模块按 subject 做数据范围判定时，调用 `matchesScope(subject, scope)`；解析仍由 `resolveScope(currentUser, dataType)` 完成。
 
 ## 6. Repository 实现
 

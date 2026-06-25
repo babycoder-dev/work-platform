@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   CurrentUserDto,
-  EmployeeDto,
   PlatformDataType,
   PlatformScope,
   PlatformScopeKind,
   PlatformScopePort,
+  ScopeSubject,
 } from '@work/platform-contract';
 import { PLATFORM_REPOSITORY, type PlatformRepository } from '../repositories/platform.repository';
 
@@ -65,19 +65,19 @@ export class PlatformScopeService implements PlatformScopePort {
     };
   }
 
-  matchesScope(employee: EmployeeDto, scope: PlatformScope): boolean {
-    if (employee.enterpriseId !== scope.enterpriseId) {
+  matchesScope(subject: ScopeSubject, scope: PlatformScope): boolean {
+    if (subject.enterpriseId !== scope.enterpriseId) {
       return false;
     }
     switch (scope.kind) {
       case 'company':
         return true;
       case 'self':
-        return employee.id === scope.userId;
+        return subject.id === scope.userId;
       case 'department':
       case 'department_tree':
         return (
-          employee.departmentId !== undefined && scope.departmentIds.includes(employee.departmentId)
+          subject.departmentId !== undefined && scope.departmentIds.includes(subject.departmentId)
         );
     }
   }

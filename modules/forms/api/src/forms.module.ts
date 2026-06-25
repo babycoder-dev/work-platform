@@ -10,12 +10,13 @@ import { InMemoryFormsRepository } from './db/in-memory-forms.repository';
 import { PostgresFormsRepository } from './db/postgres-forms.repository';
 import { FormsDefinitionController } from './forms/forms.controller';
 import { FormsDefinitionPermissionGuard } from './forms/forms-definition-permission.guard';
+import { FormsRecordController } from './forms/forms-record.controller';
 import { FormsService } from './forms/forms.service';
 import { FormsHealthController } from './system/forms-health.controller';
 
 @Module({
   imports: [EventBusModule, PlatformModule, FilesModule, FormsDbModule],
-  controllers: [FormsHealthController, FormsDefinitionController],
+  controllers: [FormsHealthController, FormsDefinitionController, FormsRecordController],
   providers: [
     {
       provide: PostgresFormsRepository,

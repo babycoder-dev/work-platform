@@ -6,6 +6,7 @@ import type {
   FormAuditContext,
 } from './forms.dto';
 import type { FormSlotKey } from './slots';
+import type { CurrentUserDto } from '@work/platform-contract';
 
 export const FORMS_SERVICE = Symbol('FORMS_SERVICE');
 
@@ -13,6 +14,17 @@ export interface FormsPort {
   getDefinition(actor: FormActorContext, slotKey: FormSlotKey): Promise<FormDefinitionDto>;
   createRecord(
     actor: FormActorContext,
+    input: CreateFormRecordInput,
+    auditContext?: FormAuditContext,
+  ): Promise<FormRecordDto>;
+  getRecordBySubject(
+    actor: FormActorContext,
+    currentUser: CurrentUserDto,
+    input: { slotKey: string; subjectType: string; subjectId: string },
+  ): Promise<FormRecordDto>;
+  upsertRecordBySubject(
+    actor: FormActorContext,
+    currentUser: CurrentUserDto,
     input: CreateFormRecordInput,
     auditContext?: FormAuditContext,
   ): Promise<FormRecordDto>;
