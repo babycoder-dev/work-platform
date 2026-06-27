@@ -50,6 +50,10 @@ describe('EmployeeProfileDrawer', () => {
     expect(screen.getByText('研发部 · 张伟')).toBeInTheDocument();
     expect(await screen.findByText('花名')).toBeInTheDocument();
     expect(screen.getByText('阿伟')).toBeInTheDocument();
+    expect(screen.getByText('选项A')).toBeInTheDocument();
+    expect(screen.getByText('标签1、标签2')).toBeInTheDocument();
+    expect(screen.getByText('张经理')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('[object Object]');
     expect(await screen.findByText('完成客户回访')).toBeInTheDocument();
   });
 
@@ -164,6 +168,8 @@ describe('EmployeeProfileDrawer', () => {
     renderDrawer();
 
     await userEvent.click(await screen.findByRole('button', { name: '编辑自定义字段' }));
+    expect(screen.getByText('张经理')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('[object Object]');
     await userEvent.clear(await screen.findByLabelText('花名'));
     await userEvent.type(screen.getByLabelText('花名'), '张同学');
     await userEvent.click(screen.getByRole('button', { name: '保存自定义字段' }));
@@ -180,10 +186,11 @@ describe('EmployeeProfileDrawer', () => {
           { fieldKey: 'skill', value: 'frontend' },
           { fieldKey: 'tags', value: ['mentor'] },
           { fieldKey: 'portrait', value: ['file-001'] },
+          { fieldKey: 'manager', value: ['employee-002'] },
         ]),
       }),
     );
-    expect(put.mock.calls[0]?.[1].values).toHaveLength(6);
+    expect(put.mock.calls[0]?.[1].values).toHaveLength(7);
     expect(await screen.findByText('已保存自定义字段')).toBeInTheDocument();
   });
 
@@ -356,6 +363,7 @@ describe('EmployeeProfileDrawer', () => {
           options: [{ key: 'mentor', label: '导师' }],
         }),
         field({ fieldKey: 'portrait', label: '照片', fieldType: 'image' }),
+        field({ fieldKey: 'manager', label: '直属主管', fieldType: 'employee' }),
       ],
     };
   }
@@ -393,7 +401,7 @@ describe('EmployeeProfileDrawer', () => {
           fieldLabelSnapshot: '技能方向',
           fieldTypeSnapshot: 'single_select',
           value: 'frontend',
-          displaySnapshot: '前端',
+          displaySnapshot: { key: 'frontend', label: '选项A' },
           sortOrderSnapshot: 4,
         }),
         recordValue({
@@ -401,7 +409,10 @@ describe('EmployeeProfileDrawer', () => {
           fieldLabelSnapshot: '标签',
           fieldTypeSnapshot: 'multi_select',
           value: ['mentor'],
-          displaySnapshot: ['导师'],
+          displaySnapshot: [
+            { key: 'mentor', label: '标签1' },
+            { key: 'reviewer', label: '标签2' },
+          ],
           sortOrderSnapshot: 5,
         }),
         recordValue({
@@ -411,6 +422,14 @@ describe('EmployeeProfileDrawer', () => {
           value: ['file-001'],
           displaySnapshot: '照片 file-001',
           sortOrderSnapshot: 6,
+        }),
+        recordValue({
+          fieldKey: 'manager',
+          fieldLabelSnapshot: '直属主管',
+          fieldTypeSnapshot: 'employee',
+          value: ['employee-002'],
+          displaySnapshot: [{ id: 'employee-002', name: '张经理' }],
+          sortOrderSnapshot: 7,
         }),
       ],
     };

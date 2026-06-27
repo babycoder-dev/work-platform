@@ -5,6 +5,7 @@ import { Button, EmptyState } from '@work/ui';
 import type { CurrentUserDto } from '@work/platform-contract';
 import type { FormDefinition, FormRecord } from '../api/forms-types';
 import { getFormsApi } from '../runtime';
+import { formatCustomFieldDisplay } from './custom-field-display';
 import { ProfileCustomFieldsForm } from './ProfileCustomFieldsForm';
 
 type CustomState =
@@ -185,22 +186,12 @@ function CustomValues({ record }: { record: FormRecord | null }) {
         <div className="employee-profile__kv-row" key={value.fieldKey}>
           <dt>{value.fieldLabelSnapshot}</dt>
           <dd className="employee-profile__prewrap">
-            {formatDisplay(value.displaySnapshot ?? value.value)}
+            {formatCustomFieldDisplay(value.displaySnapshot ?? value.value)}
           </dd>
         </div>
       ))}
     </dl>
   );
-}
-
-function formatDisplay(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.length > 0 ? value.map(String).join('、') : '—';
-  }
-  if (value === undefined || value === null || value === '') {
-    return '—';
-  }
-  return String(value);
 }
 
 function hasPermission(currentUser: CurrentUserDto, code: string): boolean {

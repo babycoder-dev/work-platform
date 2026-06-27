@@ -3,6 +3,7 @@ import { ApiError } from '@work/errors';
 import { Button, Checkbox, Input, Select, Textarea } from '@work/ui';
 import type { FormDefinition, FormField, FormRecord, FormRecordValue } from '../api/forms-types';
 import { getFormsApi } from '../runtime';
+import { formatCustomFieldDisplay } from './custom-field-display';
 
 type FormValues = Record<string, unknown>;
 
@@ -180,7 +181,7 @@ function renderField(field: FormField, value: unknown, onChange: (value: unknown
     return (
       <div className="employee-profile__readonly-field">
         <span className="employee-profile__field-label">{field.label}</span>
-        <p>{formatDisplay(value)}</p>
+        <p>{formatCustomFieldDisplay(value)}</p>
         <p className="employee-profile__hint">该字段本期暂不支持在此编辑</p>
       </div>
     );
@@ -200,18 +201,17 @@ function buildInitialValues(
 ): FormValues {
   const values: FormValues = {};
   for (const field of fields) {
-    values[field.fieldKey] = originalValueByKey.get(field.fieldKey)?.value ?? defaultValue(field);
+    const originalValue = originalValueByKey.get(field.fieldKey);
+    values[field.fieldKey] =
+      isReadOnlyField(field) && originalValue?.displaySnapshot !== undefined
+        ? originalValue.displaySnapshot
+        : (originalValue?.value ?? defaultValue(field));
   }
   return values;
 }
 
 function defaultValue(field: FormField): unknown {
-  return field.fieldType === 'multi_select' ||
-    field.fieldType === 'file' ||
-    field.fieldType === 'image' ||
-    field.fieldType === 'employee'
-    ? []
-    : '';
+  return field.fieldType === 'multi_select' || isReadOnlyField(field) ? [] : '';
 }
 
 function normalizeValue(
@@ -219,7 +219,7 @@ function normalizeValue(
   value: unknown,
   originalValue?: FormRecordValue,
 ): unknown {
-  if (field.fieldType === 'file' || field.fieldType === 'image' || field.fieldType === 'employee') {
+  if (isReadOnlyField(field)) {
     return originalValue?.value ?? defaultValue(field);
   }
   if (field.fieldType === 'number') {
@@ -256,22 +256,18 @@ function isEmpty(value: unknown): boolean {
   return value === undefined || value === null || String(value).trim() === '';
 }
 
-function formatDisplay(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.length > 0 ? value.map(String).join('、') : '—';
-  }
-  if (value === undefined || value === null || value === '') {
-    return '—';
-  }
-  return String(value);
-}
-
 function toStringValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value);
 }
 
 function sortFields(left: FormField, right: FormField): number {
   return left.sortOrder - right.sortOrder || left.fieldKey.localeCompare(right.fieldKey);
+}
+
+function isReadOnlyField(field: FormField): boolean {
+  return (
+    field.fieldType === 'file' || field.fieldType === 'image' || field.fieldType === 'employee'
+  );
 }
 
 function readError(error: unknown, fallback: string): string {
