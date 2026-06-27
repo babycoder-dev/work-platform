@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Drawer, EmptyState, Pager } from '@work/ui';
+import { Button, EmptyState, Pager } from '@work/ui';
 import type { EmployeeDto, ListStatusLogsResult } from '@work/platform-contract';
 import { getPlatformRolesApi } from '../runtime';
 import '../styles.css';
@@ -12,18 +12,14 @@ type TimelineState =
   | { kind: 'ready'; result: ListStatusLogsResult }
   | { kind: 'error'; message: string };
 
-export function StatusTimeline({
+export function StatusTimelineSection({
   employee,
   employeeNameById,
-  open,
   refreshKey,
-  onClose,
 }: {
   employee: EmployeeDto | null;
   employeeNameById: Map<string, string>;
-  open: boolean;
   refreshKey: number;
-  onClose: () => void;
 }) {
   const [page, setPage] = useState(1);
   const [state, setState] = useState<TimelineState>({ kind: 'idle' });
@@ -33,7 +29,7 @@ export function StatusTimeline({
   const lastResetKeyRef = useRef(resetKey);
 
   useEffect(() => {
-    if (!open || !employeeId) {
+    if (!employeeId) {
       setState({ kind: 'idle' });
       lastResetKeyRef.current = resetKey;
       return undefined;
@@ -75,52 +71,55 @@ export function StatusTimeline({
     return () => {
       ignore = true;
     };
-  }, [employeeId, open, page, reloadKey, resetKey]);
+  }, [employeeId, page, reloadKey, resetKey]);
 
   if (!employee) {
     return null;
   }
 
+  if (state.kind === 'loading' || state.kind === 'idle') {
+    return <p>加载中…</p>;
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div className="status-timeline__state">
+        <p className="platform-employees__message platform-employees__message--error">
+          {state.message}
+        </p>
+        <Button onClick={() => setReloadKey((current) => current + 1)} size="sm">
+          重试
+        </Button>
+      </div>
+    );
+  }
+
+  if (state.result.items.length === 0) {
+    return <EmptyState title="暂无近况记录" description="该员工还没有近况记录。" />;
+  }
+
   return (
-    <Drawer onClose={onClose} open={open} title={`${employee.name} 的近况脉络`}>
-      {state.kind === 'loading' ? <p>加载中…</p> : null}
-      {state.kind === 'error' ? (
-        <div className="status-timeline__state">
-          <p className="platform-employees__message platform-employees__message--error">
-            {state.message}
-          </p>
-          <Button onClick={() => setReloadKey((current) => current + 1)} size="sm">
-            重试
-          </Button>
-        </div>
-      ) : null}
-      {state.kind === 'ready' && state.result.items.length === 0 ? (
-        <EmptyState title="暂无近况记录" description="该员工还没有近况记录。" />
-      ) : null}
-      {state.kind === 'ready' && state.result.items.length > 0 ? (
-        <div className="status-timeline">
-          <ol className="status-timeline__list">
-            {state.result.items.map((item) => (
-              <li className="status-timeline__item" key={item.id}>
-                <div className="status-timeline__meta">
-                  <strong>
-                    {employeeNameById.get(item.authorEmployeeId) ?? item.authorEmployeeId}
-                  </strong>
-                  <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
-                </div>
-                <p className="status-timeline__content">{item.content}</p>
-              </li>
-            ))}
-          </ol>
-          <Pager
-            onChange={setPage}
-            page={page}
-            pageSize={STATUS_TIMELINE_PAGE_SIZE}
-            total={state.result.total}
-          />
-        </div>
-      ) : null}
-    </Drawer>
+    <div className="status-timeline">
+      <ol className="status-timeline__list">
+        {state.result.items.map((item) => (
+          <li className="status-timeline__item" key={item.id}>
+            <div className="status-timeline__meta">
+              <strong>
+                {employeeNameById.get(item.authorEmployeeId) ?? item.authorEmployeeId}
+              </strong>
+              <time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>
+            </div>
+            <p className="status-timeline__content">{item.content}</p>
+          </li>
+        ))}
+      </ol>
+      <Pager
+        onChange={setPage}
+        page={page}
+        pageSize={STATUS_TIMELINE_PAGE_SIZE}
+        total={state.result.total}
+      />
+    </div>
   );
 }
 
