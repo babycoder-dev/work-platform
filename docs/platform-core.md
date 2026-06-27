@@ -98,6 +98,15 @@ M8-5a 起，Platform Core 通过 `PlatformScopePort.matchesScope(subject, scope)
 profile 范围谓词给共享模块使用。`subject` 是最小授权快照（id、enterpriseId、departmentId），业务模块不得自行解析
 `currentUser.dataScopes` 或复制部门树判定逻辑。
 
+M8-5b 起，platform web 的员工管理页提供「成员详情」抽屉，由**前端聚合**一个人的档案全貌：固定字段
+（列表行已加载的 `EmployeeDto`）+ 自定义字段（`GET /api/forms/records/profile.employee/subjects/:id`）+
+当前在位（`GET /api/presence/status-records/by-employee/:id`）+ 近况脉络（`GET /api/platform/employees/:id/status-logs`）+
+照片占位。各分区各自独立鉴权、独立优雅降级（forms 404 / presence 无权限只影响本区，固定字段区永远在），
+不做后端跨进程编排（呼应 RFC §4.3）。HR 自定义字段填报消费 forms 定义 + `PUT .../subjects/:id`（乐观锁），
+本期支持轻字段类型（text/textarea/number/date/单选/多选），file/image/employee 与照片下载延后。
+跨模块调用经独立 base 的 `@work/http-client` 实例（`/api/forms/`、`/api/presence/`），DTO 类型在 platform web
+本地镜像，不 import 他模块 contract（Nx scope 边界）。
+
 权限与角色：
 
 ```text

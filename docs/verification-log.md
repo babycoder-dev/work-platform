@@ -1,5 +1,60 @@
 # Verification Log
 
+## 2026-06-28
+
+### M8-5b People Aggregation Frontend
+
+Change set (frontend only, `modules/platform/web`; consumes M8-5a/M8-2a/M8-4a endpoints, no
+backend/contract/migration/permission change):
+
+- Added the people-centric "成员详情" drawer (`EmployeeProfileDrawer`), opened from a single
+  employee-row action. Stacked sections aggregate fixed fields (from the row `EmployeeDto`), custom
+  fields (forms `profile.employee` record), current presence, status-log timeline, and an avatar
+  photo placeholder. Each section authorizes and degrades independently (forms 404 / presence
+  no-permission affect only that section; fixed-field section always renders).
+- Added cross-module web consumption: `/api/forms/` and `/api/presence/` `@work/http-client`
+  instances in `runtime.ts` with locally-mirrored DTO types (`api/forms-types.ts`,
+  `api/presence-types.ts`) — no import of `@work/forms-contract` / `@work/presence-contract`
+  (Nx scope boundary). Presence status labels locally replicate `presence/web` `StatusBadge`
+  authoritative 5 values.
+- Absorbed the M8-4b standalone `StatusTimeline` drawer into `StatusTimelineSection` (no own
+  Drawer shell), embedded as the drawer's 近况 section; single row entry, no duplicate drawer.
+- Added HR custom-field entry (`ProfileCustomFieldsForm`): definition-driven dynamic form for
+  light field types (text/textarea/number/date/single_select/multi_select); file/image/employee
+  read-only pass-through; upsert returns all field values (incl. read-only originals) so the
+  覆盖式 `replaceRecordValues` does not drop fields.
+
+Post-implementation code review (workflow high + manual synthesis, PR #29) found and fixed a
+data-loss cluster + a display bug (commits f86ff77, e91ccad):
+
+- B1: edit gate now requires `forms:record:view` (read before overwrite); `startEditing` only
+  enters edit on a genuine 404, otherwise surfaces an error — never opens a blank form that would
+  wipe the singleton record when existing values failed to load.
+- B2: record load distinguishes `ApiError.status===404` (empty state) from real failures (error
+  state + retry), instead of masking 500/403 as "no record".
+- B3: form remounts on conflict reload via `key={version}` so reloaded definition/record values
+  refresh.
+- M1: presence section has an error state (no longer masks 500/network as "no presence record").
+- M2: revision-conflict detected via `ApiError.status===409`, not localized message substring.
+- L1: number fields validate against NaN before submit (no silent null write).
+- L2: drawer title includes the employee name (a11y).
+- Codex GitHub auto-review caught a bug the workflow + reviewer missed: `displaySnapshot` is an
+  object / object-array (`{key,label}` / `[EmployeeLookupDto]`), so naive `String()` rendered
+  `[object Object]` for select/employee fields. Fixed with a shared `formatCustomFieldDisplay`
+  helper (label/name extraction, JSON fallback) used by both read and read-only edit views.
+
+Fidelity gate: anchored to the `组织成员.html` member-detail drawer prototype. Drawer width is the
+`@work/ui` `Drawer width="default"` (540px) vs prototype 480px — registered as an accepted L1
+tolerance (no `@work/ui` change this slice).
+
+Verification (`NODE_ENV=test pnpm verify`, all green): unit 44 files / 228 tests (35 PG-gated
+skipped), web 37 files / 122 tests, e2e 8 files / 51 tests, lint / typecheck / build pass; primed
+Nx `@work/platform-web:lint` pass. A-class static gate: no hardcoded hex, no emoji icons, no
+cross-module forms/presence contract import, no `dangerouslySetInnerHTML`. PR #29 merged to main
+(squash, `a8e46b9`); both Codex auto-review threads resolved after fixes; CI verify + docker-build +
+GitGuardian pass. New direct dependency `@work/errors` (scope:shared, same tags as `@work/http-client`)
+for `ApiError` status inspection.
+
 ## 2026-06-24
 
 ### M8-5a People Aggregation Data Backend
@@ -12,10 +67,10 @@ Change set:
 - Added Forms subject record access for `profile.employee`:
   - `GET /api/forms/records/profile.employee/subjects/:id`
   - `PUT /api/forms/records/profile.employee/subjects/:id`
-  Both endpoints derive tenant / actor context from `request.currentUser`, enforce the existing
-  `forms:record:view` / `forms:record:submit` permissions inside `FormsService` as 404-hide
-  functional gates, and apply `profile` data-scope checks through the platform scope port before
-  reading or upserting the singleton record.
+    Both endpoints derive tenant / actor context from `request.currentUser`, enforce the existing
+    `forms:record:view` / `forms:record:submit` permissions inside `FormsService` as 404-hide
+    functional gates, and apply `profile` data-scope checks through the platform scope port before
+    reading or upserting the singleton record.
 - Added Forms repository support for `findRecordBySubject` in memory and PostgreSQL drivers, with
   values assembled through the existing record-value path and no cross-schema join.
 - Added Presence current status by employee:
