@@ -48,7 +48,7 @@ describe('EmployeesPage', () => {
 
     await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]);
 
-    expect(await screen.findByText('成员详情')).toBeInTheDocument();
+    expect(await screen.findByText('张伟 · 成员详情')).toBeInTheDocument();
     await waitFor(() =>
       expect(get).toHaveBeenCalledWith('employees/employee-001/status-logs?limit=20&offset=0'),
     );
@@ -64,7 +64,7 @@ describe('EmployeesPage', () => {
 
     await userEvent.click((await screen.findAllByRole('button', { name: '查看详情' }))[0]);
 
-    expect(await screen.findByText('成员详情')).toBeInTheDocument();
+    expect(await screen.findByText('张伟 · 成员详情')).toBeInTheDocument();
     expect(screen.getByText('employee-author')).toBeInTheDocument();
     expect(screen.getByText('完成客户回访')).toBeInTheDocument();
 

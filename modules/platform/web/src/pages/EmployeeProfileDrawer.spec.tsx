@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ApiError } from '@work/errors';
 import type { EmployeeDto, StatusLogDto } from '@work/platform-contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetPlatformRuntimeForTest, setPlatformRuntime } from '../runtime';
@@ -33,7 +34,7 @@ describe('EmployeeProfileDrawer', () => {
     renderDrawer();
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('成员详情')).toBeInTheDocument();
+    expect(screen.getByText('张伟 · 成员详情')).toBeInTheDocument();
     expect(screen.getByText('张伟')).toBeInTheDocument();
     expect(screen.getByText('工程师 · 研发部')).toBeInTheDocument();
     expect(screen.getByText('账号信息')).toBeInTheDocument();
@@ -64,6 +65,94 @@ describe('EmployeeProfileDrawer', () => {
       expect(get).not.toHaveBeenCalledWith(expect.stringContaining('status-records/by-employee')),
     );
     expect(get).not.toHaveBeenCalledWith(expect.stringContaining('records/profile.employee'));
+  });
+
+  it('does not show custom-field editing without record view permission', async () => {
+    setRuntime(['platform:employee:view', 'forms:record:submit', 'forms:profile-definition:view']);
+    mockDrawerData();
+
+    renderDrawer();
+
+    expect(await screen.findByText('暂无自定义字段记录')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '编辑自定义字段' })).not.toBeInTheDocument();
+  });
+
+  it('shows a record loading error instead of an empty custom-field state', async () => {
+    let recordRequestCount = 0;
+    get.mockImplementation((url: string) => {
+      if (url === 'records/profile.employee/subjects/employee-001') {
+        recordRequestCount += 1;
+        return recordRequestCount === 1
+          ? Promise.reject(
+              new ApiError('FORMS_LOAD_FAILED', '自定义字段服务不可用', { status: 500 }),
+            )
+          : Promise.resolve(profileRecord());
+      }
+      return drawerGet(url);
+    });
+
+    renderDrawer();
+
+    expect(await screen.findByText('自定义字段服务不可用')).toBeInTheDocument();
+    expect(screen.queryByText('该员工还没有自定义字段记录。')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '重试' }));
+    expect(await screen.findByText('阿伟')).toBeInTheDocument();
+  });
+
+  it('does not enter editing when loading the existing record fails', async () => {
+    let recordRequestCount = 0;
+    get.mockImplementation((url: string) => {
+      if (url === 'records/profile.employee/subjects/employee-001') {
+        recordRequestCount += 1;
+        if (recordRequestCount === 1) {
+          return Promise.resolve(profileRecord());
+        }
+        return Promise.reject(
+          new ApiError('FORMS_LOAD_FAILED', '读取现有档案失败', { status: 500 }),
+        );
+      }
+      return drawerGet(url);
+    });
+
+    renderDrawer();
+    await userEvent.click(await screen.findByRole('button', { name: '编辑自定义字段' }));
+
+    expect(await screen.findByText('读取现有档案失败')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存自定义字段' })).not.toBeInTheDocument();
+  });
+
+  it('allows first-time custom-field creation only when record loading returns 404', async () => {
+    get.mockImplementation((url: string) => {
+      if (url === 'records/profile.employee/subjects/employee-001') {
+        return Promise.reject(
+          new ApiError('FORMS_RECORD_NOT_FOUND', '表单记录不存在', { status: 404 }),
+        );
+      }
+      return drawerGet(url);
+    });
+
+    renderDrawer();
+    await userEvent.click(await screen.findByRole('button', { name: '编辑自定义字段' }));
+
+    expect(await screen.findByRole('button', { name: '保存自定义字段' })).toBeInTheDocument();
+    expect(screen.getByLabelText('花名')).toHaveValue('');
+  });
+
+  it('shows a presence loading error instead of claiming there is no record', async () => {
+    mockDrawerData();
+    get.mockImplementation((url: string) => {
+      if (url === 'status-records/by-employee/employee-001') {
+        return Promise.reject(
+          new ApiError('PRESENCE_UNAVAILABLE', '在位服务暂不可用', { status: 500 }),
+        );
+      }
+      return drawerGet(url);
+    });
+
+    renderDrawer();
+
+    expect(await screen.findByText('在位服务暂不可用')).toBeInTheDocument();
+    expect(screen.queryByText('该员工当前没有在位记录。')).not.toBeInTheDocument();
   });
 
   it('submits all profile fields, including read-only original values, when HR edits custom fields', async () => {
@@ -110,9 +199,28 @@ describe('EmployeeProfileDrawer', () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it('keeps editing and reloads data when the custom field upsert hits a revision conflict', async () => {
-    mockDrawerData();
-    put.mockRejectedValueOnce(new Error('表单定义已变化，请重新加载'));
+  it('reloads the form with new values when the custom field upsert returns 409', async () => {
+    let definitionRequestCount = 0;
+    let recordRequestCount = 0;
+    get.mockImplementation((url: string) => {
+      if (url === 'definitions/profile.employee') {
+        definitionRequestCount += 1;
+        return Promise.resolve(profileDefinition(definitionRequestCount === 1 ? 5 : 6));
+      }
+      if (url === 'records/profile.employee/subjects/employee-001') {
+        recordRequestCount += 1;
+        return Promise.resolve(
+          profileRecord(
+            recordRequestCount < 3 ? '阿伟' : '服务端新值',
+            recordRequestCount < 3 ? 5 : 6,
+          ),
+        );
+      }
+      return drawerGet(url);
+    });
+    put.mockRejectedValueOnce(
+      new ApiError('FORMS_DEFINITION_CONFLICT', '表单定义已变化，请重新加载', { status: 409 }),
+    );
     renderDrawer();
 
     await userEvent.click(await screen.findByRole('button', { name: '编辑自定义字段' }));
@@ -122,7 +230,44 @@ describe('EmployeeProfileDrawer', () => {
 
     expect(await screen.findByText('表单定义已变化，请重新加载')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '保存自定义字段' })).toBeInTheDocument();
-    await waitFor(() => expect(get).toHaveBeenCalledWith('definitions/profile.employee'));
+    expect(await screen.findByLabelText('花名')).toHaveValue('服务端新值');
+    expect(screen.queryByDisplayValue('张同学')).not.toBeInTheDocument();
+  });
+
+  it('does not reload a conflict when a non-409 error mentions the definition', async () => {
+    mockDrawerData();
+    put.mockRejectedValueOnce(
+      new ApiError('FORMS_SAVE_FAILED', '定义服务暂不可用', { status: 500 }),
+    );
+    renderDrawer();
+
+    await userEvent.click(await screen.findByRole('button', { name: '编辑自定义字段' }));
+    const definitionCallsBeforeSave = get.mock.calls.filter(
+      ([url]) => url === 'definitions/profile.employee',
+    ).length;
+    await userEvent.click(screen.getByRole('button', { name: '保存自定义字段' }));
+
+    expect(await screen.findByText('定义服务暂不可用')).toBeInTheDocument();
+    expect(get.mock.calls.filter(([url]) => url === 'definitions/profile.employee')).toHaveLength(
+      definitionCallsBeforeSave,
+    );
+  });
+
+  it('blocks invalid number values instead of serializing NaN', async () => {
+    get.mockImplementation((url: string) => {
+      if (url === 'records/profile.employee/subjects/employee-001') {
+        return Promise.resolve(profileRecord('阿伟', 5, Number.NaN));
+      }
+      return drawerGet(url);
+    });
+    renderDrawer();
+
+    await userEvent.click(await screen.findByRole('button', { name: '编辑自定义字段' }));
+    fireEvent.change(await screen.findByLabelText('职级'), { target: { value: 'not-a-number' } });
+    await userEvent.click(screen.getByRole('button', { name: '保存自定义字段' }));
+
+    expect(screen.getByText('请输入有效数字：职级')).toBeInTheDocument();
+    expect(put).not.toHaveBeenCalled();
   });
 
   function setRuntime(permissionCodes: string[]) {
@@ -153,111 +298,122 @@ describe('EmployeeProfileDrawer', () => {
   }
 
   function mockDrawerData() {
-    get.mockImplementation((url: string) => {
-      if (url === 'status-records/by-employee/employee-001') {
-        return Promise.resolve({
-          record: {
-            id: 'presence-001',
-            enterpriseId: 'ent-default',
-            userId: 'employee-001',
-            employeeNo: '000001',
-            userName: '张伟',
-            departmentId: 'dept-rd',
-            departmentName: '研发部',
-            status: 'working',
-            startAt: '2026-06-24T08:00:00.000Z',
-            remark: '正常在岗',
-            createdBy: 'employee-001',
-            createdAt: '2026-06-24T08:00:00.000Z',
-          },
-        });
-      }
-      if (url === 'records/profile.employee/subjects/employee-001') {
-        return Promise.resolve({
-          definitionRevision: 5,
-          values: [
-            recordValue({
-              fieldKey: 'nickname',
-              fieldLabelSnapshot: '花名',
-              value: '阿伟',
-              displaySnapshot: '阿伟',
-              sortOrderSnapshot: 1,
-            }),
-            recordValue({
-              fieldKey: 'level',
-              fieldLabelSnapshot: '职级',
-              fieldTypeSnapshot: 'number',
-              value: 3,
-              displaySnapshot: 'P3',
-              sortOrderSnapshot: 2,
-            }),
-            recordValue({
-              fieldKey: 'joinDate',
-              fieldLabelSnapshot: '入职日期',
-              fieldTypeSnapshot: 'date',
-              value: '2026-06-01',
-              displaySnapshot: '2026-06-01',
-              sortOrderSnapshot: 3,
-            }),
-            recordValue({
-              fieldKey: 'skill',
-              fieldLabelSnapshot: '技能方向',
-              fieldTypeSnapshot: 'single_select',
-              value: 'frontend',
-              displaySnapshot: '前端',
-              sortOrderSnapshot: 4,
-            }),
-            recordValue({
-              fieldKey: 'tags',
-              fieldLabelSnapshot: '标签',
-              fieldTypeSnapshot: 'multi_select',
-              value: ['mentor'],
-              displaySnapshot: ['导师'],
-              sortOrderSnapshot: 5,
-            }),
-            recordValue({
-              fieldKey: 'portrait',
-              fieldLabelSnapshot: '照片',
-              fieldTypeSnapshot: 'image',
-              value: ['file-001'],
-              displaySnapshot: '照片 file-001',
-              sortOrderSnapshot: 6,
-            }),
-          ],
-        });
-      }
-      if (url === 'definitions/profile.employee') {
-        return Promise.resolve({
-          revision: 5,
-          status: 'active',
-          fields: [
-            field({ fieldKey: 'nickname', label: '花名', fieldType: 'text', required: true }),
-            field({ fieldKey: 'level', label: '职级', fieldType: 'number' }),
-            field({ fieldKey: 'joinDate', label: '入职日期', fieldType: 'date' }),
-            field({
-              fieldKey: 'skill',
-              label: '技能方向',
-              fieldType: 'single_select',
-              options: [{ key: 'frontend', label: '前端' }],
-            }),
-            field({
-              fieldKey: 'tags',
-              label: '标签',
-              fieldType: 'multi_select',
-              options: [{ key: 'mentor', label: '导师' }],
-            }),
-            field({ fieldKey: 'portrait', label: '照片', fieldType: 'image' }),
-          ],
-        });
-      }
-      if (url === 'employees/employee-001/status-logs?limit=20&offset=0') {
-        return Promise.resolve({
-          items: [statusLog({ content: '完成客户回访' })],
-          total: 1,
-        });
-      }
-      return Promise.reject(new Error(`Unexpected GET ${url}`));
-    });
+    get.mockImplementation(drawerGet);
+  }
+
+  function drawerGet(url: string) {
+    if (url === 'status-records/by-employee/employee-001') {
+      return Promise.resolve({
+        record: {
+          id: 'presence-001',
+          enterpriseId: 'ent-default',
+          userId: 'employee-001',
+          employeeNo: '000001',
+          userName: '张伟',
+          departmentId: 'dept-rd',
+          departmentName: '研发部',
+          status: 'working',
+          startAt: '2026-06-24T08:00:00.000Z',
+          remark: '正常在岗',
+          createdBy: 'employee-001',
+          createdAt: '2026-06-24T08:00:00.000Z',
+        },
+      });
+    }
+    if (url === 'records/profile.employee/subjects/employee-001') {
+      return Promise.resolve(profileRecord());
+    }
+    if (url === 'definitions/profile.employee') {
+      return Promise.resolve(profileDefinition());
+    }
+    if (url === 'employees/employee-001/status-logs?limit=20&offset=0') {
+      return Promise.resolve({
+        items: [statusLog({ content: '完成客户回访' })],
+        total: 1,
+      });
+    }
+    return Promise.reject(new Error(`Unexpected GET ${url}`));
+  }
+
+  function profileDefinition(revision = 5) {
+    return {
+      revision,
+      status: 'active',
+      fields: [
+        field({ fieldKey: 'nickname', label: '花名', fieldType: 'text', required: true }),
+        field({ fieldKey: 'level', label: '职级', fieldType: 'number' }),
+        field({ fieldKey: 'joinDate', label: '入职日期', fieldType: 'date' }),
+        field({
+          fieldKey: 'skill',
+          label: '技能方向',
+          fieldType: 'single_select',
+          options: [{ key: 'frontend', label: '前端' }],
+        }),
+        field({
+          fieldKey: 'tags',
+          label: '标签',
+          fieldType: 'multi_select',
+          options: [{ key: 'mentor', label: '导师' }],
+        }),
+        field({ fieldKey: 'portrait', label: '照片', fieldType: 'image' }),
+      ],
+    };
+  }
+
+  function profileRecord(nickname = '阿伟', revision = 5, level: unknown = 3) {
+    return {
+      definitionRevision: revision,
+      id: 'record-001',
+      values: [
+        recordValue({
+          fieldKey: 'nickname',
+          fieldLabelSnapshot: '花名',
+          value: nickname,
+          displaySnapshot: nickname,
+          sortOrderSnapshot: 1,
+        }),
+        recordValue({
+          fieldKey: 'level',
+          fieldLabelSnapshot: '职级',
+          fieldTypeSnapshot: 'number',
+          value: level,
+          displaySnapshot: 'P3',
+          sortOrderSnapshot: 2,
+        }),
+        recordValue({
+          fieldKey: 'joinDate',
+          fieldLabelSnapshot: '入职日期',
+          fieldTypeSnapshot: 'date',
+          value: '2026-06-01',
+          displaySnapshot: '2026-06-01',
+          sortOrderSnapshot: 3,
+        }),
+        recordValue({
+          fieldKey: 'skill',
+          fieldLabelSnapshot: '技能方向',
+          fieldTypeSnapshot: 'single_select',
+          value: 'frontend',
+          displaySnapshot: '前端',
+          sortOrderSnapshot: 4,
+        }),
+        recordValue({
+          fieldKey: 'tags',
+          fieldLabelSnapshot: '标签',
+          fieldTypeSnapshot: 'multi_select',
+          value: ['mentor'],
+          displaySnapshot: ['导师'],
+          sortOrderSnapshot: 5,
+        }),
+        recordValue({
+          fieldKey: 'portrait',
+          fieldLabelSnapshot: '照片',
+          fieldTypeSnapshot: 'image',
+          value: ['file-001'],
+          displaySnapshot: '照片 file-001',
+          sortOrderSnapshot: 6,
+        }),
+      ],
+    };
   }
 });
 

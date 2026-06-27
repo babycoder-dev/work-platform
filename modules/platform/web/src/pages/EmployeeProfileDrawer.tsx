@@ -29,7 +29,7 @@ export function EmployeeProfileDrawer({
   }
 
   return (
-    <Drawer onClose={onClose} open={open} title="成员详情" width="default">
+    <Drawer onClose={onClose} open={open} title={`${employee.name} · 成员详情`} width="default">
       <div className="employee-profile">
         <ProfileHeader departmentName={departmentName} employee={employee} />
         <ProfileSection title="账号信息">

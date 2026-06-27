@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { ApiError } from '@work/errors';
 import { Button, EmptyState } from '@work/ui';
 import type { CurrentUserDto } from '@work/platform-contract';
 import type { FormDefinition, FormRecord } from '../api/forms-types';
@@ -10,7 +11,13 @@ type CustomState =
   | { kind: 'hidden' }
   | { kind: 'loading' }
   | { kind: 'ready'; record: FormRecord | null; message?: string }
-  | { kind: 'editing'; definition: FormDefinition; record: FormRecord | null }
+  | {
+      kind: 'editing';
+      definition: FormDefinition;
+      record: FormRecord | null;
+      version: number;
+      message?: string;
+    }
   | { kind: 'error'; message: string };
 
 export function CustomFieldsSection({
@@ -22,11 +29,13 @@ export function CustomFieldsSection({
 }) {
   const canViewRecord = hasPermission(currentUser, 'forms:record:view');
   const canEditRecord =
+    canViewRecord &&
     hasPermission(currentUser, 'forms:record:submit') &&
     hasPermission(currentUser, 'forms:profile-definition:view');
   const [state, setState] = useState<CustomState>(
     canViewRecord ? { kind: 'loading' } : { kind: 'hidden' },
   );
+  const editVersion = useRef(0);
 
   const loadRecord = useCallback(async () => {
     if (!canViewRecord) {
@@ -38,8 +47,12 @@ export function CustomFieldsSection({
       const record = await getFormsApi().getProfileRecord(employeeId);
       setState({ kind: 'ready', record });
       return record;
-    } catch {
-      setState({ kind: 'ready', record: null });
+    } catch (error) {
+      if (isNotFound(error)) {
+        setState({ kind: 'ready', record: null });
+        return null;
+      }
+      setState({ kind: 'error', message: readError(error, '加载自定义字段失败') });
       return null;
     }
   }, [canViewRecord, employeeId]);
@@ -52,20 +65,30 @@ export function CustomFieldsSection({
     try {
       const [definition, record] = await Promise.all([
         getFormsApi().getProfileDefinition(),
-        canViewRecord
-          ? getFormsApi()
-              .getProfileRecord(employeeId)
-              .catch(() => null)
-          : null,
+        loadEditableRecord(employeeId),
       ]);
-      setState({ kind: 'editing', definition, record });
+      setState({ kind: 'editing', definition, record, version: ++editVersion.current });
     } catch (error) {
       setState({ kind: 'error', message: readError(error, '加载自定义字段定义失败') });
     }
   }
 
-  async function reloadForConflict() {
-    await startEditing();
+  async function reloadForConflict(message: string) {
+    try {
+      const [definition, record] = await Promise.all([
+        getFormsApi().getProfileDefinition(),
+        loadEditableRecord(employeeId),
+      ]);
+      setState({
+        kind: 'editing',
+        definition,
+        record,
+        version: ++editVersion.current,
+        message,
+      });
+    } catch (error) {
+      setState({ kind: 'error', message: readError(error, '重新加载自定义字段失败') });
+    }
   }
 
   if (state.kind === 'hidden') {
@@ -86,20 +109,31 @@ export function CustomFieldsSection({
         <p className="platform-employees__message platform-employees__message--error">
           {state.message}
         </p>
+        <Button onClick={() => void loadRecord()} size="sm">
+          重试
+        </Button>
       </CustomFieldsShell>
     );
   }
 
   if (state.kind === 'editing') {
     return (
-      <ProfileCustomFieldsForm
-        definition={state.definition}
-        employeeId={employeeId}
-        onCancel={() => void loadRecord()}
-        onConflictReload={reloadForConflict}
-        onSaved={(record) => setState({ kind: 'ready', record, message: '已保存自定义字段' })}
-        record={state.record}
-      />
+      <>
+        {state.message ? (
+          <p className="platform-employees__message platform-employees__message--error">
+            {state.message}
+          </p>
+        ) : null}
+        <ProfileCustomFieldsForm
+          definition={state.definition}
+          employeeId={employeeId}
+          key={state.version}
+          onCancel={() => void loadRecord()}
+          onConflictReload={reloadForConflict}
+          onSaved={(record) => setState({ kind: 'ready', record, message: '已保存自定义字段' })}
+          record={state.record}
+        />
+      </>
     );
   }
 
@@ -175,4 +209,19 @@ function hasPermission(currentUser: CurrentUserDto, code: string): boolean {
 
 function readError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+async function loadEditableRecord(employeeId: string): Promise<FormRecord | null> {
+  try {
+    return await getFormsApi().getProfileRecord(employeeId);
+  } catch (error) {
+    if (isNotFound(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
 }

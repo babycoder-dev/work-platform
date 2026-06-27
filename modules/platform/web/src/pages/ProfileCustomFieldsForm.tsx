@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ApiError } from '@work/errors';
 import { Button, Checkbox, Input, Select, Textarea } from '@work/ui';
 import type { FormDefinition, FormField, FormRecord, FormRecordValue } from '../api/forms-types';
 import { getFormsApi } from '../runtime';
@@ -18,7 +19,7 @@ export function ProfileCustomFieldsForm({
   record: FormRecord | null;
   onCancel: () => void;
   onSaved: (record: FormRecord) => void;
-  onConflictReload: () => Promise<void>;
+  onConflictReload: (message: string) => Promise<void>;
 }) {
   const fields = useMemo(
     () => (definition.fields ?? []).filter((field) => field.status === 'active').sort(sortFields),
@@ -38,7 +39,7 @@ export function ProfileCustomFieldsForm({
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
-    const validationMessage = validateRequired(fields, values);
+    const validationMessage = validateFields(fields, values);
     if (validationMessage) {
       setMessage(validationMessage);
       return;
@@ -60,9 +61,10 @@ export function ProfileCustomFieldsForm({
       });
       onSaved(saved);
     } catch (error) {
-      setMessage(readError(error, '保存自定义字段失败'));
-      if (readError(error, '').includes('定义')) {
-        await onConflictReload();
+      const errorMessage = readError(error, '保存自定义字段失败');
+      setMessage(errorMessage);
+      if (error instanceof ApiError && error.status === 409) {
+        await onConflictReload(errorMessage);
       }
     } finally {
       setSubmitting(false);
@@ -221,14 +223,30 @@ function normalizeValue(
     return originalValue?.value ?? defaultValue(field);
   }
   if (field.fieldType === 'number') {
-    return value === '' || value === undefined || value === null ? null : Number(value);
+    if (value === '' || value === undefined || value === null) {
+      return null;
+    }
+    const numberValue = Number(value);
+    if (Number.isNaN(numberValue)) {
+      throw new Error(`请输入有效数字：${field.label}`);
+    }
+    return numberValue;
   }
   return value;
 }
 
-function validateRequired(fields: FormField[], values: FormValues): string | undefined {
+function validateFields(fields: FormField[], values: FormValues): string | undefined {
   const missingField = fields.find((field) => field.required && isEmpty(values[field.fieldKey]));
-  return missingField ? `请填写${missingField.label}` : undefined;
+  if (missingField) {
+    return `请填写${missingField.label}`;
+  }
+  const invalidNumberField = fields.find(
+    (field) =>
+      field.fieldType === 'number' &&
+      !isEmpty(values[field.fieldKey]) &&
+      Number.isNaN(Number(values[field.fieldKey])),
+  );
+  return invalidNumberField ? `请输入有效数字：${invalidNumberField.label}` : undefined;
 }
 
 function isEmpty(value: unknown): boolean {

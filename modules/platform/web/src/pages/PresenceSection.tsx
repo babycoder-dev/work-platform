@@ -16,7 +16,8 @@ const PRESENCE_LABELS: Record<PresenceStatus, string> = {
 type PresenceState =
   | { kind: 'hidden' }
   | { kind: 'loading' }
-  | { kind: 'ready'; record: PresenceStatusRecord | null };
+  | { kind: 'ready'; record: PresenceStatusRecord | null }
+  | { kind: 'error'; message: string };
 
 export function PresenceSection({
   employeeId,
@@ -46,9 +47,9 @@ export function PresenceSection({
           setState({ kind: 'ready', record: result.record });
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!ignore) {
-          setState({ kind: 'ready', record: null });
+          setState({ kind: 'error', message: readError(error, '加载在位状态失败') });
         }
       });
     return () => {
@@ -61,6 +62,13 @@ export function PresenceSection({
   }
   if (state.kind === 'loading') {
     return <p>加载中…</p>;
+  }
+  if (state.kind === 'error') {
+    return (
+      <p className="platform-employees__message platform-employees__message--error">
+        {state.message}
+      </p>
+    );
   }
   if (!state.record) {
     return <EmptyState title="当前无在位记录" description="该员工当前没有在位记录。" />;
@@ -114,4 +122,8 @@ function formatDateTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function readError(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }
