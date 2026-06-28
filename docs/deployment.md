@@ -98,6 +98,10 @@ pnpm db:setup
 notification 迁移会自动发现并执行 `notification.schedule_config` 的调度配置迁移；无需单独新增入口，
 也可以用 `pnpm db:migrate:notification` 单独重跑，迁移和 seed 均幂等。
 
+M8 的 `platform.employees.registration_status` 与 `platform.status_logs` 都并入既有 platform
+`pnpm db:migrate` 入口，不新增迁移服务或 compose 组件。升级到 M8 后运行一次 `pnpm db:setup`；
+重复运行应幂等。
+
 M7-3 起，`gateway-api` 内嵌 notification 调度基建并由 `@nestjs/schedule` 在进程内注册 CronJob。当前生产假设是
 单实例调度；如果横向扩展多个 `gateway-api` 副本，调度 job 会在每个副本各自触发，需先补分布式锁 / leader 选举 /
 DB advisory lock 等多副本协调能力后再启用多副本调度。
@@ -108,6 +112,11 @@ M7-4a 起，`gateway-api` 还承载通知 SSE 端点 `GET /api/notification/stre
 M7-4b 起，`workbench-shell` 通过 fetch + ReadableStream 消费 SSE，因此代理必须同时允许普通
 `Authorization: Bearer ...` 头透传到 `/api/notification/stream`；前端断线会自动回退 REST 轮询，
 但代理缓冲会导致实时通知退化为轮询体验。
+
+当前 gateway 组合宿主内的 PlatformModule 与 NotificationModule 共享进程内 EventBus。生产 Nginx
+必须将所有 `/api/*`（包括 `/api/platform/*`）转发到 `gateway-api:3000`；独立
+`platform-api:3001` 只作为内部服务/健康检查入口，不得作为 Web Shell 的 platform API 上游。
+否则 M8 `profile.updated` 通知链会因跨进程边界中断。
 
 服务：
 
@@ -123,7 +132,8 @@ OpenIM 独立部署，不默认塞进主 compose。
 
 ### 2.1 Compose Smoke
 
-M1-M3 阶段的本地部署 smoke 先采用手动命令，M8 前必须自动化到发布验收流程。
+当前本地部署 smoke 采用手动命令；M8-6 已完成一次真实 compose 起停与生产 API smoke，
+后续仍需将同一流程自动化到发布验收流水线。
 
 前置条件：
 
@@ -146,7 +156,8 @@ Invoke-RestMethod http://localhost:3000/api/health
 Invoke-RestMethod http://localhost:3001/api/platform/health
 ```
 
-当前 CI 已覆盖 `db:setup`、PostgreSQL repository integration、PostgreSQL E2E 和 production Docker build。服务启动后的 Compose API smoke 在 M8 前补为自动化 gate。
+当前 CI 已覆盖 `db:setup`、PostgreSQL repository integration、PostgreSQL E2E 和 production Docker build。
+M8-6 已实测完整 compose 起停与生产 API smoke；后续应把该手工流程固化为发布流水线自动 gate。
 
 ### 2.2 当前镜像边界
 
@@ -161,7 +172,7 @@ M1-M3 阶段的 Node 服务镜像共用 `infra/docker/Dockerfile.node-service`�
 交付约束：
 
 - 该策略不得作为 M8 最终交付边界。
-- M8 前必须收敛为服务级构建产物或按服务裁剪镜像，避免镜像包含无关业务源码。
+- 当前镜像仍包含超出单服务运行所需的源码；后续基础设施切片需收敛为服务级构建产物或按服务裁剪镜像。
 - 如果企业内网在 M8 前要求按服务隔离镜像源码，必须提前启动镜像裁剪切片。
 
 ## 3. 内网镜像迁移

@@ -284,6 +284,11 @@ M8-3 起，员工档案被他人修改且实际字段有变化时，platform-api
 `profile.updated`；notification 订阅后直接给被改本人生成站内通知。该事件 payload 只携带 id 与
 变更字段名，不携带档案字段值。
 
+当前 `gateway-api` 是 API 组合宿主，`PlatformModule` 与 `NotificationModule` 共享进程内
+`EVENT_BUS`。生产反向代理必须把 `/api/platform/*` 与其它 `/api/*` 一并路由到 gateway；
+不得绕过 gateway 直连独立 `platform-api`，否则 `profile.updated` 无法跨进程到达 notification
+订阅器。真正拆分服务前须先引入可靠的跨进程事件传输。
+
 ## 5.1 IM Provider
 
 OpenIMServer 作为默认 IM Provider 独立部署，平台通过 `im-adapter-api` 接入。
