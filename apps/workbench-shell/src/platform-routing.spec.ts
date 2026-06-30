@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 describe('production workbench API routing', () => {
   it('routes platform requests through the gateway composition host', async () => {
     const config = await readFile(
-      path.resolve(process.cwd(), 'infra/nginx/workbench-shell.conf'),
+      path.resolve(__dirname, '../../../infra/nginx/workbench-shell.conf'),
       'utf8',
     );
 

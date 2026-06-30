@@ -18,7 +18,17 @@ regressions:
    deployed topology even though same-process e2e passed. The Web Shell proxy now routes all `/api/*`
    through gateway; a config regression spec and production API smoke prove the live notification
    chain. This changes deployment routing, and the repository edit touches the task's security-sensitive
-   surface; the PR must be marked **security-sensitive** and pass security-reviewer before merge.
+   surface; the PR was marked **security-sensitive** and passed independent security-reviewer review.
+
+Code-review / security-reviewer follow-up fixes:
+
+- Aligned memory `updateDepartment` with PostgreSQL value-based tri-state semantics. A default-gate
+  memory test uses a real class-transformed DTO with present-but-`undefined` omitted fields and proves
+  department moves preserve the existing name, manager, and sort order.
+- Anchored the production routing spec to its own directory instead of `process.cwd()`, so package-level
+  test invocation cannot produce a false `ENOENT`.
+- Independent security-reviewer second pass concluded LGTM with no unresolved High/Critical findings;
+  `enterpriseId` tenant isolation and the phantom-token chain were rechecked and remain unaffected.
 
 Validation:
 
@@ -26,7 +36,7 @@ Validation:
   - lint: pass (0 errors; existing warnings only); primed Nx graph lint for platform-web,
     platform-api, forms-api, presence-api, and gateway-api: 0 errors.
   - typecheck: pass, 27/28 workspace projects.
-  - unit: 45 files / 229 tests pass; 5 PostgreSQL-gated files / 35 tests explicitly skipped.
+  - unit: 45 files / 230 tests pass; 5 PostgreSQL-gated files / 35 tests explicitly skipped.
   - web: 37 files / 122 tests pass.
   - in-memory e2e: 8 files / 51 tests pass, including
     `people-aggregation.e2e-spec.ts` (2 tests) and the `profile.updated` double assertion.
@@ -112,9 +122,9 @@ RFC §16 exit checklist:
 - [x] §16-6 Batched status logs with profile-scope read/write.
 - [x] §16-7 Forms `profile.employee` configuration/upsert and people-page aggregation.
 - [x] §16-8 Manifest/seed permissions and department/profile/status-log write audit.
-- [ ] §16-9 Historical M8 security reviews have no open High/Medium; this validation PR's
-      repository/routing regression fix still requires the explicitly requested security-reviewer
-      pass before merge.
+- [x] §16-9 Historical M8 security reviews and this validation PR's repository/routing fixes have
+      no unresolved High/Critical findings; the independent security-reviewer second pass concluded
+      LGTM and confirmed `enterpriseId` isolation and the phantom-token chain remain intact.
 - [x] §16-10 verify, verify:full, migrations, PostgreSQL gates, Docker build, compose, and API smoke.
 
 RFC §15 reconciliation and follow-up disposition:

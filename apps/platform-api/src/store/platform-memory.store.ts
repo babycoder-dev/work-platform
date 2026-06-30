@@ -134,12 +134,12 @@ export class PlatformMemoryStore implements PlatformRepository {
 
     const updated: StoredDepartment = {
       ...department,
-      ...(Object.hasOwn(input, 'name') ? { name: input.name ?? department.name } : {}),
-      ...(Object.hasOwn(input, 'parentId') ? { parentId: input.parentId ?? undefined } : {}),
-      ...(Object.hasOwn(input, 'managerUserId')
+      ...(input.name !== undefined ? { name: input.name ?? department.name } : {}),
+      ...(input.parentId !== undefined ? { parentId: input.parentId ?? undefined } : {}),
+      ...(input.managerUserId !== undefined
         ? { managerUserId: input.managerUserId ?? undefined }
         : {}),
-      ...(Object.hasOwn(input, 'sortOrder')
+      ...(input.sortOrder !== undefined
         ? { sortOrder: input.sortOrder ?? department.sortOrder }
         : {}),
     };
