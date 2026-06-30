@@ -245,19 +245,19 @@ export class PostgresPlatformRepository implements PlatformRepository {
     const assignments: string[] = [];
     const values: unknown[] = [id, enterpriseId];
 
-    if (Object.hasOwn(input, 'name')) {
+    if (input.name !== undefined) {
       values.push(input.name);
       assignments.push(`name = $${values.length}`);
     }
-    if (Object.hasOwn(input, 'parentId')) {
+    if (input.parentId !== undefined) {
       values.push(input.parentId ?? null);
       assignments.push(`parent_id = $${values.length}`);
     }
-    if (Object.hasOwn(input, 'managerUserId')) {
+    if (input.managerUserId !== undefined) {
       values.push(input.managerUserId ?? null);
       assignments.push(`manager_user_id = $${values.length}`);
     }
-    if (Object.hasOwn(input, 'sortOrder')) {
+    if (input.sortOrder !== undefined) {
       values.push(input.sortOrder);
       assignments.push(`sort_order = $${values.length}`);
     }

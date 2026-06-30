@@ -1,4 +1,6 @@
+import { plainToInstance } from 'class-transformer';
 import { describe, expect, it } from 'vitest';
+import { UpdateDepartmentDto } from '../org/department.dto';
 import { verifyPassword } from '../security/secret-hash';
 import { PlatformMemoryStore } from './platform-memory.store';
 
@@ -170,6 +172,48 @@ describe('PlatformMemoryStore', () => {
       store.countActiveEmployeesInDepartment(department.id, 'ent-default'),
     ).resolves.toBe(1);
     await expect(store.softDeleteDepartment(department.id, 'ent-default')).resolves.toBe(false);
+  });
+
+  it('preserves omitted class-transformed department fields when moving a department', async () => {
+    const store = new PlatformMemoryStore();
+    const parent = await store.createDepartment({
+      enterpriseId: 'ent-default',
+      code: 'MOVE-PARENT',
+      name: '目标父部门',
+    });
+    const child = await store.createDepartment({
+      enterpriseId: 'ent-default',
+      code: 'MOVE-CHILD',
+      name: '待移动部门',
+    });
+    const manager = await store.createEmployee({
+      enterpriseId: 'ent-default',
+      employeeNo: '000013',
+      account: 'move-manager',
+      name: 'Move Manager',
+      initialPassword: TEST_INITIAL_SECRET,
+    });
+    await store.updateDepartment(
+      child.id,
+      { managerUserId: manager.id, sortOrder: 8 },
+      'ent-default',
+    );
+
+    const input = plainToInstance(UpdateDepartmentDto, { parentId: parent.id });
+    expect(Object.hasOwn(input, 'name')).toBe(true);
+    expect(input.name).toBeUndefined();
+    expect(Object.hasOwn(input, 'managerUserId')).toBe(true);
+    expect(input.managerUserId).toBeUndefined();
+
+    await expect(store.updateDepartment(child.id, input, 'ent-default')).resolves.toEqual(
+      expect.objectContaining({
+        id: child.id,
+        name: '待移动部门',
+        parentId: parent.id,
+        managerUserId: manager.id,
+        sortOrder: 8,
+      }),
+    );
   });
 
   it('round-trips per-type role data scopes with non-system roles by default', async () => {

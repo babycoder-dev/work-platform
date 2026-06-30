@@ -219,6 +219,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M8-4b 近况记录前端任务包：`docs/tasks/m8-4b-status-logs-frontend.md`（platform web 员工列表 + 近况脉络抽屉 + 批量记录近况 Modal；消费 M8-4a status-log API，不改后端/契约/迁移）
 - M8-5a 人页聚合数据后端使能任务包：`docs/tasks/m8-5a-people-aggregation-backend.md`（forms `profile.employee` 按 subject 读/upsert、presence 按 employeeId 取当前在位、`PlatformScopePort.matchesScope` 暴露给共享模块；纯后端，M8-5b 负责人页 UI，照片下载延后）
 - M8-5b 人页聚合前端任务包：`docs/tasks/m8-5b-people-aggregation-frontend.md`（platform web「成员详情」抽屉前端聚合固定 + 自定义(forms) + 在位(presence) + 近况 + 照片占位 + HR 自定义字段填报(轻字段类型)；跨模块本地镜像类型、各分区优雅降级、upsert 全值回传防丢；纯前端不改后端/契约，PR #29 review 含数据丢失簇 + displaySnapshot 对象渲染修复，已回灌规约）
+- M8-6 交付验证任务包：`docs/tasks/m8-6-delivery-verification.md`（全量 verify(:full) + Docker/compose + 人员域八步 smoke + RFC §15/§16 对账；仅允许修验证暴露的回归，M8 整段退出）
 
 后续建议补充：
 

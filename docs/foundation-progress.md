@@ -11,23 +11,23 @@
 
 ## 1. 总览
 
-| 阶段                        | 目标                                                                                                    | 状态        | 当前结论                                                                                                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0 架构基线                 | 统一架构、文档、CI、Docker 基线                                                                         | Done        | 可以支撑基建优先开发                                                                                                                                                      |
-| M1 平台核心持久化           | Platform Core 从内存实现升级为 PostgreSQL                                                               | Done        | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成                                                                                    |
-| M2 权限、菜单、审计闭环     | 模块权限、菜单、审计统一接入                                                                            | Done        | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入                                                                                                       |
-| M3 Web Shell 可用基座       | 登录态、权限菜单、模块挂载                                                                              | Done        | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证                                                                                        |
-| M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done        | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                                                                                                           |
-| M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done        | M4-4 交付验证已完成；presence 模块进入维护态                                                                                                                              |
-| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done        | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                                                                                                           |
-| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done        | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，M7 通知 + 调度已交付                                                                                        |
-| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done        | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪                                                              |
-| UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Done        | UI-1→UI-2/UI-3→UI-4 已交付；线性图标集 + Card/StatCard + 登录/外壳/工作台还原 + A 类门禁过；门禁纳入 development-workflow §7                                              |
-| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | In Progress | M8-1 部门管理、M8-2a 档案读写后端、M8-2b 首登向导、M8-3 profile.updated、M8-4 近况、M8-5a 聚合后端使能、M8-5b 人页聚合前端已交付，下一步 M8-6 交付验证门禁；依赖 M5/M6/M7 |
-| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending     | 在 M4 presence 基础上扩展                                                                                                                                                 |
-| M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                                                                                                |
-| M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending     | 简单串签流 + 节点通知 + 联动在位                                                                                                                                          |
-| vNext                       | 多维表格+自动化、周报、桌面端、外部 IM、内网交付强化                                                    | Pending     | 远期愿景，含老 M8 交付内容                                                                                                                                                |
+| 阶段                        | 目标                                                                                                    | 状态    | 当前结论                                                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0 架构基线                 | 统一架构、文档、CI、Docker 基线                                                                         | Done    | 可以支撑基建优先开发                                                                                                                                                          |
+| M1 平台核心持久化           | Platform Core 从内存实现升级为 PostgreSQL                                                               | Done    | 默认 repository 已切换 PostgreSQL；内存实现已降级为测试/显式 fallback；M1 验收项已完成                                                                                        |
+| M2 权限、菜单、审计闭环     | 模块权限、菜单、审计统一接入                                                                            | Done    | M2-4 已提交，CI 已通过；权限、菜单、审计链路可支撑 Shell 和模块接入                                                                                                           |
+| M3 Web Shell 可用基座       | 登录态、权限菜单、模块挂载                                                                              | Done    | M3-3 浏览器级 smoke 已完成；登录、权限菜单、模块挂载、404 和未登录保护路由均已验证                                                                                            |
+| M3.5 收口切片               | M4-1 启动前的基建闭环：manifest 单源、Gateway ADR、登录安全、scope resolver、Shell 路由、跨 schema 规则 | Done    | M3.5-A 至 M3.5-G 全部完成；M3.5 退出，启动 M4-1                                                                                                                               |
+| M4 在位管理 MVP             | 第一个业务模块验证平台基建                                                                              | Done    | M4-4 交付验证已完成；presence 模块进入维护态                                                                                                                                  |
+| M5 权限与角色管理           | 功能权限 + 数据权限按类型 + 角色管理 UI                                                                 | Done    | 角色管理 + 按类型数据范围 + UI 已交付，门禁就绪                                                                                                                               |
+| M6 动态表单 mini + 文件存储 | 固定槽位类型化字段 + 内网文件存储                                                                       | Done    | 后端 + 前端地基 + 工作台首页已交付；forms 配置/填报 UI 迁 M8，M7 通知 + 调度已交付                                                                                            |
+| M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done    | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪                                                                  |
+| UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Done    | UI-1→UI-2/UI-3→UI-4 已交付；线性图标集 + Card/StatCard + 登录/外壳/工作台还原 + A 类门禁过；门禁纳入 development-workflow §7                                                  |
+| M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Done    | 部门管理 + 档案读写（写收口 + `profile` 写授权）+ 首登向导 + `profile.updated` 通知 + 近况记录 + 人页聚合已交付，门禁就绪；照片 / 重字段编辑 / 固定字段管理写 UI 结转后续切片 |
+| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | 在 M4 presence 基础上扩展                                                                                                                                                     |
+| M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending | 依赖 M6/M7                                                                                                                                                                    |
+| M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending | 简单串签流 + 节点通知 + 联动在位                                                                                                                                              |
+| vNext                       | 多维表格+自动化、周报、桌面端、外部 IM、内网交付强化                                                    | Pending | 远期愿景，含老 M8 交付内容                                                                                                                                                    |
 
 > M5 起为 2026-05 重规划后的里程碑，详见 `docs/adr/0005-product-replan-roadmap.md` 与
 > `docs/product-requirements.md`。老 M5–M8（审批优先/日报/通知-实时-IM/客户端交付）已作废。
@@ -189,27 +189,11 @@
 UI 收口切片（M8 前，地基三屏像素级还原 + 还原度门禁）—— 已交付（2026-06-19）
   └ 任务包 docs/tasks/ui-foundation-fidelity.md；验收记录见 verification-log「UI Foundation Fidelity Slice」
   └ 还原度门禁已纳入 docs/development-workflow.md §7，后续所有 UI 切片复用
-M8: 人员 / 组织 / 档案（RFC docs/rfc/m8-people-org-profile.md 已 Accepted，
-    近况记录归属已拍板 = platform.status_logs；M8 后端切片可与 UI 收口并行）
-  └ M8-1 部门管理已完成：
-      OrgService 增删改/移动/设负责人 + 占用删除 409 + 双实现，无 DDL 迁移，已过 security-reviewer
-  └ M8-2a 档案读写后端已完成（2026-06-19）：
-      :id/me 读 + 本人窄 DTO/管理 DTO 经写收口 service + profile scope 首次用于写授权 + registration_status 预留增列；
-      §16 已同变更补 security-baseline §5.3，不发 profile.updated(留 M8-3)，详见 verification-log「M8-2a Profile Read-Write Backend」
-  └ M8-2b 首登向导已完成（2026-06-21）：
-      mustChangePassword 强制改密 + 本人档案补全两步向导，详见 verification-log「M8-2b First-Login Wizard」
-  └ M8-3 profile.updated 已完成（2026-06-21）：
-      platform-contract 新建 profile.updated 契约；platform 写档案收口在他人改且有变更时发布事件；notification 恒发站内通知给本人；
-      详见 verification-log「M8-3 profile.updated Event」
-  └ M8-4 近况已完成；M8-5 拆为 M8-5a 后端使能 + M8-5b 人页 UI
-  └ M8-5a 人页聚合数据后端使能已完成（2026-06-24）：
-      PlatformScopePort 暴露 matchesScope；forms profile.employee 按 subject 读/upsert；presence 按 employeeId 取当前在位；
-      详见 verification-log「M8-5a People Aggregation Data Backend」
-  └ M8-5b 人页聚合前端已完成（2026-06-28）：
-      列表行单一入口打开「成员详情」抽屉，前端聚合固定字段 + 自定义字段(forms) + 在位(presence) + 近况脉络(status-logs) + 照片占位；
-      HR 自定义字段定义驱动填报(轻字段类型)；跨模块本地镜像类型 + /api/forms//api/presence 客户端；
-      照片下载、file/image/employee 字段编辑、固定字段管理写 UI 延后；详见 verification-log「M8-5b People Aggregation Frontend」
-  └ 后续：M8-6 交付验证门禁
+M8: 人员 / 组织 / 档案 —— 已退出（2026-06-28）
+  └ M8-1 ~ M8-6 全部 Done；交付证据见 verification-log「M8-6 People / Org / Profile Delivery Verification」
+  └ 照片下载、file/image/employee 重字段编辑、固定字段管理写 UI 显式结转后续切片
+M9: 在位状态 v2
+  └ 在 M4 presence 基础上扩展；统一 §7.5 看板部门快照过滤语义
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -227,7 +211,8 @@ M7-3 已交付 `@nestjs/schedule` 调度基建、`notification.schedule_config`�
 M7-4a 已交付 `GET /api/notification/stream`、进程内连接注册表和 `create()` 最小信号推送；
 M7-4b 已交付 `@work/http-client.stream()`、shell 铃铛 / 工作台通知卡片、断线回退轮询和
 `modules/notification/web` 触发点配置页。M7-5 通知 + 调度交付验证门禁已完成，M7 整段退出。
-M8-1 部门管理、M8-2a 档案读写后端、M8-2b 首登向导、M8-3 profile.updated、M8-4 近况记录、M8-5a 聚合后端使能与 M8-5b 人页聚合前端已完成；下一步进入 M8-6 交付验证门禁。
+M8-1 至 M8-6 已全部完成，M8 整段退出。下一步进入 M9 在位状态 v2，在 M4 presence
+基础上扩展，并统一 §7.5 中 `presence/board` 的部门快照过滤语义。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -245,7 +230,9 @@ M5 已退出：M5-1 至 M5-4 全部完成。M6-0 RFC 已 Accepted，M6-1 共享�
 交付验证、M6-W 前端地基 + 工作台首页均已完成。M7-0 RFC 已 Accepted，M7-1 通知模块骨架、
 M7-2 事件订阅 + RecipientResolver + platform 读端口已完成；M7-3 调度基建已完成，M7-4a SSE 后端已完成，
 M7-4b 前端接入已完成，M7-5 交付验证已完成；M8-1 部门管理、M8-2a 档案读写后端、
-M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近况记录；forms UI 迁 M8。
+M8-2b 首登向导、M8-3 profile.updated、M8-4 近况、M8-5 人页聚合与 M8-6 交付验证均已完成，
+M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 / 固定字段管理写 UI 与多租户员工
+写端点加固按 §7 显式结转。
 注：2026-05 重规划后“审批 MVP”定位已作废，审批改为 M11；里程碑详见
 `docs/adr/0005-product-replan-roadmap.md`。
 
@@ -297,18 +284,18 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 
 ### 6.5 M8 人员 / 组织 / 档案切片
 
-| 切片  | 能力                   | 状态    | 说明                                                                                                                                                                                                                                    |
-| ----- | ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M8-0  | RFC                    | Done    | 2026-06-18 Accepted；`docs/rfc/m8-people-org-profile.md`；近况记录归属 `platform.status_logs`                                                                                                                                           |
-| M8-1  | 部门管理               | Done    | 2026-06-19 完成；详见 verification-log `M8-1 Department Management`；无 DDL / 新权限，合并前已过 security-reviewer                                                                                                                      |
-| M8-2a | 档案读写后端           | Done    | 2026-06-19 完成；详见 verification-log `M8-2a Profile Read-Write Backend`；`:id/me` 读、本人窄 DTO / 管理 DTO 写收口、profile 写授权、`registration_status` 预留列                                                                      |
-| M8-2b | 首登向导               | Done    | 2026-06-21 完成；详见 verification-log `M8-2b First-Login Wizard`                                                                                                                                                                       |
-| M8-3  | `profile.updated` 事件 | Done    | 2026-06-21 完成；详见 verification-log `M8-3 profile.updated Event`；payload 仅 id + 字段名，notification 恒发本人通知、不经 RecipientResolver / trigger_config                                                                         |
-| M8-4a | 近况后端               | Done    | 2026-06-22 完成；详见 verification-log `M8-4a Status Logs Backend`；`platform.status_logs` + 批量新增 + 按 `profile` 范围逐 subject 授权                                                                                                |
-| M8-4b | 近况前端               | Done    | 2026-06-22 完成；详见 verification-log `M8-4b Status Logs Frontend`；员工列表 + 近况脉络抽屉 + 批量记录近况 Modal                                                                                                                       |
-| M8-5a | 人页聚合数据后端使能   | Done    | 2026-06-24 完成；详见 verification-log `M8-5a People Aggregation Data Backend`；forms `profile.employee` 按 subject 读/upsert + presence 按人读                                                                                         |
-| M8-5b | 人页 UI 聚合           | Done    | 2026-06-28 完成；详见 verification-log `M8-5b People Aggregation Frontend`；「成员详情」抽屉聚合固定 + 自定义(forms) + 在位(presence) + 近况；HR 自定义字段填报(轻字段类型)；照片占位、file/image/employee 编辑、固定字段管理写 UI 延后 |
-| M8-6  | 交付验证               | Pending | M8 后端 / 前端交付门禁                                                                                                                                                                                                                  |
+| 切片  | 能力                   | 状态 | 说明                                                                                                                                                                                                                                    |
+| ----- | ---------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M8-0  | RFC                    | Done | 2026-06-18 Accepted；`docs/rfc/m8-people-org-profile.md`；近况记录归属 `platform.status_logs`                                                                                                                                           |
+| M8-1  | 部门管理               | Done | 2026-06-19 完成；详见 verification-log `M8-1 Department Management`；无 DDL / 新权限，合并前已过 security-reviewer                                                                                                                      |
+| M8-2a | 档案读写后端           | Done | 2026-06-19 完成；详见 verification-log `M8-2a Profile Read-Write Backend`；`:id/me` 读、本人窄 DTO / 管理 DTO 写收口、profile 写授权、`registration_status` 预留列                                                                      |
+| M8-2b | 首登向导               | Done | 2026-06-21 完成；详见 verification-log `M8-2b First-Login Wizard`                                                                                                                                                                       |
+| M8-3  | `profile.updated` 事件 | Done | 2026-06-21 完成；详见 verification-log `M8-3 profile.updated Event`；payload 仅 id + 字段名，notification 恒发本人通知、不经 RecipientResolver / trigger_config                                                                         |
+| M8-4a | 近况后端               | Done | 2026-06-22 完成；详见 verification-log `M8-4a Status Logs Backend`；`platform.status_logs` + 批量新增 + 按 `profile` 范围逐 subject 授权                                                                                                |
+| M8-4b | 近况前端               | Done | 2026-06-22 完成；交付记录并入 verification-log `M8-5b People Aggregation Frontend`；员工列表 + 近况脉络抽屉 + 批量记录近况 Modal                                                                                                        |
+| M8-5a | 人页聚合数据后端使能   | Done | 2026-06-24 完成；详见 verification-log `M8-5a People Aggregation Data Backend`；forms `profile.employee` 按 subject 读/upsert + presence 按人读                                                                                         |
+| M8-5b | 人页 UI 聚合           | Done | 2026-06-28 完成；详见 verification-log `M8-5b People Aggregation Frontend`；「成员详情」抽屉聚合固定 + 自定义(forms) + 在位(presence) + 近况；HR 自定义字段填报(轻字段类型)；照片占位、file/image/employee 编辑、固定字段管理写 UI 延后 |
+| M8-6  | 交付验证               | Done | 2026-06-28 完成；详见 verification-log `M8-6 People / Org / Profile Delivery Verification`；完整 verify(:full)、Docker/compose、生产 API smoke、RFC §15/§16 对账                                                                        |
 
 ## 7. 当前阻塞项
 
@@ -318,10 +305,10 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 
 ### 7.1 已知安全 Follow-up
 
-| 风险                                                                                                         | 状态    | 处理                                                                                                                                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [High follow-up] 员工 `updateStatus(:id/status)` / `resetPassword(:id/password)` 仍需按认证租户校验目标员工  | Pending | 单租户部署下暂无现实攻击面；启用多租户前必须修复。归入 M8 人员 / 组织 / 档案，或提前拆专门安全切片。                                                                                                                                                                         |
-| [Minor follow-up] `platform:employee:create` 建账号未受 `profile` 写范围约束（M8-2a security-reviewer 提出） | Pending | M8-2a 起改他人档案受 `profile` 写范围逐目标校验，但建账号仅靠 create 功能权限、可在本企业范围外部门建员工（跨企业仍被 `enterpriseId` 复核挡住），存在"改他人受约束、建他人不受约束"的语义不对称。决定 create/部门归属是否纳入同一写范围判定——放 M8 后续安全 follow-up 切片。 |
+| 风险                                                                                                         | 状态    | 处理                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [High follow-up] 员工 `updateStatus(:id/status)` / `resetPassword(:id/password)` 仍需按认证租户校验目标员工  | Pending | M8-6 已复核并显式结转到 **M8-S employee mutation tenant hardening**：单租户部署下暂无现实攻击面；启用多租户前必须修复并过 security-reviewer。                                    |
+| [Minor follow-up] `platform:employee:create` 建账号未受 `profile` 写范围约束（M8-2a security-reviewer 提出） | Pending | M8-6 已复核并结转到 **M8-S employee mutation tenant hardening**。建账号仍仅靠 create 功能权限；后续决定 create/部门归属是否纳入 `profile` 写范围，跨企业边界继续由认证租户复核。 |
 
 ### 7.2 已知 UI 还原度 Follow-up
 
@@ -357,6 +344,17 @@ M8-2b 首登向导与 M8-3 profile.updated 已完成，下一步进入 M8-4 近�
 | -------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Presence follow-up] `getBoard` 看板仍按登记记录的部门快照过滤，员工换部门后可能短暂与实时组织归属不一致 | Pending | M8-5a review 后，按人查询端点已改为通过 `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` 读取 subject 实时部门并调用 `PlatformScopePort.matchesScope` 授权，不再受登记快照陈旧影响。既有 `GET /presence/board` 仍基于 `presence.status_records.department_id` 快照过滤，待 M9 在位 v2 统一处理。 |
 | [Forms follow-up] `FormsService.getRecord(recordId)` 是内部 port-only 读法，尚未叠加 profile 数据范围门  | Pending | M8-5a 新增的 HTTP subject 读写路径已按 `profile` 范围授权；旧 `getRecord(actor, recordId)` 目前仅用于内部 / 测试路径，代码已加注释，未来若接 HTTP 路由必须先补 slot-specific 数据范围校验。                                                                                        |
+
+### 7.6 M8 显式结转
+
+| 项                                                                                         | 状态    | 处理                                                                                                                                         |
+| ------------------------------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 档案照片下载                                                                               | Pending | 结转 **M8-P profile photo delivery**：补 files 二进制读取代理、跨模块授权与缓存/响应头策略后接入人页真实照片。                               |
+| `file` / `image` / `employee` 自定义字段编辑                                               | Pending | 结转 **M8-H heavy profile field editors**：当前人页只读展示并在轻字段保存时透传原值，避免覆盖式 upsert 丢数据。                              |
+| 固定字段管理写 UI（建账号 / 编辑 / 状态 / 角色 / 重置密码）                                | Pending | 结转 **M8-7 employee management write UI**；后端 API 已就绪，本期 smoke 按任务包经 API 验证。                                                |
+| 服务镜像按应用裁剪                                                                         | Pending | 结转后续基础设施切片；M8-6 已验证当前五个应用镜像可构建和 compose 可启动，但镜像仍含无关源码。                                               |
+| [Gateway HA follow-up] Web Shell 生产 API 路由收敛到 gateway 后，登录成为 gateway 单点依赖 | Pending | gateway 滚动发布 / 重启期间 `/api/platform/auth/*` 不可达；待 gateway 降级为纯边缘网关，或引入多副本与进程间事件协调时按 ADR-0003 统一处理。 |
+| [Infra follow-up] 生产 compose 仍向宿主发布 `platform-api:3001`                            | Pending | Web Shell 已不再路由该上游；服务自身仍有 guard，不构成认证旁路，但应移除宿主 `ports` 发布，仅保留 compose 内网可达。                         |
 
 ## 8. M4 在位管理 MVP
 

@@ -268,6 +268,12 @@ company > department_tree > department > self
 
 近况记录的批量写授权沿用同一 `profile` 写范围规则，逐 subject 校验（见 M8-4）。
 
+M8-6 退出时仍保留一项多租户启用前必修的 High follow-up：员工
+`PUT /employees/:id/status` 与 `PUT /employees/:id/password` 的目标员工查询尚未统一按认证租户
+复核。当前单租户部署没有现实跨租户攻击面；启用多租户前必须在专门安全切片中补齐
+enterpriseId 约束、404 防存在性泄露、失败审计与 memory/PostgreSQL/e2e 双实现验证。
+`POST /employees` 是否进一步受 `profile` 写范围约束为同切片的 Minor 语义决策。
+
 ## 6. 审计基线
 
 以下操作必须记录审计日志：

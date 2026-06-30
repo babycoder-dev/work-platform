@@ -2,6 +2,150 @@
 
 ## 2026-06-28
 
+### M8-6 People / Org / Profile Delivery Verification
+
+Scope: M8 delivery gate only. No new product capability was added. Validation exposed and fixed two
+regressions:
+
+1. PostgreSQL department partial updates used `Object.hasOwn` against class-transformed DTOs. Omitted
+   fields therefore appeared as own properties with value `undefined`, and moving a department wrote
+   `name=NULL` / returned 500. The repository now applies the established value-based tri-state rule
+   (`undefined` preserve, `null` clear, value set); a real PostgreSQL regression test covers the
+   transformed-input shape.
+2. Production Nginx routed `/api/platform/*` directly to the standalone `platform-api`, bypassing
+   the gateway composition host. `profile.updated` was published on one process-local EventBus while
+   notification subscribed on another, so third-party profile writes produced no notification in the
+   deployed topology even though same-process e2e passed. The Web Shell proxy now routes all `/api/*`
+   through gateway; a config regression spec and production API smoke prove the live notification
+   chain. This changes deployment routing, and the repository edit touches the task's security-sensitive
+   surface; the PR was marked **security-sensitive** and passed independent security-reviewer review.
+
+Code-review / security-reviewer follow-up fixes:
+
+- Aligned memory `updateDepartment` with PostgreSQL value-based tri-state semantics. A default-gate
+  memory test uses a real class-transformed DTO with present-but-`undefined` omitted fields and proves
+  department moves preserve the existing name, manager, and sort order.
+- Anchored the production routing spec to its own directory instead of `process.cwd()`, so package-level
+  test invocation cannot produce a false `ENOENT`.
+- Independent security-reviewer second pass concluded LGTM with no unresolved High/Critical findings;
+  `enterpriseId` tenant isolation and the phantom-token chain were rechecked and remain unaffected.
+
+Validation:
+
+- `NODE_ENV=test NODE_OPTIONS=--localstorage-file=... pnpm verify`: pass.
+  - lint: pass (0 errors; existing warnings only); primed Nx graph lint for platform-web,
+    platform-api, forms-api, presence-api, and gateway-api: 0 errors.
+  - typecheck: pass, 27/28 workspace projects.
+  - unit: 45 files / 230 tests pass; 5 PostgreSQL-gated files / 35 tests explicitly skipped.
+  - web: 37 files / 122 tests pass.
+  - in-memory e2e: 8 files / 51 tests pass, including
+    `people-aggregation.e2e-spec.ts` (2 tests) and the `profile.updated` double assertion.
+  - build: pass, 27/28 workspace projects; Workbench Vite build transformed 126 modules.
+- `pnpm db:setup`: pass in the required order platform -> presence -> files -> forms ->
+  notification -> seed; platform migration `0003_m8_status_logs.sql` was applied and seed reported
+  `permissionCount=22`.
+- `NODE_ENV=test ... pnpm verify:full`: pass.
+  - verify stage with PostgreSQL gate enabled: unit 50 files / 264 tests, web 37/122, e2e 8/51.
+  - `test:db`: 5 files / 35 tests pass; `postgres-platform.repository.integration.spec.ts`
+    executed 17 tests (not skipped), including `registration_status`, `status_logs`, and the new
+    partial department update regression.
+  - `test:e2e:postgres`: 3 files / 14 tests pass.
+  - There is no PostgreSQL people-aggregation live e2e; the live PostgreSQL evidence is the
+    production API smoke below, as the task package requires.
+- `pnpm docker:build`: pass, five existing application images built. The default npm registry
+  failed twice inside Docker Desktop with `ECONNRESET`; a single-container probe isolated the local
+  Docker proxy/registry path, then the repository-supported
+  `NPM_REGISTRY=https://registry.npmmirror.com` build passed. No source workaround was added.
+- `docker compose -f infra/docker-compose.prod.yml config`: pass, no dangling reference.
+- production compose `up -d` / 35-second `ps` / logs / `down`: pass. Seven services remained
+  running; PostgreSQL and Redis were healthy; platform-api, gateway-api, im-adapter-api, and
+  realtime-gateway logged `Nest application successfully started`; shutdown was clean.
+
+Smoke evidence (real PostgreSQL + production images + gateway HTTP):
+
+1. **Department management**: API created a two-level tree and manager assignment; occupied delete
+   returned 409 `PLATFORM_DEPARTMENT_NOT_EMPTY`; after releasing occupancy delete returned 200.
+   The initial move exposed the partial-update 500 regression; after the fix, move-to-root and
+   move-back both returned 200. Audit rows include department create/update/delete success and the
+   occupied-delete failure.
+2. **Account + first login**: `POST /employees` returned an employee with
+   `mustChangePassword=true`; initial login returned the same gate; password change returned 201,
+   narrow self-profile completion returned 200, and `auth/me` then returned
+   `mustChangePassword=false`. Browser automation was unavailable, so the non-skippable Modal UI is
+   evidenced by `FirstLoginWizard.spec.tsx` 8/8 and `App.spec.tsx` gate/rebootstrap assertions;
+   manual browser clicking remains a maintainer follow-up.
+3. **Profile read/write scope**: self-profile and managed-profile API writes returned 200; existing
+   in-memory e2e covers in-range success and out-of-range 404 non-disclosure. Management UI is
+   intentionally deferred to M8-7, so this step used the documented API path.
+4. **`profile.updated` notification**: before routing repair, a real managed write returned 200 but
+   PostgreSQL notification count stayed 0, exposing the deployment regression. After repair,
+   managed write changed platform notification count 0 -> 1 and stored the minimal message for the
+   target; a subsequent self write kept the count at 1. Contract/service tests assert payload keys
+   are only enterprise/subject/changer/changed-field names and contain no field values.
+5. **Batch status logs**: one API call created two rows with the same bounded plain-text content;
+   the target timeline read returned the row. Existing e2e covers profile-scope rejection,
+   all-or-nothing behavior, and permission gating.
+6. **People aggregation**: production API returned fixed employee fields, a current presence record,
+   the forms custom record, and the status timeline. `EmployeeProfileDrawer.spec.tsx` 12/12 proves
+   the single named drawer, section-level empty/error degradation, and photo placeholder. Browser
+   rendering was not executed because the in-app browser was unavailable.
+7. **HR custom fields**: production API configured `profile.employee` with text/number/single/multi
+   fields, upserted all values, and read them back with raw values plus object/object-array display
+   snapshots. Web tests prove full-value pass-through, 409 reload by status, NaN rejection, and
+   human-readable label/name formatting without `[object Object]`.
+8. **Permission/range isolation**: a user without forms permission received 404-hide for the target
+   record; the same user received 403 for the employee endpoint without functional permission.
+   Existing e2e proves profile-range 404 non-disclosure and presence out-of-scope `record:null`;
+   web specs prove protected entry points are hidden. Manual browser menu inspection remains a
+   maintainer follow-up.
+
+False-green audit:
+
+- [x] PostgreSQL-gated tests genuinely ran: 5/35, including 17 platform integration tests.
+- [x] All web/e2e commands ran under `NODE_ENV=test`; Node 25 used the isolated localStorage file.
+- [x] `profile.updated` is a true production chain after routing repair: HTTP managed write ->
+      shared gateway EventBus -> notification PostgreSQL row -> recipient REST read; self write is the
+      negative assertion.
+- [x] HR upsert source review confirms full-value replacement input and shared
+      `formatCustomFieldDisplay`; assertions are interaction/value based, not fixed mock-only output.
+- [x] Docker build and compose startup were actually executed; registry retry conditions are
+      recorded above rather than hidden.
+
+RFC §16 exit checklist:
+
+- [x] §16-1 Department CRUD, manager/move, cycle/occupancy protection, and both repositories.
+- [x] §16-2 Profile `:id`/`me` reads and single write service with profile-scope authorization.
+- [x] §16-3 Account -> forced password/profile completion gate.
+- [x] §16-4 Minimal `profile.updated` contract, third-party-only producer, notification consumer,
+      and positive/negative live assertions.
+- [x] §16-5 `registration_status` default/check and reserved write boundary.
+- [x] §16-6 Batched status logs with profile-scope read/write.
+- [x] §16-7 Forms `profile.employee` configuration/upsert and people-page aggregation.
+- [x] §16-8 Manifest/seed permissions and department/profile/status-log write audit.
+- [x] §16-9 Historical M8 security reviews and this validation PR's repository/routing fixes have
+      no unresolved High/Critical findings; the independent security-reviewer second pass concluded
+      LGTM and confirmed `enterpriseId` isolation and the phantom-token chain remain intact.
+- [x] §16-10 verify, verify:full, migrations, PostgreSQL gates, Docker build, compose, and API smoke.
+
+RFC §15 reconciliation and follow-up disposition:
+
+| Item                                                               | M8-6 disposition                                                                                                                                                             |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Department/profile/first-login/event/status-log/people aggregation | Delivered and verified                                                                                                                                                       |
+| Profile photo binary delivery                                      | Deferred to named slice **M8-P profile photo delivery**                                                                                                                      |
+| `file`/`image`/`employee` custom-field editors                     | Deferred to **M8-H heavy profile field editors**; current UI remains read-only and preserves originals                                                                       |
+| Fixed-field management write UI                                    | Deferred to **M8-7 employee management write UI**; backend API paths verified                                                                                                |
+| §7.1 status/password cross-tenant High                             | Explicitly carried to **M8-S employee mutation tenant hardening**; no practical attack surface in current single-tenant deployment, mandatory before multi-tenant enablement |
+| §7.1 create/profile-scope Minor                                    | Carried into M8-S for a policy decision                                                                                                                                      |
+| §7.2 shared Modal fidelity                                         | Carried forward; no M8-6 regression                                                                                                                                          |
+| §7.3 M8-4a quality items                                           | Carried forward; none became a delivery bug                                                                                                                                  |
+| §7.4 M8-4b quality items                                           | Carried forward; none became a delivery bug                                                                                                                                  |
+| §7.5 presence board snapshot semantics                             | Carried to M9 presence v2                                                                                                                                                    |
+| §7.5 internal Forms getRecord scope                                | Carried forward; must be resolved before any HTTP exposure                                                                                                                   |
+| Deployment image pruning                                           | Carried to an infrastructure slice; current images build and run but still contain unrelated source                                                                          |
+
+Follow-up: M9 presence v2. Explicit parallel debt slices: M8-S, M8-P, M8-H, and M8-7.
+
 ### M8-5b People Aggregation Frontend
 
 Change set (frontend only, `modules/platform/web`; consumes M8-5a/M8-2a/M8-4a endpoints, no

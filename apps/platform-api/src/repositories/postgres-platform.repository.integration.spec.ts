@@ -664,7 +664,26 @@ describe.skipIf(!runPostgresIntegration)('PostgresPlatformRepository integration
     await expect(
       repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID),
     ).resolves.toBe(false);
-    await repository.updateDepartment(child.id, { parentId: parent.id }, DEFAULT_ENTERPRISE_ID);
+    await expect(
+      repository.updateDepartment(
+        child.id,
+        {
+          name: undefined,
+          parentId: parent.id,
+          managerUserId: undefined,
+          sortOrder: undefined,
+        },
+        DEFAULT_ENTERPRISE_ID,
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: child.id,
+        name: 'Updated Department Child',
+        parentId: parent.id,
+        managerUserId: manager.id,
+        sortOrder: 9,
+      }),
+    );
     await expect(
       repository.hasActiveChildDepartments(parent.id, DEFAULT_ENTERPRISE_ID),
     ).resolves.toBe(true);
