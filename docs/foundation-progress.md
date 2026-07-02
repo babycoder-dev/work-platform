@@ -24,7 +24,7 @@
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done    | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪                                                                  |
 | UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Done    | UI-1→UI-2/UI-3→UI-4 已交付；线性图标集 + Card/StatCard + 登录/外壳/工作台还原 + A 类门禁过；门禁纳入 development-workflow §7                                                  |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Done    | 部门管理 + 档案读写（写收口 + `profile` 写授权）+ 首登向导 + `profile.updated` 通知 + 近况记录 + 人页聚合已交付，门禁就绪；照片 / 重字段编辑 / 固定字段管理写 UI 结转后续切片 |
-| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | 在 M4 presence 基础上扩展                                                                                                                                                     |
+| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | Pending | M9-0 RFC 已 Accepted（2026-07-01）；状态字典 + 自助登记 v2（forms 槽位）+ 看板名册反转 + 导出；下一步 M9-1                                                                    |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending | 依赖 M6/M7                                                                                                                                                                    |
 | M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending | 简单串签流 + 节点通知 + 联动在位                                                                                                                                              |
 | vNext                       | 多维表格+自动化、周报、桌面端、外部 IM、内网交付强化                                                    | Pending | 远期愿景，含老 M8 交付内容                                                                                                                                                    |
@@ -192,8 +192,12 @@ UI 收口切片（M8 前，地基三屏像素级还原 + 还原度门禁）—�
 M8: 人员 / 组织 / 档案 —— 已退出（2026-06-28）
   └ M8-1 ~ M8-6 全部 Done；交付证据见 verification-log「M8-6 People / Org / Profile Delivery Verification」
   └ 照片下载、file/image/employee 重字段编辑、固定字段管理写 UI 显式结转后续切片
-M9: 在位状态 v2
-  └ 在 M4 presence 基础上扩展；统一 §7.5 看板部门快照过滤语义
+M9: 在位状态 v2（RFC docs/rfc/m9-presence-v2.md 已 Accepted 2026-07-01，两轮独立评审 + 三项拍板：
+    archive-only 删除语义 / 在岗=缺省态不强制登记 / 字典管理仅 HR/系统管理员）
+  └ 状态字典 presence.status_types + 自助登记 v2（激活 forms presence.status.<key> 槽位并泛化记录 API）
+    + 看板名册反转（收口 §7.5，扩 PlatformEmployeeLookupPort.listEmployeesByScope）+ 后端 Excel 导出
+  └ 切片 M9-1 状态字典后端 → M9-2 登记 v2 + forms 泛化 → M9-3a 看板实时化后端 → M9-3b web v2 → M9-4 导出 → M9-5 交付验证
+  └ 下一步：M9-1
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、
@@ -211,8 +215,11 @@ M7-3 已交付 `@nestjs/schedule` 调度基建、`notification.schedule_config`�
 M7-4a 已交付 `GET /api/notification/stream`、进程内连接注册表和 `create()` 最小信号推送；
 M7-4b 已交付 `@work/http-client.stream()`、shell 铃铛 / 工作台通知卡片、断线回退轮询和
 `modules/notification/web` 触发点配置页。M7-5 通知 + 调度交付验证门禁已完成，M7 整段退出。
-M8-1 至 M8-6 已全部完成，M8 整段退出。下一步进入 M9 在位状态 v2，在 M4 presence
-基础上扩展，并统一 §7.5 中 `presence/board` 的部门快照过滤语义。
+M8-1 至 M8-6 已全部完成，M8 整段退出。**M9-0 RFC 已 Accepted**（`docs/rfc/m9-presence-v2.md`，
+2026-07-01，两轮独立评审通过 + 三项拍板已定）：状态字典 `presence.status_types`（archive-only、
+在岗=缺省态）、自助登记 v2 激活 forms `presence.status.<key>` 槽位并泛化记录 API（append、
+data_type `presence`）、看板名册反转收口 §7.5（扩 `PlatformEmployeeLookupPort.listEmployeesByScope`）、
+事件加 `statusLabel`（M7 订阅器同改）、后端 Excel 导出。下一步 M9-1 状态字典后端。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 
@@ -297,6 +304,18 @@ M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 
 | M8-5b | 人页 UI 聚合           | Done | 2026-06-28 完成；详见 verification-log `M8-5b People Aggregation Frontend`；「成员详情」抽屉聚合固定 + 自定义(forms) + 在位(presence) + 近况；HR 自定义字段填报(轻字段类型)；照片占位、file/image/employee 编辑、固定字段管理写 UI 延后 |
 | M8-6  | 交付验证               | Done | 2026-06-28 完成；详见 verification-log `M8-6 People / Org / Profile Delivery Verification`；完整 verify(:full)、Docker/compose、生产 API smoke、RFC §15/§16 对账                                                                        |
 
+### 6.6 M9 在位状态 v2 切片
+
+| 切片  | 能力                          | 状态    | 说明                                                                                                                                                                                                    |
+| ----- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M9-0  | RFC                           | Done    | 2026-07-01 Accepted；`docs/rfc/m9-presence-v2.md`；两轮独立评审（二审 C1/M1-M3、三审 C-1 名册反转/C-2 forms API 泛化）+ 三项拍板（archive-only / 在岗=缺省态 / 字典管理仅 HR/管理员）                   |
+| M9-1  | 状态字典后端                  | Pending | `presence.status_types`（is_default partial unique index）+ CRUD/archive-only + 记录 status 放宽（DROP CHECK、缺省态拒登、重叠豁免改键 is_default）+ `form_record_id` + 事件 statusLabel + 改 M7 订阅器 |
+| M9-2  | 自助登记 v2 + forms 泛化      | Pending | 激活 `presence.status.<key>` + 注册 `forms:presence-definition:*`（翻转 seed 守护测试）+ forms 记录 API 泛化（append/按 id 读，data_type `presence`）+ 默认员工角色补记录权限                           |
+| M9-3a | 看板实时化后端（§7.5 收口）   | Pending | 名册 LEFT JOIN 活跃离岗记录（无记录=在岗）+ 扩 `PlatformEmployeeLookupPort.listEmployeesByScope` + matchesScope 批量 + 越权不泄露；安全敏感                                                             |
+| M9-3b | web v2（presence + platform） | Pending | 状态字典管理 UI + 自助登记 v2 UI（动态表单 + 档案补全）+ 看板 v2（label 驱动）+ platform web `PresenceSection` 语义迁移（record:null→"在岗（缺省）"）                                                   |
+| M9-4  | Excel 导出                    | Pending | presence api 后端同步生成（xlsx 依赖过三方审查）+ 可选列 + forms 列逐 subject 过 forms 记录门 + 导出审计                                                                                                |
+| M9-5  | 交付验证                      | Pending | 类比 M8-6：verify(:full)/docker + 假绿核查 + smoke + RFC §14/§15 对账 + 文档总同步                                                                                                                      |
+
 ## 7. 当前阻塞项
 
 | 阻塞项 | 状态 | 处理                               |
@@ -305,10 +324,11 @@ M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 
 
 ### 7.1 已知安全 Follow-up
 
-| 风险                                                                                                         | 状态    | 处理                                                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [High follow-up] 员工 `updateStatus(:id/status)` / `resetPassword(:id/password)` 仍需按认证租户校验目标员工  | Pending | M8-6 已复核并显式结转到 **M8-S employee mutation tenant hardening**：单租户部署下暂无现实攻击面；启用多租户前必须修复并过 security-reviewer。                                    |
-| [Minor follow-up] `platform:employee:create` 建账号未受 `profile` 写范围约束（M8-2a security-reviewer 提出） | Pending | M8-6 已复核并结转到 **M8-S employee mutation tenant hardening**。建账号仍仅靠 create 功能权限；后续决定 create/部门归属是否纳入 `profile` 写范围，跨企业边界继续由认证租户复核。 |
+| 风险                                                                                                         | 状态    | 处理                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [High follow-up] 员工 `updateStatus(:id/status)` / `resetPassword(:id/password)` 仍需按认证租户校验目标员工  | Pending | M8-6 已复核并显式结转到 **M8-S employee mutation tenant hardening**：单租户部署下暂无现实攻击面；启用多租户前必须修复并过 security-reviewer。                                                                             |
+| [Minor follow-up] `platform:employee:create` 建账号未受 `profile` 写范围约束（M8-2a security-reviewer 提出） | Pending | M8-6 已复核并结转到 **M8-S employee mutation tenant hardening**。建账号仍仅靠 create 功能权限；后续决定 create/部门归属是否纳入 `profile` 写范围，跨企业边界继续由认证租户复核。                                          |
+| [Minor follow-up] presence `cancelRecord` 仓库层无 `enterpriseId` 复核（M9-0 RFC 三审发现，M4 遗留）         | Pending | `postgres-presence.repository.ts` cancel 用 `WHERE id=$1`，持 `presence:status:manage` 者理论上可按 id 跨企业取消。单租户部署无现实攻击面，同 M8-S 一类；多租户启用前修，或 M9 切片顺手带上（带则过 security-reviewer）。 |
 
 ### 7.2 已知 UI 还原度 Follow-up
 
@@ -340,10 +360,10 @@ M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 
 
 ### 7.5 已知领域语义 Follow-up（M8-5a planning 衍生）
 
-| 项                                                                                                       | 状态    | 处理                                                                                                                                                                                                                                                                               |
-| -------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Presence follow-up] `getBoard` 看板仍按登记记录的部门快照过滤，员工换部门后可能短暂与实时组织归属不一致 | Pending | M8-5a review 后，按人查询端点已改为通过 `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` 读取 subject 实时部门并调用 `PlatformScopePort.matchesScope` 授权，不再受登记快照陈旧影响。既有 `GET /presence/board` 仍基于 `presence.status_records.department_id` 快照过滤，待 M9 在位 v2 统一处理。 |
-| [Forms follow-up] `FormsService.getRecord(recordId)` 是内部 port-only 读法，尚未叠加 profile 数据范围门  | Pending | M8-5a 新增的 HTTP subject 读写路径已按 `profile` 范围授权；旧 `getRecord(actor, recordId)` 目前仅用于内部 / 测试路径，代码已加注释，未来若接 HTTP 路由必须先补 slot-specific 数据范围校验。                                                                                        |
+| 项                                                                                                       | 状态    | 处理                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Presence follow-up] `getBoard` 看板仍按登记记录的部门快照过滤，员工换部门后可能短暂与实时组织归属不一致 | Pending | M8-5a review 后，按人查询端点已改为通过 `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` 读取 subject 实时部门并调用 `PlatformScopePort.matchesScope` 授权，不再受登记快照陈旧影响。既有 `GET /presence/board` 仍基于 `presence.status_records.department_id` 快照过滤，**M9-0 RFC 已定收口方案 = M9-3a 看板名册反转**（员工名册 LEFT JOIN 活跃离岗记录 + 实时部门 matchesScope，见 `docs/rfc/m9-presence-v2.md` §9），M9-3a 交付后本行置 Done。 |
+| [Forms follow-up] `FormsService.getRecord(recordId)` 是内部 port-only 读法，尚未叠加 profile 数据范围门  | Pending | M8-5a 新增的 HTTP subject 读写路径已按 `profile` 范围授权；旧 `getRecord(actor, recordId)` 目前仅用于内部 / 测试路径，代码已加注释，未来若接 HTTP 路由必须先补 slot-specific 数据范围校验。                                                                                                                                                                                                                                        |
 
 ### 7.6 M8 显式结转
 

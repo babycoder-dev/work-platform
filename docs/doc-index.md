@@ -126,6 +126,17 @@ apps/platform-api/src/{org,users,scope}, packages/platform-contract
 modules/forms/contract（profile.employee 槽位）, modules/notification/api（profile.updated 订阅）
 ```
 
+### 2.10 开始 M9 在位状态 v2
+
+```text
+docs/foundation-progress.md
+docs/product-requirements.md（§4.5、§8）
+docs/rfc/m9-presence-v2.md
+modules/presence/（M4 现状：contract events/status.dto、api status service + db、web）
+modules/forms/contract/src/slots.ts（presence.status.<key> 预留槽位）+ modules/forms/api（记录 API 泛化点）
+packages/platform-contract（PlatformEmployeeLookupPort 扩面）, modules/notification/api（statusLabel 消费）
+```
+
 ## 3. 文档职责
 
 | 文档                           | 职责                         | 什么时候更新                          |
@@ -207,6 +218,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M6 动态表单 mini + 文件存储 RFC：`docs/rfc/m6-dynamic-forms-file-storage.md`（固定槽位、快照值、本地磁盘 provider、私有文件访问边界）
 - M7 通知基建 + 定时任务调度 RFC：`docs/rfc/m7-notification-scheduler.md`（modules/notification 共享模块、事件驱动+接收人可配、SSE 单实例推送、@nestjs/schedule、删 notification-api app）
 - M8 人员 / 组织 / 档案 RFC：`docs/rfc/m8-people-org-profile.md`（核心留 platform 不新建模块、近况记录 `platform.status_logs`、消费 M6 forms `profile.employee` 槽位前端聚合、`profile.updated` 生产+notification 新增订阅、复用 `platform:org:*`、profile scope 首次用于写授权）
+- M9 在位状态 v2 RFC：`docs/rfc/m9-presence-v2.md`（状态字典 `presence.status_types` + archive-only、自助登记 v2 激活 forms `presence.status.<key>` 槽位并**泛化记录 API**（append，data_type `presence`）、看板**名册反转**（在岗=缺省态，`PlatformEmployeeLookupPort.listEmployeesByScope` 扩面）、事件加 `statusLabel`、后端 Excel 导出；两轮独立评审 + 三项拍板已定）
 - 设计真源（Claude Design 交接包）：`docs/design/ui-handoff/`（README + `design/` 下 tokens.css + 登录/外壳/工作台/组织成员/消息中心/我的待办/审批中心 设计稿；UI 实现的**只读基准**，要求像素级还原）
 - UI 还原度差距清单：`docs/design/ui-fidelity-gap-foundation.md`（地基三屏 设计 vs 实现逐项差距 L-_/S-_/W-\_ + L1/L2 边界 + 设计还原度门禁立意）
 - UI 还原度差距清单（组件库 Modal）：`docs/design/ui-fidelity-gap-modal.md`（共享 `@work/ui` Modal vs 设计稿居中弹窗 5 处偏差 M-1..M-5；登记于 foundation-progress §7.2）
