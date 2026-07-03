@@ -197,6 +197,7 @@ M9: 在位状态 v2（RFC docs/rfc/m9-presence-v2.md 已 Accepted 2026-07-01，�
   └ 状态字典 presence.status_types + 自助登记 v2（激活 forms presence.status.<key> 槽位并泛化记录 API）
     + 看板名册反转（收口 §7.5，扩 PlatformEmployeeLookupPort.listEmployeesByScope）+ 后端 Excel 导出
   └ 切片 M9-1 状态字典后端 → M9-2 登记 v2 + forms 泛化 → M9-3a 看板实时化后端 → M9-3b web v2 → M9-4 导出 → M9-5 交付验证
+  └ M9-1 任务包已就绪 `docs/tasks/m9-1-status-dictionary-backend.md`（独立 sub-agent 二审已过，待 Codex 实施 + security-reviewer）
   └ 下一步：M9-1
 ```
 
@@ -306,15 +307,15 @@ M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 
 
 ### 6.6 M9 在位状态 v2 切片
 
-| 切片  | 能力                          | 状态    | 说明                                                                                                                                                                                                    |
-| ----- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M9-0  | RFC                           | Done    | 2026-07-01 Accepted；`docs/rfc/m9-presence-v2.md`；两轮独立评审（二审 C1/M1-M3、三审 C-1 名册反转/C-2 forms API 泛化）+ 三项拍板（archive-only / 在岗=缺省态 / 字典管理仅 HR/管理员）                   |
-| M9-1  | 状态字典后端                  | Pending | `presence.status_types`（is_default partial unique index）+ CRUD/archive-only + 记录 status 放宽（DROP CHECK、缺省态拒登、重叠豁免改键 is_default）+ `form_record_id` + 事件 statusLabel + 改 M7 订阅器 |
-| M9-2  | 自助登记 v2 + forms 泛化      | Pending | 激活 `presence.status.<key>` + 注册 `forms:presence-definition:*`（翻转 seed 守护测试）+ forms 记录 API 泛化（append/按 id 读，data_type `presence`）+ 默认员工角色补记录权限                           |
-| M9-3a | 看板实时化后端（§7.5 收口）   | Pending | 名册 LEFT JOIN 活跃离岗记录（无记录=在岗）+ 扩 `PlatformEmployeeLookupPort.listEmployeesByScope` + matchesScope 批量 + 越权不泄露；安全敏感                                                             |
-| M9-3b | web v2（presence + platform） | Pending | 状态字典管理 UI + 自助登记 v2 UI（动态表单 + 档案补全）+ 看板 v2（label 驱动）+ platform web `PresenceSection` 语义迁移（record:null→"在岗（缺省）"）                                                   |
-| M9-4  | Excel 导出                    | Pending | presence api 后端同步生成（xlsx 依赖过三方审查）+ 可选列 + forms 列逐 subject 过 forms 记录门 + 导出审计                                                                                                |
-| M9-5  | 交付验证                      | Pending | 类比 M8-6：verify(:full)/docker + 假绿核查 + smoke + RFC §14/§15 对账 + 文档总同步                                                                                                                      |
+| 切片  | 能力                          | 状态    | 说明                                                                                                                                                                                                                                                                                                                                  |
+| ----- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M9-0  | RFC                           | Done    | 2026-07-01 Accepted；`docs/rfc/m9-presence-v2.md`；两轮独立评审（二审 C1/M1-M3、三审 C-1 名册反转/C-2 forms API 泛化）+ 三项拍板（archive-only / 在岗=缺省态 / 字典管理仅 HR/管理员）                                                                                                                                                 |
+| M9-1  | 状态字典后端                  | Pending | 任务包已就绪 `docs/tasks/m9-1-status-dictionary-backend.md`（独立 sub-agent 二审已过）：`presence.status_types`（is_default partial unique index）+ CRUD/archive-only（无硬删）+ 记录 status 放宽（DROP CHECK、缺省态拒登、重叠豁免改键 is_default）+ `form_record_id` + 事件 statusLabel + 改 M7 订阅器；预置种子走运行时幂等 ensure |
+| M9-2  | 自助登记 v2 + forms 泛化      | Pending | 激活 `presence.status.<key>` + 注册 `forms:presence-definition:*`（翻转 seed 守护测试）+ forms 记录 API 泛化（append/按 id 读，data_type `presence`）+ 默认员工角色补记录权限                                                                                                                                                         |
+| M9-3a | 看板实时化后端（§7.5 收口）   | Pending | 名册 LEFT JOIN 活跃离岗记录（无记录=在岗）+ 扩 `PlatformEmployeeLookupPort.listEmployeesByScope` + matchesScope 批量 + 越权不泄露；安全敏感                                                                                                                                                                                           |
+| M9-3b | web v2（presence + platform） | Pending | 状态字典管理 UI + 自助登记 v2 UI（动态表单 + 档案补全）+ 看板 v2（label 驱动）+ platform web `PresenceSection` 语义迁移（record:null→"在岗（缺省）"）                                                                                                                                                                                 |
+| M9-4  | Excel 导出                    | Pending | presence api 后端同步生成（xlsx 依赖过三方审查）+ 可选列 + forms 列逐 subject 过 forms 记录门 + 导出审计                                                                                                                                                                                                                              |
+| M9-5  | 交付验证                      | Pending | 类比 M8-6：verify(:full)/docker + 假绿核查 + smoke + RFC §14/§15 对账 + 文档总同步                                                                                                                                                                                                                                                    |
 
 ## 7. 当前阻塞项
 
