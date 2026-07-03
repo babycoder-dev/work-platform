@@ -1,4 +1,11 @@
-import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EVENT_BUS, type EventBus } from '@work/event-bus';
 import type {
   CurrentUserDto,
@@ -62,7 +69,9 @@ export class PresenceStatusService {
     employeeId: string,
   ): Promise<{ record: PresenceStatusRecordDto | null }> {
     const scope = await this.scopeService.resolveScope(currentUser, 'presence');
-    const [subject] = await this.employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [employeeId]);
+    const [subject] = await this.employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [
+      employeeId,
+    ]);
     if (!subject) {
       return { record: null };
     }
@@ -102,11 +111,32 @@ export class PresenceStatusService {
       throw new ForbiddenException('当前用户缺少部门信息，无法登记在位状态');
     }
 
+    await this.repository.ensurePresetStatusTypes(currentUser.enterpriseId);
+    const statusType = await this.repository.findStatusTypeByKey(
+      currentUser.enterpriseId,
+      input.status,
+    );
+    if (!statusType || statusType.status !== 'active') {
+      throw new BadRequestException('状态类型不存在或已停用');
+    }
+    if (statusType.isDefault) {
+      throw new BadRequestException('缺省状态（在岗）无需登记');
+    }
+    const defaultType = (
+      await this.repository.listStatusTypes(currentUser.enterpriseId, {
+        includeArchived: false,
+      })
+    ).find((type) => type.isDefault);
+    if (!defaultType) {
+      throw new BadRequestException('企业缺少有效的缺省状态类型');
+    }
+
     const overlap = await this.repository.findOverlappingRecord({
       enterpriseId: currentUser.enterpriseId,
       userId: currentUser.id,
       startAt: input.startAt,
       endAt: input.endAt,
+      exemptStatusKey: defaultType.key,
     });
     if (overlap !== undefined) {
       throw new ConflictException('已存在重叠的在位状态记录');
@@ -150,6 +180,7 @@ export class PresenceStatusService {
         enterpriseId: currentUser.enterpriseId,
         userId: record.userId,
         status: record.status,
+        statusLabel: statusType.label,
         startAt: record.startAt,
         endAt: record.endAt,
         changedBy: currentUser.id,
@@ -165,8 +196,10 @@ export class PresenceStatusService {
     recordId: string,
     auditContext: PresenceAuditContext,
   ): Promise<PresenceStatusRecordDto> {
-    const existing = (await this.repository.listUserRecords(currentUser.enterpriseId, currentUser.id))
-      .find((row) => row.id === recordId);
+    await this.repository.ensurePresetStatusTypes(currentUser.enterpriseId);
+    const existing = (
+      await this.repository.listUserRecords(currentUser.enterpriseId, currentUser.id)
+    ).find((row) => row.id === recordId);
     const isManager = currentUser.permissions.some(
       (permission) => permission.code === presencePermissions.statusManage,
     );
@@ -210,6 +243,9 @@ export class PresenceStatusService {
         enterpriseId: currentUser.enterpriseId,
         userId: cancelled.userId,
         status: cancelled.status,
+        statusLabel:
+          (await this.repository.findStatusTypeByKey(currentUser.enterpriseId, cancelled.status))
+            ?.label ?? cancelled.status,
         startAt: cancelled.startAt,
         endAt: cancelled.endAt,
         changedBy: currentUser.id,

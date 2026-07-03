@@ -4,6 +4,7 @@ export const presencePermissions = {
   boardView: 'presence:board:view',
   statusCreate: 'presence:status:create',
   statusManage: 'presence:status:manage',
+  statusTypeManage: 'presence:status-type:manage',
 } as const;
 
 export const presencePermissionDefinitions: PermissionDefinition[] = [
@@ -18,5 +19,9 @@ export const presencePermissionDefinitions: PermissionDefinition[] = [
   {
     code: presencePermissions.statusManage,
     name: '管理团队在位状态',
+  },
+  {
+    code: presencePermissions.statusTypeManage,
+    name: '管理在位状态字典',
   },
 ];

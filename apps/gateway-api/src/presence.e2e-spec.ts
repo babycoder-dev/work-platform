@@ -113,6 +113,34 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     );
   });
 
+  it('creates a custom status type and persists a record while rejecting the default key', async () => {
+    const key = `vip_visit_${suffix}`;
+    await request(app.getHttpServer())
+      .post('/api/presence/status-types')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ key, label: '贵宾接待', sortOrder: 60 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/presence/status-records')
+      .set('Authorization', `Bearer ${createToken}`)
+      .send({
+        ...createPayload('2027-01-01T01:00:00.000Z', '2027-01-01T09:00:00.000Z'),
+        status: key,
+      })
+      .expect(201)
+      .expect((response) => expect(response.body.status).toBe(key));
+
+    await request(app.getHttpServer())
+      .post('/api/presence/status-records')
+      .set('Authorization', `Bearer ${createToken}`)
+      .send({
+        ...createPayload('2027-01-02T01:00:00.000Z', '2027-01-02T09:00:00.000Z'),
+        status: 'working',
+      })
+      .expect(400);
+  });
+
   it('returns 409 for overlapping records', async () => {
     await request(app.getHttpServer())
       .post('/api/presence/status-records')
@@ -246,6 +274,7 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     await pool.query('DELETE FROM presence.status_records WHERE employee_no LIKE $1', [
       `P_${suffix}`,
     ]);
+    await pool.query('DELETE FROM presence.status_types WHERE key LIKE $1', [`%${suffix}`]);
     await pool.query('DELETE FROM platform.audit_logs WHERE actor_account LIKE $1', [
       `presence-%-${suffix}`,
     ]);

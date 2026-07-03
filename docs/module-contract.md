@@ -86,6 +86,7 @@ export interface WorkModuleManifest {
 presence:board:view
 presence:status:create
 presence:status:manage
+presence:status-type:manage
 approval:instance:create
 approval:task:approve
 report:weekly:view
@@ -107,6 +108,9 @@ approval.instance.completed
 report.weekly.submitted
 ```
 
+M9-1 起 `presence.status.changed` 的 `status` 是开放字典 key，并随行携带 `statusLabel`；
+订阅方不得本地穷举自定义状态 label。
+
 ## 5. API 命名
 
 REST 风格：
@@ -115,6 +119,13 @@ REST 风格：
 GET    /api/presence/status-records
 POST   /api/presence/status-records
 GET    /api/presence/board
+GET    /api/presence/status-types
+GET    /api/presence/status-types/all
+POST   /api/presence/status-types
+PATCH  /api/presence/status-types/:id
+POST   /api/presence/status-types/:id/default
+POST   /api/presence/status-types/:id/archive
+POST   /api/presence/status-types/:id/restore
 POST   /api/approval/instances
 POST   /api/approval/tasks/:id/approve
 POST   /api/report/weekly-reports

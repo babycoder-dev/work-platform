@@ -15,6 +15,7 @@ export interface PresenceStatusRecordDto {
   createdBy: string;
   createdAt: string;
   cancelledAt?: string;
+  formRecordId?: string;
 }
 
 export interface CreatePresenceStatusRecordInput {

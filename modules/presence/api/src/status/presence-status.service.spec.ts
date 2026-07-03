@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { EventBus } from '@work/event-bus';
 import type {
   CurrentUserDto,
@@ -48,7 +53,13 @@ describe('PresenceStatusService', () => {
       })),
       subscribe: vi.fn(),
     };
-    service = new PresenceStatusService(repository, scopeService, employeeLookup, auditService, eventBus);
+    service = new PresenceStatusService(
+      repository,
+      scopeService,
+      employeeLookup,
+      auditService,
+      eventBus,
+    );
   });
 
   it('creates a record and emits audit plus event', async () => {
@@ -98,6 +109,7 @@ describe('PresenceStatusService', () => {
         enterpriseId: 'enterprise-001',
         userId: 'user-001',
         status: 'business_trip',
+        statusLabel: '出差',
         startAt: '2026-05-25T01:00:00.000Z',
         endAt: '2026-05-25T09:00:00.000Z',
         changedBy: 'user-001',
@@ -106,10 +118,59 @@ describe('PresenceStatusService', () => {
     });
   });
 
+  it('rejects unknown, archived, and default status keys before overlap lookup', async () => {
+    repository.findStatusTypeByKey.mockResolvedValueOnce(undefined);
+    await expect(service.createRecord(currentUser(), createInput(), {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+
+    repository.findStatusTypeByKey.mockResolvedValueOnce({
+      ...(await createRepositoryMock().findStatusTypeByKey('', 'leave')),
+      status: 'archived',
+      isDefault: false,
+    });
+    await expect(service.createRecord(currentUser(), createInput(), {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+
+    repository.findStatusTypeByKey.mockResolvedValueOnce({
+      ...(await createRepositoryMock().findStatusTypeByKey('', 'working')),
+      key: 'working',
+      label: '在岗',
+      status: 'active',
+      isDefault: true,
+    });
+    await expect(
+      service.createRecord(currentUser(), { ...createInput(), status: 'working' }, {}),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(repository.findOverlappingRecord).not.toHaveBeenCalled();
+  });
+
+  it('passes the current dictionary default key to overlap detection', async () => {
+    repository.listStatusTypes.mockResolvedValue([
+      {
+        ...(await createRepositoryMock().findStatusTypeByKey('', 'vip_visit')),
+        key: 'vip_visit',
+        label: '贵宾接待',
+        isDefault: true,
+      },
+    ]);
+    repository.createRecord.mockResolvedValue(createRecord());
+
+    await service.createRecord(currentUser(), createInput(), {});
+
+    expect(repository.findOverlappingRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ exemptStatusKey: 'vip_visit' }),
+    );
+  });
+
   it('rejects overlapping create without audit or event', async () => {
     repository.findOverlappingRecord.mockResolvedValue(createRecord());
 
-    await expect(service.createRecord(currentUser(), createInput(), {})).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.createRecord(currentUser(), createInput(), {})).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     expect(repository.createRecord).not.toHaveBeenCalled();
     expect(auditService.record).not.toHaveBeenCalled();
     expect(eventBus.publish).not.toHaveBeenCalled();
@@ -134,7 +195,9 @@ describe('PresenceStatusService', () => {
     repository.listUserRecords.mockResolvedValue([record]);
     repository.cancelRecord.mockResolvedValue(cancelled);
 
-    await expect(service.cancelRecord(currentUser(), record.id, { traceId: 'trace-cancel' })).resolves.toBe(cancelled);
+    await expect(
+      service.cancelRecord(currentUser(), record.id, { traceId: 'trace-cancel' }),
+    ).resolves.toBe(cancelled);
 
     expect(auditService.record).toHaveBeenCalledWith({
       actorUserId: 'user-001',
@@ -162,6 +225,7 @@ describe('PresenceStatusService', () => {
         enterpriseId: 'enterprise-001',
         userId: 'user-001',
         status: 'business_trip',
+        statusLabel: '出差',
         startAt: '2026-05-25T01:00:00.000Z',
         endAt: '2026-05-25T09:00:00.000Z',
         changedBy: 'user-001',
@@ -173,11 +237,16 @@ describe('PresenceStatusService', () => {
   it('rejects cancel for another user without manage permission', async () => {
     repository.listUserRecords.mockResolvedValue([]);
 
-    await expect(service.cancelRecord(currentUser(), 'other-record', {})).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.cancelRecord(currentUser(), 'other-record', {})).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('allows manager to cancel another user record', async () => {
-    const cancelled = { ...createRecord({ userId: 'user-002' }), cancelledAt: '2026-05-25T02:00:00.000Z' };
+    const cancelled = {
+      ...createRecord({ userId: 'user-002' }),
+      cancelledAt: '2026-05-25T02:00:00.000Z',
+    };
     repository.listUserRecords.mockResolvedValue([]);
     repository.cancelRecord.mockResolvedValue(cancelled);
 
@@ -185,7 +254,9 @@ describe('PresenceStatusService', () => {
       service.cancelRecord(
         {
           ...currentUser(),
-          permissions: [{ code: presencePermissions.statusManage, name: 'manage', moduleName: 'presence' }],
+          permissions: [
+            { code: presencePermissions.statusManage, name: 'manage', moduleName: 'presence' },
+          ],
         },
         cancelled.id,
         {},
@@ -198,7 +269,9 @@ describe('PresenceStatusService', () => {
     repository.listUserRecords.mockResolvedValue([record]);
     repository.cancelRecord.mockResolvedValue(undefined);
 
-    await expect(service.cancelRecord(currentUser(), record.id, {})).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.cancelRecord(currentUser(), record.id, {})).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('maps self scope to userIds query', async () => {
@@ -341,7 +414,9 @@ describe('PresenceStatusService', () => {
       degradedFromCustom: false,
     });
 
-    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record: null });
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({
+      record: null,
+    });
 
     expect(employeeLookup.listEmployeesByIds).toHaveBeenCalledWith('enterprise-001', ['user-002']);
     expect(scopeService.matchesScope).toHaveBeenCalled();
@@ -359,7 +434,9 @@ describe('PresenceStatusService', () => {
       degradedFromCustom: false,
     });
 
-    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record: null });
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({
+      record: null,
+    });
 
     expect(scopeService.matchesScope).toHaveBeenCalledWith(
       { id: 'user-002', enterpriseId: 'enterprise-001', departmentId: 'department-002' },
@@ -410,7 +487,9 @@ describe('PresenceStatusService', () => {
       degradedFromCustom: false,
     });
 
-    await expect(service.getEmployeeStatus(currentUser(), 'missing-user')).resolves.toEqual({ record: null });
+    await expect(service.getEmployeeStatus(currentUser(), 'missing-user')).resolves.toEqual({
+      record: null,
+    });
 
     expect(scopeService.matchesScope).not.toHaveBeenCalled();
     expect(repository.listActiveRecords).not.toHaveBeenCalled();
@@ -446,6 +525,38 @@ function createRepositoryMock(): MockPresenceRepository {
     createRecord: vi.fn(),
     cancelRecord: vi.fn(),
     findOverlappingRecord: vi.fn(),
+    ensurePresetStatusTypes: vi.fn(),
+    listStatusTypes: vi.fn(async () => [
+      {
+        id: 'status-working',
+        enterpriseId: 'enterprise-001',
+        key: 'working',
+        label: '在岗',
+        isPreset: true,
+        isDefault: true,
+        status: 'active',
+        sortOrder: 10,
+        createdAt: '2026-05-25T00:00:00.000Z',
+        updatedAt: '2026-05-25T00:00:00.000Z',
+      },
+    ]),
+    findStatusTypeById: vi.fn(),
+    findStatusTypeByKey: vi.fn(async (_enterpriseId, key) => ({
+      id: `status-${key}`,
+      enterpriseId: 'enterprise-001',
+      key,
+      label: key === 'business_trip' ? '出差' : key,
+      isPreset: true,
+      isDefault: key === 'working',
+      status: 'active',
+      sortOrder: 10,
+      createdAt: '2026-05-25T00:00:00.000Z',
+      updatedAt: '2026-05-25T00:00:00.000Z',
+    })),
+    createStatusType: vi.fn(),
+    updateStatusType: vi.fn(),
+    setDefaultStatusType: vi.fn(),
+    setStatusTypeStatus: vi.fn(),
   };
 }
 
@@ -459,7 +570,9 @@ function currentUser(): CurrentUserDto {
     departmentId: 'department-001',
     departmentName: 'Operations',
     roles: ['employee'],
-    permissions: [{ code: presencePermissions.statusCreate, name: 'create', moduleName: 'presence' }],
+    permissions: [
+      { code: presencePermissions.statusCreate, name: 'create', moduleName: 'presence' },
+    ],
     dataScopes: {
       profile: ['self'],
       presence: ['self'],

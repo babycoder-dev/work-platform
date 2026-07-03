@@ -2,6 +2,8 @@ import { Pool } from 'pg';
 import type {
   CreatePresenceStatusRecordInput,
   PresenceStatusRecordDto,
+  PresenceStatusTypeDto,
+  PresenceStatusTypeStatus,
 } from '@work/presence-contract';
 import { mapPresencePostgresError } from './postgres-error.mapper';
 import type {
@@ -10,6 +12,7 @@ import type {
   PresenceRepositoryCancelInput,
   PresenceRepositoryListActiveRecordsQuery,
   PresenceRepositoryOverlapQuery,
+  PresenceStatusTypePatch,
 } from './presence.repository';
 
 interface StatusRecordRow {
@@ -27,6 +30,21 @@ interface StatusRecordRow {
   created_by: string;
   created_at: Date;
   cancelled_at: Date | null;
+  form_record_id: string | null;
+}
+
+interface StatusTypeRow {
+  id: string;
+  enterprise_id: string;
+  key: string;
+  label: string;
+  is_preset: boolean;
+  is_default: boolean;
+  status: PresenceStatusTypeStatus;
+  sort_order: number;
+  created_by: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 const STATUS_RECORD_COLUMNS = `
@@ -43,13 +61,21 @@ const STATUS_RECORD_COLUMNS = `
   remark,
   created_by,
   created_at,
-  cancelled_at
+  cancelled_at,
+  form_record_id
+`;
+
+const STATUS_TYPE_COLUMNS = `
+  id, enterprise_id, key, label, is_preset, is_default, status, sort_order,
+  created_by, created_at, updated_at
 `;
 
 export class PostgresPresenceRepository implements PresenceRepository {
   constructor(private readonly pool: Pool) {}
 
-  async listActiveRecords(query: PresenceRepositoryListActiveRecordsQuery): Promise<PresenceStatusRecordDto[]> {
+  async listActiveRecords(
+    query: PresenceRepositoryListActiveRecordsQuery,
+  ): Promise<PresenceStatusRecordDto[]> {
     const params: unknown[] = [query.enterpriseId, query.at];
     const conditions: string[] = [
       'enterprise_id = $1',
@@ -143,7 +169,9 @@ export class PostgresPresenceRepository implements PresenceRepository {
     }
   }
 
-  async cancelRecord(input: PresenceRepositoryCancelInput): Promise<PresenceStatusRecordDto | undefined> {
+  async cancelRecord(
+    input: PresenceRepositoryCancelInput,
+  ): Promise<PresenceStatusRecordDto | undefined> {
     const result = await this.pool.query<StatusRecordRow>(
       `
         UPDATE presence.status_records
@@ -158,7 +186,9 @@ export class PostgresPresenceRepository implements PresenceRepository {
     return row ? mapStatusRecord(row) : undefined;
   }
 
-  async findOverlappingRecord(query: PresenceRepositoryOverlapQuery): Promise<PresenceStatusRecordDto | undefined> {
+  async findOverlappingRecord(
+    query: PresenceRepositoryOverlapQuery,
+  ): Promise<PresenceStatusRecordDto | undefined> {
     const result = await this.pool.query<StatusRecordRow>(
       `
         SELECT ${STATUS_RECORD_COLUMNS}
@@ -166,17 +196,171 @@ export class PostgresPresenceRepository implements PresenceRepository {
         WHERE enterprise_id = $1
           AND user_id = $2
           AND cancelled_at IS NULL
-          AND status <> 'working'
+          AND status <> $5
           AND start_at < COALESCE($4::timestamptz, 'infinity'::timestamptz)
           AND (end_at IS NULL OR end_at > $3::timestamptz)
         ORDER BY created_at DESC
         LIMIT 1
       `,
-      [query.enterpriseId, query.userId, query.startAt, query.endAt ?? null],
+      [query.enterpriseId, query.userId, query.startAt, query.endAt ?? null, query.exemptStatusKey],
     );
 
     const row = result.rows[0];
     return row ? mapStatusRecord(row) : undefined;
+  }
+
+  async ensurePresetStatusTypes(enterpriseId: string): Promise<void> {
+    await this.pool.query(
+      `
+        INSERT INTO presence.status_types (
+          enterprise_id, key, label, is_preset, is_default, sort_order
+        )
+        VALUES
+          ($1, 'working', '在岗', true, true, 10),
+          ($1, 'business_trip', '出差', true, false, 20),
+          ($1, 'field_research', '外出调研', true, false, 30),
+          ($1, 'out', '外出', true, false, 40),
+          ($1, 'leave', '休假', true, false, 50)
+        ON CONFLICT (enterprise_id, key) DO NOTHING
+      `,
+      [enterpriseId],
+    );
+  }
+
+  async listStatusTypes(
+    enterpriseId: string,
+    options: { includeArchived: boolean },
+  ): Promise<PresenceStatusTypeDto[]> {
+    const result = await this.pool.query<StatusTypeRow>(
+      `
+        SELECT ${STATUS_TYPE_COLUMNS}
+        FROM presence.status_types
+        WHERE enterprise_id = $1
+          AND ($2::boolean OR status = 'active')
+        ORDER BY sort_order ASC, created_at ASC
+      `,
+      [enterpriseId, options.includeArchived],
+    );
+    return result.rows.map(mapStatusType);
+  }
+
+  async findStatusTypeById(
+    enterpriseId: string,
+    id: string,
+  ): Promise<PresenceStatusTypeDto | undefined> {
+    const result = await this.pool.query<StatusTypeRow>(
+      `SELECT ${STATUS_TYPE_COLUMNS} FROM presence.status_types WHERE enterprise_id = $1 AND id = $2`,
+      [enterpriseId, id],
+    );
+    return result.rows[0] ? mapStatusType(result.rows[0]) : undefined;
+  }
+
+  async findStatusTypeByKey(
+    enterpriseId: string,
+    key: string,
+  ): Promise<PresenceStatusTypeDto | undefined> {
+    const result = await this.pool.query<StatusTypeRow>(
+      `SELECT ${STATUS_TYPE_COLUMNS} FROM presence.status_types WHERE enterprise_id = $1 AND key = $2`,
+      [enterpriseId, key],
+    );
+    return result.rows[0] ? mapStatusType(result.rows[0]) : undefined;
+  }
+
+  async createStatusType(input: {
+    enterpriseId: string;
+    key: string;
+    label: string;
+    sortOrder: number;
+    createdBy: string;
+  }): Promise<PresenceStatusTypeDto> {
+    try {
+      const result = await this.pool.query<StatusTypeRow>(
+        `
+          INSERT INTO presence.status_types (
+            enterprise_id, key, label, sort_order, created_by
+          )
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING ${STATUS_TYPE_COLUMNS}
+        `,
+        [input.enterpriseId, input.key, input.label, input.sortOrder, input.createdBy],
+      );
+      return mapStatusType(result.rows[0]);
+    } catch (error) {
+      mapPresencePostgresError(error);
+    }
+  }
+
+  async updateStatusType(
+    enterpriseId: string,
+    id: string,
+    patch: PresenceStatusTypePatch,
+  ): Promise<PresenceStatusTypeDto | undefined> {
+    const result = await this.pool.query<StatusTypeRow>(
+      `
+        UPDATE presence.status_types
+        SET label = CASE WHEN $3::text IS NULL THEN label ELSE $3 END,
+            sort_order = CASE WHEN $4::integer IS NULL THEN sort_order ELSE $4 END,
+            updated_at = now()
+        WHERE enterprise_id = $1 AND id = $2
+        RETURNING ${STATUS_TYPE_COLUMNS}
+      `,
+      [enterpriseId, id, patch.label ?? null, patch.sortOrder ?? null],
+    );
+    return result.rows[0] ? mapStatusType(result.rows[0]) : undefined;
+  }
+
+  async setDefaultStatusType(
+    enterpriseId: string,
+    id: string,
+  ): Promise<PresenceStatusTypeDto | undefined> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE presence.status_types SET is_default = false, updated_at = now()
+         WHERE enterprise_id = $1 AND is_default`,
+        [enterpriseId],
+      );
+      const result = await client.query<StatusTypeRow>(
+        `
+          UPDATE presence.status_types
+          SET is_default = true, updated_at = now()
+          WHERE enterprise_id = $1 AND id = $2 AND status = 'active'
+          RETURNING ${STATUS_TYPE_COLUMNS}
+        `,
+        [enterpriseId, id],
+      );
+      if (!result.rows[0]) {
+        await client.query('ROLLBACK');
+        return undefined;
+      }
+      await client.query('COMMIT');
+      return mapStatusType(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async setStatusTypeStatus(
+    enterpriseId: string,
+    id: string,
+    status: PresenceStatusTypeStatus,
+  ): Promise<PresenceStatusTypeDto | undefined> {
+    const result = await this.pool.query<StatusTypeRow>(
+      `
+        UPDATE presence.status_types
+        SET status = $3, updated_at = now()
+        WHERE enterprise_id = $1
+          AND id = $2
+          AND ($3 <> 'archived' OR NOT is_default)
+        RETURNING ${STATUS_TYPE_COLUMNS}
+      `,
+      [enterpriseId, id, status],
+    );
+    return result.rows[0] ? mapStatusType(result.rows[0]) : undefined;
   }
 }
 
@@ -196,5 +380,22 @@ function mapStatusRecord(row: StatusRecordRow): PresenceStatusRecordDto {
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
     cancelledAt: row.cancelled_at?.toISOString(),
+    formRecordId: row.form_record_id ?? undefined,
+  };
+}
+
+function mapStatusType(row: StatusTypeRow): PresenceStatusTypeDto {
+  return {
+    id: row.id,
+    enterpriseId: row.enterprise_id,
+    key: row.key,
+    label: row.label,
+    isPreset: row.is_preset,
+    isDefault: row.is_default,
+    status: row.status,
+    sortOrder: row.sort_order,
+    createdBy: row.created_by ?? undefined,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
   };
 }

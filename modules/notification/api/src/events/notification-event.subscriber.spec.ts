@@ -88,8 +88,33 @@ describe('NotificationEventSubscriber', () => {
     );
   });
 
+  it('uses a custom status label instead of exposing the raw dictionary key', async () => {
+    triggerConfigRepository.findTriggerConfig.mockResolvedValue({
+      triggerKey: notificationTriggerKeys.presenceStatusChanged,
+      enabled: true,
+      defaultRecipients: [{ kind: 'department_manager' }],
+      updatedAt: new Date(),
+    });
+    recipientResolver.resolve.mockResolvedValue(['manager-1']);
+
+    await publishPresenceEvent(eventBus, {
+      status: 'vip_visit',
+      statusLabel: '贵宾接待',
+    });
+
+    expect(notificationService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: '有团队成员登记了贵宾接待状态，请查看在位看板',
+      }),
+    );
+    expect(notificationService.create.mock.calls[0][0].content).not.toContain('vip_visit');
+  });
+
   it('creates a direct in-app notification for profile.updated without trigger config or resolver', async () => {
-    await publishProfileUpdatedEvent(eventBus, { changedFields: ['title'], subjectUserId: 'user-1' });
+    await publishProfileUpdatedEvent(eventBus, {
+      changedFields: ['title'],
+      subjectUserId: 'user-1',
+    });
 
     expect(triggerConfigRepository.findTriggerConfig).not.toHaveBeenCalled();
     expect(recipientResolver.resolve).not.toHaveBeenCalled();
@@ -127,6 +152,7 @@ async function publishPresenceEvent(
       enterpriseId: 'ent-1',
       userId: 'subject-1',
       status: 'business_trip',
+      statusLabel: '出差',
       startAt: '2026-06-01T00:00:00.000Z',
       endAt: '2026-06-01T08:00:00.000Z',
       changedBy: 'actor-1',
@@ -157,7 +183,8 @@ interface PresenceStatusChangedPayload {
   recordId: string;
   enterpriseId: string;
   userId: string;
-  status: 'working' | 'business_trip' | 'field_research' | 'out' | 'leave';
+  status: string;
+  statusLabel?: string;
   startAt: string;
   endAt?: string;
   changedBy: string;

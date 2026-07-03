@@ -170,7 +170,7 @@ describe('people aggregation API', () => {
       .post('/api/presence/status-records')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        status: 'working',
+        status: 'business_trip',
         startAt: new Date(now - 60_000).toISOString(),
         endAt: new Date(now + 60_000).toISOString(),
       })

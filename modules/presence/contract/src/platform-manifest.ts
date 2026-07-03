@@ -17,6 +17,11 @@ export const presencePlatformManifest: ModuleManifestDto = {
     { code: presencePermissions.boardView, name: '查看在位看板', moduleName: 'presence' },
     { code: presencePermissions.statusCreate, name: '登记在位状态', moduleName: 'presence' },
     { code: presencePermissions.statusManage, name: '管理团队在位状态', moduleName: 'presence' },
+    {
+      code: presencePermissions.statusTypeManage,
+      name: '管理在位状态字典',
+      moduleName: 'presence',
+    },
   ],
   menus: [
     {
