@@ -293,6 +293,39 @@ describe.skipIf(!runPostgresIntegration)('PostgresPresenceRepository integration
     expect(custom).toMatchObject({ status: 'vip_visit', formRecordId: undefined });
   });
 
+  it('stores status records whose dictionary key is longer than 32 characters', async () => {
+    const longKeyEnterpriseId = randomUUID();
+    const longStatusKey = 'external_customer_visit_coordination_01';
+    try {
+      await repository.createStatusType({
+        enterpriseId: longKeyEnterpriseId,
+        key: longStatusKey,
+        label: '外部客户接待协调',
+        sortOrder: 65,
+        createdBy: userOneId,
+      });
+
+      const created = await repository.createRecord(
+        { status: longStatusKey, startAt: '2026-09-02T08:00:00.000Z' },
+        actor({
+          enterpriseId: longKeyEnterpriseId,
+          userId: randomUUID(),
+          employeeNo: 'LONGKEY',
+          userName: '长状态键测试',
+        }),
+      );
+
+      expect(created.status).toBe(longStatusKey);
+    } finally {
+      await pool.query('DELETE FROM presence.status_records WHERE enterprise_id = $1', [
+        longKeyEnterpriseId,
+      ]);
+      await pool.query('DELETE FROM presence.status_types WHERE enterprise_id = $1', [
+        longKeyEnterpriseId,
+      ]);
+    }
+  });
+
   it('ensures presets idempotently and moves the unique active default in one transaction', async () => {
     await repository.ensurePresetStatusTypes(enterpriseId);
     await repository.ensurePresetStatusTypes(enterpriseId);

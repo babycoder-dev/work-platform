@@ -19,4 +19,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS status_types_default_unique_idx
   WHERE is_default AND status = 'active';
 
 ALTER TABLE presence.status_records DROP CONSTRAINT IF EXISTS status_records_status_check;
+ALTER TABLE presence.status_records ALTER COLUMN status TYPE varchar(64);
 ALTER TABLE presence.status_records ADD COLUMN IF NOT EXISTS form_record_id uuid;

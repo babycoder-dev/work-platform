@@ -221,7 +221,7 @@ export class PostgresPresenceRepository implements PresenceRepository {
           ($1, 'field_research', '外出调研', true, false, 30),
           ($1, 'out', '外出', true, false, 40),
           ($1, 'leave', '休假', true, false, 50)
-        ON CONFLICT (enterprise_id, key) DO NOTHING
+        ON CONFLICT DO NOTHING
       `,
       [enterpriseId],
     );
@@ -338,7 +338,7 @@ export class PostgresPresenceRepository implements PresenceRepository {
       return mapStatusType(result.rows[0]);
     } catch (error) {
       await client.query('ROLLBACK');
-      throw error;
+      mapPresencePostgresError(error);
     } finally {
       client.release();
     }
