@@ -1,5 +1,59 @@
 # Verification Log
 
+## 2026-07-03
+
+### M9-1 Status Dictionary Backend
+
+**Change set**
+
+- Added `presence.status_types` with tenant key uniqueness, active-default partial unique index,
+  archive-only lifecycle, runtime-idempotent five-preset ensure, and memory/PostgreSQL repository parity.
+- Added seven guarded `/api/presence/status-types` endpoints and
+  `presence:status-type:manage`; no menu and no delete path were added.
+- Dropped only `status_records_status_check`, retained `status_records_time_range_check`, added nullable
+  `form_record_id`, and moved unknown/archived/default-key rejection plus default-key overlap exemption
+  into the presence service.
+- Added `statusLabel` to created/cancelled events and changed the notification subscriber to display it
+  with a defensive raw-key fallback.
+
+**Validation**
+
+- `NODE_ENV=test pnpm typecheck`: pass.
+- `NODE_ENV=test pnpm test`: pass; unit `46 files / 240 tests`, web `37 files / 122 tests`.
+  Default-gate PostgreSQL suites were visibly skipped (`5 files / 37 tests`) as expected.
+- `NODE_ENV=test pnpm test:e2e`: pass; `9 files / 54 tests`. Output explicitly collected
+  `apps/gateway-api/src/presence-status-types.e2e-spec.ts` (`3 tests`), closing the explicit-enumeration
+  false-green risk.
+- Focused TDD evidence: memory repository RED (`ensurePresetStatusTypes is not a function`, dynamic
+  exemption mismatch) then GREEN `10/10`; status-type service RED (module absent) then GREEN `4/4`.
+- `pnpm db:setup`: pass after Docker Desktop started; output explicitly applied
+  `0001_m9_status_dictionary.sql`, then seed reported `permissionCount: 23`.
+- PostgreSQL gates truly ran: `pnpm test:db` passed `5 files / 37 tests` including presence `8/8`;
+  `pnpm test:e2e:postgres` passed `3 files / 15 tests` including presence `7/7`.
+- The monolithic `pnpm verify:full` command first exposed and then passed all tests through the
+  PostgreSQL integration phase (`51 files / 277 tests`), but its subsequent in-memory e2e worker
+  exited on local Node 25 with `ERR_IPC_CHANNEL_CLOSED`. Root-cause isolation showed the same e2e file
+  passes alone under the PG environment; the exact constituent gates were therefore rerun separately:
+  fast `pnpm verify` passed, followed by the two PG commands above. CI Node 22 remains the final
+  monolithic-command confirmation.
+- Security gate: implementation task-package review was already complete; the required M9-1
+  `security-reviewer` pass is intentionally left to the maintainer before merge.
+
+**Assertion matrix**
+
+- In-memory unit/e2e directly cover preset idempotency without overwrite/revival, tenant isolation,
+  default transfer, archive/restore, duplicate key, management 403s, forged `isDefault` 400, and
+  unknown/archived/default registration 400.
+- PostgreSQL-gated tests cover table/column presence, preset row-count idempotency, partial unique
+  default enforcement, transactional default transfer, open custom status insertion, removed status
+  CHECK, and retained time-range CHECK. These assertions are present but require the CI gate above.
+- Notification unit coverage proves custom `vip_visit` renders `贵宾接待` and never leaks the raw key.
+- Source review confirms no repository/service/controller delete method, no forms/web/platform-api
+  change, and no change to `getBoard` or `getEmployeeStatus`.
+
+Follow-up: M9-2 self-registration v2 and forms append API generalization, after M9-1 PG CI and
+security-reviewer pass.
+
 ## 2026-06-28
 
 ### M8-6 People / Org / Profile Delivery Verification

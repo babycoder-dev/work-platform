@@ -9,10 +9,12 @@ import { PRESENCE_REPOSITORY } from './db/presence-repository.token';
 import { PresenceBoardController } from './status/presence-board.controller';
 import { PresenceStatusController } from './status/presence-status.controller';
 import { PresenceStatusService } from './status/presence-status.service';
+import { PresenceStatusTypeController } from './status-type/presence-status-type.controller';
+import { PresenceStatusTypeService } from './status-type/presence-status-type.service';
 
 @Module({
   imports: [EventBusModule, PlatformModule, PresenceDbModule],
-  controllers: [PresenceBoardController, PresenceStatusController],
+  controllers: [PresenceBoardController, PresenceStatusController, PresenceStatusTypeController],
   providers: [
     {
       provide: PostgresPresenceRepository,
@@ -25,10 +27,12 @@ import { PresenceStatusService } from './status/presence-status.service';
       useFactory: (
         postgresRepository: PostgresPresenceRepository,
         memoryRepository: InMemoryPresenceRepository,
-      ) => (process.env.PLATFORM_REPOSITORY_DRIVER === 'memory' ? memoryRepository : postgresRepository),
+      ) =>
+        process.env.PLATFORM_REPOSITORY_DRIVER === 'memory' ? memoryRepository : postgresRepository,
       inject: [PostgresPresenceRepository, InMemoryPresenceRepository],
     },
     PresenceStatusService,
+    PresenceStatusTypeService,
   ],
   exports: [PresenceStatusService],
 })

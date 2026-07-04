@@ -11,7 +11,8 @@ interface PresenceStatusChangedPayload {
   recordId: string;
   enterpriseId: string;
   userId: string;
-  status: 'working' | 'business_trip' | 'field_research' | 'out' | 'leave';
+  status: string;
+  statusLabel?: string;
   startAt: string;
   endAt?: string;
   changedBy: string;
@@ -103,16 +104,5 @@ export class NotificationEventSubscriber implements OnModuleInit, OnModuleDestro
 
 function buildPresenceContent(payload: PresenceStatusChangedPayload): string {
   const action = payload.changeKind === 'cancelled' ? '取消了' : '登记了';
-  return `有团队成员${action}${formatPresenceStatus(payload.status)}状态，请查看在位看板`;
-}
-
-function formatPresenceStatus(status: PresenceStatusChangedPayload['status']): string {
-  const labels: Record<PresenceStatusChangedPayload['status'], string> = {
-    working: '在岗',
-    business_trip: '出差',
-    field_research: '外出调研',
-    out: '外出',
-    leave: '休假',
-  };
-  return labels[status] ?? status;
+  return `有团队成员${action}${payload.statusLabel ?? payload.status}状态，请查看在位看板`;
 }
