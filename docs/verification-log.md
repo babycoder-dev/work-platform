@@ -51,8 +51,41 @@
 - Source review confirms no repository/service/controller delete method, no forms/web/platform-api
   change, and no change to `getBoard` or `getEmployeeStatus`.
 
-Follow-up: M9-2 self-registration v2 and forms append API generalization, after M9-1 PG CI and
-security-reviewer pass.
+**PR #31 review + fix round (2026-07-04)**
+
+- Independent `security-reviewer` pass: **LGTM**. All eight task-package review points confirmed
+  (guard wiring on all seven management endpoints, tenant isolation via `currentUser.enterpriseId`,
+  no delete code path in repository/service/controller, `is_default` partial unique index +
+  single-transaction default transfer, service-layer rejection as the sole post-DROP-CHECK defense,
+  event payload only adding non-sensitive `statusLabel`, preset/default-archive guards, and consistent
+  overlap-exemption rekeying across both repository implementations). No scope creep into
+  forms/platform-api/web or `getBoard`/`getEmployeeStatus`; the `test:e2e` explicit-enumeration
+  false-green risk was already closed. One non-blocking Low nit (defensive-but-unreachable branch in
+  `archive`) — not fixed, does not affect correctness.
+- Workflow code-review (high effort): initial pass hit the session token limit mid-run (0 verified /
+  0 refuted is a "not yet verified" state, not a clean bill); a resume pass completed verification and
+  surfaced 3 CONFIRMED findings against the _task package_ that mapped to real code risk (a 4th,
+  matching a `chatgpt-codex-connector` P2 comment, was independently confirmed against the PR diff):
+  1. `status_types.key` (varchar 64) exceeded `status_records.status` (varchar 32) — a 33–64 char key
+     could be created and would then fail with Postgres `22001` on registration (unmapped 500);
+     in-memory tests could not catch this (no length semantics).
+  2. `ensurePresetStatusTypes`'s `ON CONFLICT (enterprise_id, key) DO NOTHING` only absorbed the key
+     arbiter; a fresh-tenant race inserting the `working` preset could instead collide on the
+     `status_types_default_unique_idx` partial index and raise an unmapped `23505`.
+  3. `setDefaultStatusType`'s transaction catch branch rethrew the raw Postgres error instead of
+     routing it through `mapPresencePostgresError`, so a concurrent `setDefault` race surfaced as a
+     bare 500 instead of 409.
+- Fix commit `4635e8d` (same PR branch): widened `status_records.status` to `varchar(64)` in the
+  `0001` migration (metadata-only ALTER, no rewrite), added a Postgres-gated regression test proving a
+  33+ char key registers successfully (reproduced `22001` pre-fix, green post-fix); dropped the arbiter
+  column from the preset `ON CONFLICT` so it absorbs any unique-index collision; wrapped the
+  `setDefaultStatusType` rollback path with `mapPresencePostgresError`. The `chatgpt-codex-connector`
+  review thread was replied to and resolved.
+- Post-fix `pnpm verify:full`: `test:db` 5 files / 38 tests (presence 9/9, +1 for the new long-key
+  regression), `test:e2e:postgres` 3 files / 15 tests, plain `test:e2e` 9 files / 54 tests — all green.
+- Merged via squash to `main` as `85ea16d` (PR #31); remote branch `feat/m9-1-status-dictionary` deleted.
+
+Follow-up: M9-2 self-registration v2 and forms append API generalization.
 
 ## 2026-06-28
 
