@@ -1,7 +1,7 @@
 # vNext 技术路线图设计：类飞书愿景 + AI Agent
 
-状态：Draft（一轮独立评审已修订，待二轮评审 + 产品负责人审阅）｜ 起草 2026-07-05、
-一审修订 2026-07-06 ｜ 参与：产品负责人 + Claude（brainstorming 流程）
+状态：Draft（两轮独立评审已修订，待产品负责人审阅）｜ 起草 2026-07-05、
+一审修订 + 二审修订 2026-07-06 ｜ 参与：产品负责人 + Claude（brainstorming 流程）
 
 > 本文是设计规格（spec），不是仓库权威文档。它的"实现"= 按 §13 产出 ADR-0006 与各权威文档增量。
 > 在 ADR-0006 落地前，本文与既有文档冲突时以既有文档为准；本文对既有 ADR/宪法前提的修正
@@ -14,6 +14,14 @@
 > **M1** outbox 中继组件缺位 + 部分索引事实错误、**M2** 调度复用前置缺失、**M3** RRULE×排他约束
 > 需 occurrence 物化、**M4** 云 LLM 与内网前提冲突未声明、**M5** 文档落点缺项、**M6** 纯 🔧 计数
 > 自相矛盾、**M7** 存储模型"既拍板又留辩题"。
+
+> 二审（换代理独立评审，2026-07-06）：一审 20 条核对 19 修净、1 部分修净；新增 1 Critical +
+> 4 Major + 8 Minor 已全部落修——**C-N1** bitable 运行时 DDL 与 security-baseline §8 冲突未登记
+> （§13.3 补 §8 增量豁免边界）、**M-N1** agent bot 消息传输形态两处口径不一（拍板：回调直连
+> 专线，不走 outbox/总线）、**M-N2** 写确认信任锚落在 OpenIM（拍板：平台锚定确认为缺省，IM
+> 内联确认标预留）、**M-N3** "业务模块不得直接调用 OpenIM"铁律例外未登记（modules/im/web 为
+> 唯一获准 SDK 宿主）、**M-N4** 新数据类型触发 baseline §5 落点缺失；Minor 含 constitution
+> 落点、中继实例化粒度、委托令牌签发方、消费者状态存储、files 引用迁移、自动化引擎归属等。
 
 ## 1. 愿景与范围
 
@@ -118,7 +126,7 @@ iCalendar RRULE 标准建模、CalDAV 服务端留预留。
 | M17 数据引擎 | 🔧 | `modules/bitable` 动态物理表内核（Teable 路线），员工档案槽位迁移跑通（既有 UI 无感） |
 | M18 多维表格 UI | 📦 | 网格（canvas+虚拟滚动）/Kanban/表单视图；forms 填报页切换到新引擎，迁毕 forms 退役 |
 | M19 自动化 + Agent v2 | 📦 | when-trigger-then-action 引擎 + 组织级可配置 Agent + 治理面板 |
-| M20+ 持续项 | 🔧 | gateway 真拆分、桌面 Qt、多层部门【均预留：按业务触发按需插入，不阻塞主线】 |
+| M20+ 持续项 | 🔧/📦（预留桶） | gateway 真拆分、桌面 Qt、多层部门【均预留：按业务触发按需插入，不阻塞主线】 |
 
 ## 6. M12 可靠事件与多进程基建
 
@@ -131,10 +139,11 @@ worker、SSE 多副本、gateway 拆分的共同前置。
    `domain_events_unpublished_idx` 是 `published_at` 普通索引（`0000_init_platform.sql:194`）
    ——启用工作含**改造为 `WHERE published_at IS NULL` 部分索引** + 从零接线发布方。
    `EventBus` 契约扩展事务感知入口 `publishInTx(tx, event)`。
-2. **中继（relay）是 outbox 的命门组件，显式设计**：每个宿主进程内置中继（轮询 + PG NOTIFY
-   唤醒混合），把未发布行搬进 broker 后标记 `published_at`；多副本下中继经 PG advisory lock
-   互斥；顺序保证按 aggregate id 作 stream 分区键（同一聚合内有序，跨聚合不承诺）。轮询间隔/
-   批量/失败退避等参数归 M12 RFC。
+2. **中继（relay）是 outbox 的命门组件，显式设计**：中继由 `@work/event-bus` 提供、**按模块
+   实例化**——每个实例只触达本模块的 outbox 表，不做跨 schema 的中央轮询（守 schema
+   ownership）；宿主进程内运行（轮询 + PG NOTIFY 唤醒混合），把未发布行搬进 broker 后标记
+   `published_at`；多副本下中继经 PG advisory lock 互斥；顺序保证按 aggregate id 作 stream
+   分区键（同一聚合内有序，跨聚合不承诺）。轮询间隔/批量/失败退避等参数归 M12 RFC。
 3. **事件可靠性分两级**（发布方在事件契约上声明）：`critical`——走 outbox + at-least-once
    （默认级，凡驱动下游业务动作的事件必须此级）；`notify-only`——绕过 outbox 直发、容忍丢失
    （仅限纯 UI 信号类，如 SSE 重拉提示）。判据细则与既有事件的定级归 M12 RFC。
@@ -142,8 +151,10 @@ worker、SSE 多副本、gateway 拆分的共同前置。
    规模不配 Kafka）。`@work/event-bus` 新增 `RedisStreamEventBus`，`MemoryEventBus` 降级为
    测试/单进程 fallback——与 repository 双实现模式同构。
 5. **消费三件套写进 `docs/module-contract.md`**：幂等（按 event id 去重）、重试退避、死信
-   stream + 告警。既有两个订阅器（`presence.status.changed`←M7-2、`profile.updated`←M8-3）
-   为迁移验证对象，验收 = 发布方进程 ≠ 消费方进程的 e2e 跑通。
+   stream + 告警。**无自有 schema 的消费宿主**（如 im-adapter-api）的幂等/死信状态存储约定
+   一并规范（Redis 幂等键为缺省，或经评审建最小自有 schema——M12 定约定，M13 首用）。既有
+   两个订阅器（`presence.status.changed`←M7-2、`profile.updated`←M8-3）为迁移验证对象，
+   验收 = 发布方进程 ≠ 消费方进程的 e2e 跑通。
 6. **一并收口既有预留与新增前置**：SSE 多副本 fan-out（Redis pub/sub）、**调度基建抽壳**——
    现调度长在 `modules/notification/api` 内（`ScheduleModule.forRoot()` + 只读
    `notification.schedule_config`），M13 对账 job、M19 定时触发器都需要非 notification 宿主的
@@ -155,9 +166,11 @@ worker、SSE 多副本、gateway 拆分的共同前置。
 
 ## 7. M13-14 IM 接入
 
-总原则：OpenIM Server 是可替换卫星服务，平台是身份与组织唯一真源，业务模块只见
-`@work/im-provider`。服务端姿态沿 ADR-0001；**Web SDK 接入与 agent 消息通道是对 ADR-0001
-的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）。
+总原则：OpenIM Server 是可替换卫星服务，平台是身份与组织唯一真源，业务模块的**服务端**只见
+`@work/im-provider`；**`modules/im/web` 是唯一获准直连 OpenIM 的指定 SDK 宿主**——这是对
+constitution §4 / AGENTS.md §7"业务模块不得直接调用 OpenIM"铁律的显式例外，随 IM 子 ADR
+登记（措辞更新见 §13.8）。服务端姿态沿 ADR-0001；**Web SDK 接入与 agent 消息通道是对
+ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）。
 
 1. **身份映射零账号 + 撤销传播**：OpenIM userID = 平台 user id；昵称/头像从档案同步；不设
    OpenIM 密码，Web 端 IM token 仅经 `im-adapter-api` token 换发端点（平台会话 → OpenIM
@@ -178,9 +191,12 @@ worker、SSE 多副本、gateway 拆分的共同前置。
    - 常规聊天内容不回流平台库（不进审计/搜索）；webhook 默认只回流账号/群组生命周期事件；
      内容级合规审计留预留接口位；
    - **例外通道（M13 交付物）**：平台注册专用 **agent bot 账号**；仅"发给 bot / @bot"的消息
-     经消息回调白名单回流 `agent-gateway`（M15 的消费前提），内容不落平台业务库、会话元数据
-     进 `agent.*`；回调须带签名校验 + 发送者 userID 绑定——它同时是 M15 写操作确认卡片的
-     回传通道，属于**授权动作载体**，防伪机制列入 Agent 身份 ADR（§8.4）。
+     经消息回调白名单回流。**传输形态拍板 = 回调直连专线**：OpenIM 回调 → im-adapter 校验
+     （签名 + 发送者 userID 绑定）→ 按**转发契约**直连推给 agent 消费端；**显式不是领域事件、
+     不走 outbox/总线**——若走总线，critical 级事件行落 PG 即违反"内容不落平台业务库"的
+     本节承诺；可靠性由回调重试 + 会话级对账兜底。M13 交付物界定为：bot 账号 + 回调白名单 +
+     签名校验 + im-adapter 侧转发契约（M15 前以 echo 探针验收，agent-gateway 到位后接管）；
+     消息内容不落平台业务库、会话元数据进 `agent.*`（M15 建 schema）。
 
 部署注意：OpenIM 全家桶（Mongo/Kafka/MinIO/Redis）是平台首次引入非 PG 存储——compose
 基线 + 备份 runbook 是 M13 一等公民交付物；M13 前 spike 评估组件裁剪空间。
@@ -195,9 +211,9 @@ worker、SSE 多副本、gateway 拆分的共同前置。
    显式开启项，开启即接受业务上下文出内网（§2 前提修正、§14 风险）。
 2. **Agent 循环 = pi-agent-core**；我们只写平台工具集与治理钩子。
 3. **运行时拓扑 = OpenClaw 模式落 k8s**：
-   - `apps/agent-gateway`：消费 agent bot 消息（§7.5 通道，经 M12 总线或回调直连），管理
-     会话生命周期，为每会话调度**沙箱 Pod**（注入委托令牌 + 平台 MCP 端点 + pi 运行时），
-     流式回复经 im-provider 桥回 IM；
+   - `apps/agent-gateway`：消费 agent bot 消息（§7.5 回调直连专线，接管 M13 的 echo 探针
+     位；不经 outbox/总线），管理会话生命周期，为每会话调度**沙箱 Pod**（注入委托令牌 +
+     平台 MCP 端点 + pi 运行时），流式回复经 im-provider 桥回 IM；
    - **`SandboxDriver` 抽象**：k8s Job/Pod 驱动为主线（内网基线推荐 k3s），Docker 驱动作
      开发/降级——沿双实现模式；k8s 是继 OpenIM 后第二个部署基线扩展，需专门 runbook；
    - **沙箱 egress 白名单闭环**：仅放行 ① LLM 端点（内网通道时无公网 egress；云通道开启时
@@ -205,17 +221,24 @@ worker、SSE 多副本、gateway 拆分的共同前置。
      回传，Pod 与 gateway 间的专用连接——上一版漏列，回传不闭环）。不给 DB、不给内网横向。
 4. **平台侧不变量（不因 harness 改变）**：
    - **MCP 工具面规范**：模块 manifest 声明 `agentTools`（工具名/描述/输入 JSON Schema/
-     绑定权限点/数据范围语义），gateway 聚合为平台 MCP server；工具 = 既有 service 薄适配器，
+     绑定权限点/数据范围语义），**gateway-api**（模块 manifest 的组合宿主，非 agent-gateway）
+     聚合为平台 MCP server；工具 = 既有 service 薄适配器，
      授权与审计**继承** `@RequirePermissions` + scope 管道，不为 Agent 重写一套；manifest
      扩展的规范归属 `docs/module-contract.md`（§13）；
    - **Agent 身份模型（专门 ADR，安全基线第二次大扩展）**：审计双主体
      `actor=agent:<id>, onBehalfOf=user:<id>`（连带 `platform.audit_logs` 增列——schema
      变更，过 doc-index §5 文档审查）；**委托令牌** = 用户权限 ∩ Agent 工具白名单、短时效、
-     永不超过用户本人；**gateway 鉴权面须认第二种令牌形态**——`PlatformAuthGuard` /
-     introspection 现仅认用户 token（ADR-0004 §2），扩展为可辨识委托令牌并解析双主体，
-     属 ADR-0004 的显式扩展 + security-baseline §4 增量（§13）；
-   - **写操作 human-in-the-loop**：查询类直接执行，变更类经 IM 确认卡片，确认回传走 §7.5
-     防伪通道（签名 + userID 绑定），确认落审计；
+     永不超过用户本人；**签发与存储归 platform-api**（令牌真源只有一个）；**gateway 鉴权面
+     须认第二种令牌形态**——`PlatformAuthGuard` / introspection 现仅认用户 token 且入口为
+     `GET /auth/me` 返回 `CurrentUserDto`（ADR-0004 §2），扩展为可辨识委托令牌并解析双主体
+     （扩 DTO 或新 introspection 端点，Agent 身份 ADR 定），属 ADR-0004 的显式扩展 +
+     security-baseline §4 增量（§13）；**用户会话失效 → 其派生的委托令牌级联吊销**是硬语义；
+   - **写操作 human-in-the-loop，确认信任锚拍板 = 平台锚定**：查询类直接执行；变更类的 IM
+     卡片只承载**平台深链**，用户点击后在平台侧（携平台会话）完成确认——授权动作的信任锚
+     不落在 OpenIM 上（IM 回调签名只能证明"消息来自 OpenIM Server"，证明不了"用户本人
+     点了确认"；OpenIM 是平台外信任域的可替换卫星，不进写授权 TCB）。**IM 内联按钮直接
+     确认**【预留：需 Agent 身份 ADR 论证把 OpenIM 纳入确认 TCB 的条件后方可启用】。确认
+     落审计；风险登记 §14；
    - 治理数据归 `agent.*` schema（会话元数据/token 用量/工具调用审计）；pi 会话文件留沙箱卷。
 5. **首个内置助手**（不可配置）：查在位/查我的待办与日报/代登记状态（带确认）/代发审批
    （带确认）。
@@ -248,6 +271,10 @@ worker、SSE 多副本、gateway 拆分的共同前置。
    `bitable` schema 真实 PG 表、字段 = 真实列，DDL 管理层负责建列/改列/索引。查询/排序/索引/
    行数上限对 JSONB 是质变。JSONB 快照仅保留在记录历史/审计侧。M17 RFC 只细化 DDL 管理层、
    命名/配额/迁移策略；若解剖 spike 发现重大反证，经 ADR 修正翻案。
+   **⚠️ 运行时 DDL 与 security-baseline §8 正面冲突**（"生产禁止自动同步 schema、变更一律走
+   迁移、运行账号最小权限"三条全撞）——须以 baseline §8 增量定豁免边界：DDL 仅经 bitable
+   DDL 管理层单一入口、运行账号的 DDL 权限**限定在 `bitable.*` schema 内**、配额/命名/审计
+   约束随行（§13.3 登记，遵守 §16"先改文档"门禁）。
    "直接 SQL 查数"限定澄清：指 bitable 模块**自身**提供的查询能力与未来专门的只读通道
    【预留：BI 场景触发时设计】，**不是**允许其他模块/外部直连 `bitable.*` 物理表——schema
    隔离铁律不因物理表模型松动。
@@ -255,7 +282,9 @@ worker、SSE 多副本、gateway 拆分的共同前置。
    重算）、视图 = 查询编译。**自研清单**：平台组织/角色/数据范围权限桥（Teable 权限矩阵在
    闭源企业版且模型不同）、审计接入、**槽位兼容层与 forms 退役迁移**——含
    `presence.status_records.form_record_id`（M9-1 增列）指向语义从 forms 记录切换到 bitable
-   记录的跨模块引用迁移、forms 既有记录数据迁移/归档、`db:migrate:forms` 入口退役流程。
+   记录的跨模块引用迁移、**files 单引用模型的引用迁移**（forms 记录携带的文件/图片字段，
+   `ownerModule/referenceType/referenceId` 须随记录改指 bitable）、forms 既有记录数据迁移/
+   归档、`db:migrate:forms` 入口退役流程。
 4. 实时协同推迟 M18 再定（spike 对比 Teable 与 APITable room-server 方案）。
 5. 里程碑定性：纯 🔧（无用户可见交付），内部可验证面 = 员工档案槽位在新引擎跑通、既有 UI
    无感切换；获得感风险已登记 §14。
@@ -270,7 +299,9 @@ worker、SSE 多副本、gateway 拆分的共同前置。
 
 1. **自动化引擎**（需求 §5 收敛落点）：触发器三类（领域事件/bitable 记录变更/定时——定时
    触发器消费 `@work/scheduling`）× 动作五类（站内通知/IM 消息/创建记录/发起审批/调用
-   Agent）；事件类全部长在 M12 总线上；规则本身存 bitable（自举）。
+   Agent）；事件类全部长在 M12 总线上；**归属拍板 = bitable 模块的子域**（automation 作为
+   `modules/bitable` 内子能力，Teable 同构）——规则存 `bitable.*` 即为模块内自举，不跨
+   schema；跨模块动作（通知/审批/Agent）一律经公开 API 与事件，不直写他模块。
 2. **Agent v2**：组织级可配置 Agent（自定义指令 + 工具白名单 + 触发方式 IM @/定时/自动化
    动作）；hermes 式技能自习得与持久记忆；Claude Agent SDK 作为高级驱动【预留：沙箱代码
    执行场景出现真实需求时触发】；治理面板（用量/审计/配额）。
@@ -288,8 +319,12 @@ worker、SSE 多副本、gateway 拆分的共同前置。
      第二令牌、确认回传防伪；
    - bitable 存储模型（M17，定调动态物理表，翻案须新 ADR）。
 3. **`docs/security-baseline.md` 增量（遵守其 §16"先改文档再动代码"门禁）**：§4 新令牌
-   形态（委托令牌）与撤销窗口语义；§9 Redis Streams 承载业务事件后的访问控制加固；§10
-   OpenIM token 换发/撤销传播 + JS SDK 许可与数据流审查结论。
+   形态（委托令牌）与撤销窗口/级联吊销语义；**§5 新数据类型扩展机制**——现"可配置数据
+   类型固定为 profile/presence/report"，M16 日历参与者制/任务指派链、M17 bitable 权限桥
+   都触发数据范围模型调整（按模块声明的数据类型注册 + 参与者制与组织范围制并存口径，随
+   M16/M17 子 RFC）；**§8 bitable 运行时 DDL 豁免边界**（单一入口/schema 限定权限/配额与
+   审计，见 §10.2）；§9 Redis Streams 承载业务事件后的访问控制加固；§10 OpenIM token
+   换发/撤销传播 + JS SDK 许可与数据流审查结论。
 4. `docs/foundation-blueprint.md` 增补 vNext 篇章（M12–M19 门禁）；
    `docs/product-requirements.md` 补 IM/任务日历/多维表格/Agent 需求条目（标注状态；若
    搬运 APITable 代码，§5"不轻易引入其代码"口径在此翻案）。
@@ -298,7 +333,10 @@ worker、SSE 多副本、gateway 拆分的共同前置。
 6. `docs/deployment.md` + runbooks：OpenIM 部署与备份（M13）、k3s 沙箱基线（M15）——
    doc-index §5"改变内网部署方式"必审项。
 7. `docs/module-contract.md`：`agentTools` manifest 扩展规范（M15）、事件消费三件套（M12）。
-8. AGENTS.md §7 措辞更新（随 IM 子 ADR）：保留"不复制源码"，放行"SDK 依赖引用"。
+8. AGENTS.md §7 与 constitution 措辞更新（随对应 ADR）：保留"不复制源码"，放行"SDK 依赖
+   引用"；"业务模块不得直接调用 OpenIM"补 `modules/im/web` 唯一 SDK 宿主例外（AGENTS.md
+   §7 + constitution §4）；constitution §1"内网无公网部署"补云 LLM 可选通道的前提修正、
+   "IM 长期预留当前不实现"等过时表述随 ADR-0006 更新（doc-index §6：过时文档必须标注替代）。
 9. 新增 `docs/research/` 目录承接开源深评 spike 报告（Teable 解剖、OpenIM 部署裁剪、
    pi/OpenClaw 运行时评估）。
 10. 各里程碑 RFC 在启动时按既有两轮独立评审流程产出。
@@ -317,10 +355,13 @@ worker、SSE 多副本、gateway 拆分的共同前置。
 | 纯 🔧 里程碑（M12、M17）无用户可见交付 | 已与产品负责人确认接受；M12 顺带收掉 SSE fan-out 等既有预留；M17 以档案槽位迁移跑通为内部可验证面 |
 | 聊天内容不进平台审计的合规争议 | 显式 ADR 决策 + 内容级审计预留接口位；agent bot 通道为白名单例外（§7.5） |
 | outbox/中继从零接线的工作量被"表已存在"掩盖 | §6.1 已如实登记（零写入方 + 索引改造）；M12 RFC 按真实工作量拆片 |
+| **OpenIM 进入授权链的诱惑**（IM 内联确认体验更好，但把卫星服务拉进写授权 TCB） | 确认信任锚拍板平台锚定（§8.4）：IM 卡片只载深链、确认在平台侧携平台会话完成；内联确认标【预留】且启用须 Agent 身份 ADR 论证 |
+| **bitable 运行时 DDL 突破"生产禁自动改 schema"基线** | baseline §8 增量定豁免边界：DDL 管理层单一入口 + 运行账号 DDL 权限限定 `bitable.*` + 配额/命名/审计（§10.2、§13.3） |
 
 ## 15. 后续步骤
 
-1. 本 spec 过二轮独立评审（验证一审修订 + 新鲜视角），随后交产品负责人审阅；
+1. 两轮独立评审已完成并落修（二审结论：可进入 ADR 阶段，二审条目在 ADR-0006 评审时顺带
+   核销），交产品负责人审阅；
 2. 进入 writing-plans：产出实施计划——第一批交付物为 ADR-0006 + foundation-blueprint
    vNext 篇章 + product-requirements 增量 + `docs/research/` 目录与首个 spike 任务包；
 3. M10/M11 照常推进，vNext 文档工作与其并行，互不阻塞。
