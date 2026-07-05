@@ -75,7 +75,8 @@
   3. `setDefaultStatusType`'s transaction catch branch rethrew the raw Postgres error instead of
      routing it through `mapPresencePostgresError`, so a concurrent `setDefault` race surfaced as a
      bare 500 instead of 409.
-- Fix commit `4635e8d` (same PR branch): widened `status_records.status` to `varchar(64)` in the
+- Fix commit `4635e8d` (same PR branch; squashed into `85ea16d` at merge, so the hash itself is not
+  reachable from `main` after the branch deletion): widened `status_records.status` to `varchar(64)` in the
   `0001` migration (metadata-only ALTER, no rewrite), added a Postgres-gated regression test proving a
   33+ char key registers successfully (reproduced `22001` pre-fix, green post-fix); dropped the arbiter
   column from the preset `ON CONFLICT` so it absorbs any unique-index collision; wrapped the

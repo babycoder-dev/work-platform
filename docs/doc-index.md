@@ -233,6 +233,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M8-5b 人页聚合前端任务包：`docs/tasks/m8-5b-people-aggregation-frontend.md`（platform web「成员详情」抽屉前端聚合固定 + 自定义(forms) + 在位(presence) + 近况 + 照片占位 + HR 自定义字段填报(轻字段类型)；跨模块本地镜像类型、各分区优雅降级、upsert 全值回传防丢；纯前端不改后端/契约，PR #29 review 含数据丢失簇 + displaySnapshot 对象渲染修复，已回灌规约）
 - M8-6 交付验证任务包：`docs/tasks/m8-6-delivery-verification.md`（全量 verify(:full) + Docker/compose + 人员域八步 smoke + RFC §15/§16 对账；仅允许修验证暴露的回归，M8 整段退出）
 - M9-1 状态字典后端任务包：`docs/tasks/m9-1-status-dictionary-backend.md`（`presence.status_types` 建表 + `is_default` partial unique index + archive-only 管理 API 七端点(无硬删) + `presence:status-type:manage` + 记录 `status` 放宽(DROP `status_records_status_check`，服务层三类拒登) + 重叠豁免改键 `is_default` + `form_record_id` 增列 + 事件加 `statusLabel` + 改 M7 订阅器消费；预置种子走运行时幂等 ensure(非迁移 SQL)；独立 sub-agent 二审已过，合并前强制 security-reviewer）
+- M9-2 自助登记 v2 + forms 泛化任务包：`docs/tasks/m9-2-self-registration-forms-generalization.md`（激活 `presence.status.<key>` 槽位 + 注册 `forms:presence-definition:*` 并翻转 seed 守护测试 + forms 记录服务泛化(createRecord subject 授权从无到有、slot 家族 dataType 单源) + `GET /forms/records/by-id/:recordId`(收口 §7.5 getRecord follow-up) + presence 出站端口 `PresenceFormsLinkPort` 经 gateway `@Global()` 宿主适配器建 forms append 记录、`form_record_id` 随 presence 记录一次落库；编排拍板 = 出站端口+宿主适配器(对 RFC §5.2 的实现方式声明)，通用 POST /forms/records HTTP 面预留不做；独立 sub-agent 二审已过(4 Major 全落修)，合并前强制 security-reviewer）
 
 后续建议补充：
 
