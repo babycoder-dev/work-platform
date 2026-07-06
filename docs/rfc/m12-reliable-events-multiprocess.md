@@ -14,7 +14,18 @@ M8 `profile.updated` 链路；是 M13 IM、M15 Agent、SSE 多副本与 gateway 
 > 本期"更轻"档，Loki 推迟到 M13 前评估）。①② 为 ADR-0006 钦定的收口决策位。
 
 > 配套 ADR：**ADR-0007 事件传输选型（事务性 outbox + Redis Streams）** 在本 RFC Accepted 后
-> 与 M12-1 同批入库，内容 = §4 D1–D3 的决策记录化（编号顺排 ADR-0006 之后）。
+> 与 M12-1 同批入库，内容 = §4 D1–D3 的决策记录化 **+ §15①② 两个收口拍板结果**（ADR-0006
+> 钦定该子 ADR 含此两决策位），编号顺排 ADR-0006 之后。
+
+> 一审（独立 sub-agent，2026-07-06）发现并已修订：**C1** advisory lock 是 session 级、按原文走
+> 连接池互斥会静默失效（relay 锁改钉在 LISTEN 专线、调度改 `pg_try_advisory_xact_lock`，§7/§10）、
+> **C2** 无 schema 幂等协议自相矛盾（重写为单一"检查→可重入执行→落键"协议，§8.6）、**C3**
+> outbox 聚合列在契约上无来源（定义 `DomainEventDraft` + 发布方聚合对照表，§5.3）；及 **M1**
+> stream 修剪是第二条丢失路径（§8.1/§15②）、**M2** 驱动切换的历史行全量重放（M12-2 cutover
+> 水位）、**M3** 顺序承诺降级为尽力而为（§8.4）、**M4** 死信判定序列定死（§8.4/§8.5）、**M5**
+> 消费注册与发布注册分档（§6.2/§8.2）、**M6** critical 误用 `publish()` 抛错守护（§6.2）、**M7**
+> ADR-0007 范围补拍板结果、**M8** 对账兜底分层不偷换（§15②）。minor（葡语残留、审计次序表述、
+> `notification.created` 现役事实、命名规则沿用既有 §4 等）一并落修。
 
 ## 1. 目标
 
@@ -49,7 +60,7 @@ M8 `profile.updated` 链路；是 M13 IM、M15 Agent、SSE 多副本与 gateway 
 
 - **不拆 gateway**：gateway-api 继续作为 API 组合宿主装配业务模块（ADR-0003；拆分属 vNext）。
   M12 只保证"拆开之后事件还能流"，不真的拆开。
-- **不做 exactly-once**：目标是 at-least-once + 消费幂等；跨聚合顺序不承诺（§8.4）。
+- **不做 exactly-once**：目标是 at-least-once + 消费幂等；顺序尽力而为、不作契约承诺（§8.4）。
 - **不引入 schema registry / 事件版本协商**：事件契约仍是 `packages/*-contract` 与
   `modules/*/contract` 里的 TS 类型 + 常量；payload 演进沿用"只加可选字段"的兼容纪律
   （写进 module-contract §4 增补）。
@@ -65,14 +76,14 @@ M8 `profile.updated` 链路；是 M13 IM、M15 Agent、SSE 多副本与 gateway 
 | 现状 | 结论 |
 | --- | --- |
 | `@work/event-bus` 契约 | `DomainEvent{id,type,source,occurredAt,payload,traceId?}` + `EventBus{publish,subscribe}`（`domain-event.ts`）。`MemoryEventBus` 进程内 `Promise.all` 同步分发。**改点**：契约扩展 `publishInTx`；新增 Redis 驱动与 outbox 表工厂。 |
-| 装配现实（载荷性事实） | `apps/gateway-api/src/gateway.module.ts:12-18` 把 **Platform/Files/Forms/Notification/Presence 全部装进一个进程**，共享 `EventBusModule` 的单例 `MemoryEventBus`（`packages/nest-common/src/event-bus.module.ts`）——事件链路今天成立**只因这个装配巧合**。任何消费者搬出该进程（M13 im-adapter、SSE 多副本、gateway 拆分）事件即断流。 |
-| 发布方（4 处服务、6 个事件） | `platform` `employee.service.ts:121`（`profile.updated`，**try/catch warn 吞发布失败**）；`presence-status.service.ts:174/237`（`presence.status.changed`）；`forms.service.ts:117/172/279`（`forms.definition.updated` / `forms.record.created`）；`files.service.ts:264`（`files.object.uploaded`）。`notification.created` 常量在契约（`notificationEvents`）但**未见发布方**。**共性**：事件发布均在业务写事务之外、发布失败与业务写不同生死。 |
+| 装配现实（承载性事实） | `apps/gateway-api/src/gateway.module.ts:12-18` 把 **Platform/Files/Forms/Notification/Presence 全部装进一个进程**，共享 `EventBusModule` 的单例 `MemoryEventBus`（`packages/nest-common/src/event-bus.module.ts`）——事件链路今天成立**只因这个装配巧合**。任何消费者搬出该进程（M13 im-adapter、SSE 多副本、gateway 拆分）事件即断流。 |
+| 发布方（4 处服务、6 个事件） | `platform` `employee.service.ts:121`（`profile.updated`，**try/catch warn 吞发布失败**）；`presence-status.service.ts:174/237`（`presence.status.changed`）；`forms.service.ts:117/172/279`（`forms.definition.updated` / `forms.record.created`）；`files.service.ts:264`（`files.object.uploaded`）。`notification.created` 常量**未接入事件总线，但已是 SSE 信号的 wire 类型**（`notification-stream.events.ts:4` 映射 `created`，web 端按它匹配）。**共性**：事件发布均在业务写事务之外、发布失败与业务写不同生死。 |
 | 订阅方（1 处、2 订阅） | `NotificationEventSubscriber`（`presence.status.changed` + `profile.updated`）。**无幂等、无重试**——handler 内 try/catch `logger.error` 吞掉即丢，无死信。是 M12 迁移验证对象。 |
 | `platform.domain_events` | 已具 outbox 形状（`0000_init_platform.sql:182-194`）：`id/event_name/aggregate_type/aggregate_id/payload/occurred_at/published_at`。**但至今零写入方**，且 `domain_events_unpublished_idx` 是 `published_at` **普通索引非部分索引**（`:194`）。**改点**：加列（`source/trace_id/reliability`）+ 改 `WHERE published_at IS NULL` 部分索引 + 从零接线发布方。零写入 ⇒ 迁移无数据风险。 |
 | SSE | `NotificationStreamRegistry` 进程内连接表（注释已自述"multi-replica 需 Redis pub/sub，预留"）；`notification.service.ts:41` create 后 `emitToUser` 推信号；web 端已有断线回退轮询（M7-4b）。**改点**：信号发射抽 `SseSignalBus` 双驱动。 |
 | 调度 | `modules/notification/api/src/scheduler/`：`ScheduleModule.forRoot()` + `SchedulerRegistry` 动态 CronJob + 只读 `notification.schedule_config` + `runSafely`；**多副本互斥在注释里【预留】**（`scheduler-bootstrap.service.ts:19`）。M13 对账 job、M19 定时触发器需要非 notification 宿主的调度 ⇒ 抽壳。 |
 | `apps/realtime-gateway` | socket.io 骨架（ping / subscribe:user / publishUserEvent），**无任何生产消费方**；SSE 实际长在 gateway 进程内 notification 模块，IM 将走 OpenIM 自有 ws。⇒ 拍板项①。 |
-| infra | compose 基线**已含 `redis:7`** 且已向服务注入 `REDIS_URL`（`infra/docker-compose.prod.yml:19-24,39,112`），但事件路径今日不经 Redis、无持久化配置。⇒ 拍板项②。 |
+| infra | compose 基线**已含 `redis:7`** 且已向部分服务注入 `REDIS_URL`（`infra/docker-compose.prod.yml:19-27,39,112`），但 **gateway-api（M12 所有 relay 的宿主）与 im-adapter 今日没有 `REDIS_URL`**（`:63-76`）；事件路径不经 Redis、无持久化配置。⇒ 拍板项② + §17 deployment 变更。 |
 | CI | `verify` job 已有 postgres service、无 redis；PG 集成/e2e 测试 env-gate **静默跳过**教训在案（根 `CLAUDE.md`）。`docs/testing-strategy.md` 是 doc-index §7 登记的欠账。 |
 | `apps/im-adapter-api` | 骨架已在（webhook/provider/controller），**无自有 schema**——M13 成为第一个跨进程消费者，本 RFC 的"无 schema 宿主幂等约定"（§8.6）为它定。 |
 
@@ -84,7 +95,7 @@ M8 `profile.updated` 链路；是 M13 IM、M15 Agent、SSE 多副本与 gateway 
   ack/pending/重认领；③ 几百人规模不配 Kafka（运维成本 >> 收益）。`MemoryEventBus` 降级为
   测试/单进程 fallback，驱动切换走 env（`EVENT_BUS_DRIVER=memory|redis`），与
   `PLATFORM_REPOSITORY_DRIVER` 双实现模式同构。
-- **D2 outbox 按 schema 分治，表工厂供形**。模块只写自己 schema（AGENTS.md / 章程铁律），
+- **D2 outbox 按 schema 分治，表工厂统一表结构**。模块只写自己 schema（AGENTS.md / 章程铁律），
   所以**没有中央 outbox 表**：每个发事件模块在自己 schema 建同构 `domain_events` 表，结构由
   `@work/event-bus` 的 Drizzle 表工厂 `createDomainEventsTable(schemaName)` 统一（列形状
   §6.1）。`platform.domain_events` 升级改造而非弃表（零写入方，改造 = 一次加列迁移）。
@@ -96,8 +107,9 @@ M8 `profile.updated` 链路；是 M13 IM、M15 Agent、SSE 多副本与 gateway 
   裸常量升级为 `EventDefinition{type, module, reliability}`；判据与既有事件定级见 §5。
 - **D5 中继按模块实例化、宿主内运行**。每个 relay 实例只触达本模块 outbox 表（不做跨
   schema 中央轮询，守 schema ownership）；PG `NOTIFY` 唤醒（`publishInTx` 同事务发
-  `pg_notify`，提交才触发）+ 空闲轮询兜底；多副本经 `pg_try_advisory_lock` 互斥；先 XADD
-  后标记 `published_at`，崩溃窗口产生重复投递 ⇒ at-least-once，由消费幂等吸收（§7）。
+  `pg_notify`，提交才触发）+ 空闲轮询兜底；多副本互斥经**钉在 LISTEN 专用连接上的**
+  `pg_try_advisory_lock`（session 级锁不得走连接池，§7）；先 XADD 后标记 `published_at`，
+  崩溃窗口产生重复投递 ⇒ at-least-once，由消费幂等吸收（§7）。
 - **D6 消费幂等 = 幂等行与业务写同事务**（有 schema 宿主），无 schema 宿主用 Redis
   `SET NX EX` 幂等键（弱一致，显式接受，§8.6）；重试用 XAUTOCLAIM 重认领（粗粒度退避），
   超限进死信 stream + 带外告警（§8.5）。
@@ -126,7 +138,7 @@ M8 `profile.updated` 链路；是 M13 IM、M15 Agent、SSE 多副本与 gateway 
 | `forms.definition.updated` | critical | 按默认级；当前无订阅者，defensive |
 | `forms.record.created` | critical | 按默认级；M10 日报候选输入 |
 | `files.object.uploaded` | critical | 按默认级；当前无订阅者 |
-| `notification.created` | notify-only | 契约有常量、无发布方；若启用，仅作 SSE 信号语义（自愈=铃铛轮询） |
+| `notification.created` | notify-only | 常量已是 SSE 信号 wire 类型（未接入总线）；若升格为领域事件，仅 notify-only（自愈=铃铛轮询） |
 | SSE 重拉信号（非领域事件） | notify-only | 不进事件总线，走 §9 `SseSignalBus` |
 
 ### 5.3 契约形状
@@ -139,16 +151,35 @@ export interface EventDefinition {
   module: string;        // 'presence' —— 决定 outbox 表与 stream 归属
   reliability: EventReliability;
 }
+export interface DomainEventDraft<TPayload = unknown> {
+  type: string;
+  source: string;
+  payload: TPayload;
+  traceId?: string;
+  aggregateType: string;  // outbox 聚合列的唯一来源（§6.1）
+  aggregateId: string;    // 无聚合语义的事件按 <主体实体>/<主体 id> 填
+}
 export interface EventBus {
   publish(...): Promise<DomainEvent>;                    // 不变：notify-only + 测试
-  publishInTx(tx: OutboxTx, event: ...): Promise<DomainEvent>; // 新增：critical 唯一入口
+  publishInTx(tx: OutboxTx, event: DomainEventDraft): Promise<DomainEvent>; // 新增：critical 唯一入口
   subscribe(type, handler): () => void;                  // 不变
 }
 ```
 
 各 contract 导出 `xxxEventDefinitions: EventDefinition[]`（常量对象保留、类型不破）。
-`event.type` 命名规则 `<module>.<entity>.<action>` 写进 module-contract §4；`profile.updated`
-**不重命名**（重命名即破契约），在定义里显式 `module:'platform'` 并登记为历史豁免。
+`event.type` **沿用 module-contract §4 既有命名规则** `<module>.<aggregate>.<verb>`；
+`profile.updated` **不重命名**（重命名即破契约），在定义里显式 `module:'platform'` 并在
+module-contract §4 登记为历史豁免。
+
+既有发布方聚合取值对照（M12-1 接线依据）：
+
+| 事件 | `aggregate_type` | `aggregate_id` |
+| --- | --- | --- |
+| `profile.updated` | `platform.employee` | `subjectUserId` |
+| `presence.status.changed` | `presence.status_record` | `recordId` |
+| `forms.definition.updated` | `forms.definition` | 定义 id |
+| `forms.record.created` | `forms.record` | 记录 id |
+| `files.object.uploaded` | `files.object` | 对象 id |
 
 ### 5.4 发布方语义变化（行为变化，显式列出）
 
@@ -157,11 +188,14 @@ export interface EventBus {
   本义，此为刻意的行为反转。
 - presence/forms/files 的发布点当前在业务写**之后**、无共同事务。M12-1 逐发布方把"业务写 +
   outbox 写"纳入同一事务。实现姿态二选一，**推荐 (b)**：(a) 服务层开显式 tx 编排；
-  (b) repository 写方法扩展可携带 `outboxEvents?: DomainEventDraft[]`，在其内部事务一并
-  写入——理由：当前事务边界封装在 repository 层，(b) 不重排服务层职责；内存 repository
-  实现将 outboxEvents 直接转 `publish()`（单进程语义等价）。逐发布方改造清单归 M12-1 切片包。
-- **审计与事件的次序**：现有服务先审计后发事件；迁移后 outbox 写并入业务事务，审计写
-  （`recordAuditLog`，事务外）失败不再阻断事件——与现状一致，不新增耦合。
+  (b) repository 写方法扩展可携带 `outboxEvents?: DomainEventDraft[]`（类型见 §5.3），在其
+  内部事务一并写入——理由：当前事务边界封装在 repository 层，(b) 不重排服务层职责；内存
+  repository 实现将 outboxEvents 直接转 `publish()`（单进程语义等价，测试 fixture 豁免 D3
+  的"critical 唯一入口"约束）。逐发布方改造清单归 M12-1 切片包。
+- **审计与事件的次序（行为变化之二）**：现状 `recordAuditLog`（`employee.service.ts:103`）
+  在发事件**之前**且异常上抛——审计失败今天**会**阻断事件；迁移后 outbox 行随业务事务先
+  提交，审计写在事务外、失败不再阻断事件。刻意为之：事件以业务事实（已提交）为准，审计
+  失败走自己的告警面，不做跨事务耦合。
 
 ## 6. outbox 设计
 
@@ -190,15 +224,25 @@ export interface EventBus {
 
 ### 6.2 发布路由注册
 
-`EventBusModule.forRoot({ registrations })`（nest-common）在宿主装配时注册：
+`EventBusModule.forRoot({ registrations })`（nest-common）在宿主装配时注册，**分两档**：
 
 ```ts
+// 发布注册（发事件模块，宿主进程有该模块 DB 面）
 { module: 'presence', outboxTable: presenceDomainEvents, definitions: presenceEventDefinitions }
+// 消费注册（纯消费宿主，如 im-adapter——无 DB 也可注册，只供订阅路由解析 stream）
+{ module: 'platform', definitions: platformEventDefinitions }
 ```
 
-`publishInTx(tx, event)` 按 `event.source → module` 查表写行 + 同事务 `pg_notify('outbox_wake_<module>', '')`；
-未注册 source 抛错。`MemoryEventBus.publishInTx` 忽略 tx、立即投递——**语义差异显式登记**：
-内存驱动是"提交前投递"，依赖"回滚则不投递"语义的测试必须跑 postgres 驱动（testing-strategy 收录）。
+注册由**宿主（app 层）聚合**：app 允许 import 各模块 contract 取 definitions（模块代码之间
+仍不得跨 contract import——现 notification 订阅 presence 事件靠自己契约里的重复常量正是此
+边界的产物，§8.2）。`publishInTx(tx, event)` 按 `event.source → module` 查发布注册写行 +
+同事务 `pg_notify('outbox_wake_<module>', '')`；未注册 source 抛错。**另一侧守护**：
+`RedisStreamEventBus.publish()` 对注册表中 reliability=critical 的 type **直接抛错**（memory
+驱动降级为 warn）——堵住"迁移遗漏一处 = 静默回退尽力而为"，作为守护断言进 M12-1 退出标准。
+
+`MemoryEventBus.publishInTx` 忽略 tx、立即投递——**语义差异显式登记**：内存驱动是"提交前
+投递"，handler 在业务事务提交前运行（读库看不到本次写入、事务回滚后产生幽灵副作用）；
+依赖"回滚则不投递"或投递时序的断言必须跑 postgres+redis 门（testing-strategy 收录，§12）。
 
 ## 7. 中继（relay）
 
@@ -206,9 +250,14 @@ export interface EventBus {
   只在 `EVENT_BUS_DRIVER=redis` 时启动。
 - **唤醒**：LISTEN `outbox_wake_<module>`；收到即触发一次 drain；另有空闲轮询兜底（缺省 2s，
   §14）——LISTEN 连接断连/错过通知时不停摆。
-- **互斥**：drain 周期开始 `SELECT pg_try_advisory_lock(hashtext('outbox:<module>'))`，拿不到
-  即跳过本周期（另一副本在干活）；周期结束释放。锁 key 约定 `outbox:<module>` / `job:<jobKey>`
-  统一走 `hashtext`，写进 module-contract 增补，防止跨用途碰撞。
+- **互斥（连接语义是命门）**：advisory lock 是 **session 级**——acquire/release 必须落在
+  **同一条 PG 连接**上，**不得走连接池**（池下 unlock 被 checkout 到别的连接 = 静默失败 +
+  锁泄漏在池连接上，互斥形同虚设）。relay 本就需要一条独占连接做 LISTEN（LISTEN 同样不能
+  走池），**锁与 LISTEN 共用这条专线**：drain 周期开始在专线上
+  `SELECT pg_try_advisory_lock(hashtext('outbox:<module>'))`，拿不到即跳过本周期（另一副本
+  在干活）；周期结束在同一连接上 unlock；专线断开重连 = 锁自动释放，另一副本自然接管。
+  锁 key 约定 `outbox:<module>` / `job:<jobKey>` 统一 `hashtext` 取 key，写进 module-contract
+  增补（前缀约定防同名 key 复用；32 位哈希碰撞概率在本量级下接受，不作防碰撞声明）。
 - **drain 流程**：`SELECT ... WHERE published_at IS NULL ORDER BY occurred_at, id LIMIT <batch>`
   → 逐条 XADD 到本模块 stream（§8.1）→ 成功批次 `UPDATE ... SET published_at = now()`。
   **先 XADD 后标记**：两步间崩溃 ⇒ 重启后重发 ⇒ 重复投递（at-least-once），消费幂等吸收。
@@ -228,14 +277,19 @@ export interface EventBus {
 | 死信 stream | `events:dlq:<消费模块>` | `events:dlq:notification` |
 | SSE 信号 channel | `sse:<模块>:signal`（pub/sub） | `sse:notification:signal` |
 
-stream 设 `MAXLEN ~ 100000`（近似修剪；上游有 outbox 兜底，stream 不是事实源）。
+stream 设 `MAXLEN ~ 1000000` 仅作最终背压护栏——**修剪是一条真实丢失路径**（§15② 残余
+清单第 2 条）：消费积压触顶时最老未消费条目被删（这些事件 outbox 已标 `published_at`，
+不会重发），且 Redis 7 的 XAUTOCLAIM 会**静默删除**指向已修剪消息的 pending 条目，连"卡在
+pending 被发现"的机会都没有。护栏必须配监控：`event_stream_length` 超护栏 10% 即告警
+（§11），远在丢失前人工介入；修剪后的恢复姿态（按 outbox 行 + 时间窗重发）进 runbook。
 
 ### 8.2 订阅路由
 
 `RedisStreamEventBus.subscribe(type, handler)` 经注册的 `EventDefinition` 把 `type` 解析到
 所属模块 stream；对每个涉及的 stream 维持一个 `XREADGROUP BLOCK` 循环（group 不存在则
-`XGROUP CREATE ... $ MKSTREAM`）。未注册 type 抛错。同一消费模块多副本共享 group ⇒ 消息
-在副本间分工、不重复消费（pending 归属单 consumer）。
+`XGROUP CREATE ... $ MKSTREAM`）。未注册 type 抛错——路由**只认注册表不猜前缀**
+（`profile.updated` 无模块前缀，靠 §6.2 消费注册档解析）。同一消费模块多副本共享 group ⇒
+消息在副本间分工、不重复消费（pending 归属单 consumer）。
 
 ### 8.3 消费流程（三件套之幂等 + ack）
 
@@ -243,8 +297,9 @@ stream 设 `MAXLEN ~ 100000`（近似修剪；上游有 outbox 兜底，stream �
 2. **幂等检查 + 业务写 + 幂等落账在同一事务**（有 schema 宿主）：消费者事务内
    `INSERT INTO <schema>.consumed_events (consumer, event_id) ... ON CONFLICT DO NOTHING`，
    插入 0 行 ⇒ 已处理过 ⇒ 直接 XACK 跳过；插入成功 ⇒ 同事务执行业务写 ⇒ 提交 ⇒ XACK。
-   表由表工厂 `createConsumedEventsTable(schemaName)` 供形：`(consumer varchar(64),
-   event_id uuid, consumed_at timestamptz, PK(consumer, event_id))`，保留期清理同 §7。
+   表结构由表工厂 `createConsumedEventsTable(schemaName)` 统一：`(consumer varchar(64),
+   event_id uuid, consumed_at timestamptz, PK(consumer, event_id))`；清理机制同 §7，
+   保留期见 §14（30d，注意与 outbox 的 14d 不同）。
    notification 消费者的业务写在 `notification.*`，幂等表建 `notification.consumed_events`
    ——**同 schema 同事务，消费侧获得"效果恰好一次"**。
 3. handler 抛错 / 事务回滚 ⇒ **不 XACK** ⇒ 进 pending，走重试（§8.4）。
@@ -256,31 +311,43 @@ stream 设 `MAXLEN ~ 100000`（近似修剪；上游有 outbox 兜底，stream �
 
 ### 8.4 重试与顺序
 
-- **重试** = 重认领：每消费模块一个 reclaimer 定时（缺省 30s）`XAUTOCLAIM` 空闲超过
-  min-idle（缺省 60s）的 pending 消息重新投给本副本处理。退避是粗粒度的（≈60s/次），刻意
-  不做精细指数退避——事件消费不是实时路径，简单优先。
-- **顺序**：单 stream 内 XADD 按 relay 批次序（`occurred_at, id`）⇒ happy path 下同聚合有序；
-  **重试会乱序**（先失败的消息晚于后续消息完成）⇒ 契约承诺 = **同一聚合内 happy-path 有序、
-  跨聚合与重试路径不承诺**。消费者必须容忍乱序（幂等 + 以库内状态为准）。聚合级严格有序
-  的需求（当前没有）出现时再按 `hash(aggregate_id) % N` 分片 stream——`events:<module>:<slot>`
-  命名【预留】，本期 N=1 不分片。
+- **重试 = 重认领，序列定死**：每消费模块一个 reclaimer 定时（缺省 30s）执行——
+  ① `XPENDING` 取 pending 消息的 `(id, idle, delivery-count)`；
+  ② `delivery-count ≥ 上限`（缺省 5）者走死信支路（§8.5）；
+  ③ 其余中 `idle > min-idle`（缺省 60s）者 `XAUTOCLAIM` 重投本副本。
+  **先判死信再重认领**——XAUTOCLAIM 会自增 delivery counter 且返回不含 counter，反序会用
+  虚高计数误判。**delivery count 语义 = 投递次数而非处理失败次数**（重认领后进程崩溃、
+  handler 未跑也计一次）——上限按此理解，允许"提前死信"（宁可误进死信被人工看到，不可
+  无限重试）。退避是粗粒度的（≈min-idle/次），刻意不做精细指数退避——事件消费不是实时
+  路径，简单优先。
+- **顺序 = 尽力而为，不作契约承诺**：单 stream 内 XADD 按 relay 批次序（`occurred_at, id`），
+  但**提交序 ≠ occurred_at 序**（并发事务中后发生者可能先提交、先被 drain），重试路径亦
+  乱序——消费者一律按乱序设计（幂等 + 以库内状态为准），module-contract 增补明文。现有
+  两个订阅器无顺序依赖。聚合级严格有序需求（当前没有）出现时再做 `hash(aggregate_id) % N`
+  stream 分片 + 发布侧串行化——`events:<module>:<slot>` 命名【预留】，本期不承诺不实现。
 
 ### 8.5 死信
 
-delivery count（`XPENDING` 读取）超过上限（缺省 5）⇒ 原消息 XADD 到 `events:dlq:<消费模块>`
-（附 `firstErrorAt/lastError/deliveryCount` 元数据）+ XACK 原流 + 触发带外告警（§11）。死信
-处理是**人工**流程：runbook 给出巡检、修复后 `XRANGE` + `XADD` 回源流重放的操作步骤
-（M12-4 交付 `docs/runbooks/event-pipeline-ops.md`）。DLQ 深度进指标。
+死信支路（由 §8.4 序列步骤②触发）：`XRANGE` 取原消息全文 → XADD 到 `events:dlq:<消费模块>`
+（附 `firstDeliveredAt/deliveryCount` 元数据）→ XACK 原流 → 触发带外告警（§11）；`XRANGE`
+取不到（消息已被修剪，§8.1）⇒ 死信条目仅含元数据 + event id，告警升级（可按 outbox 行
+重发恢复）。死信处理是**人工**流程：runbook 给出巡检、修复后 `XRANGE` + `XADD` 回源流
+重放的操作步骤（M12-4 交付 `docs/runbooks/event-pipeline-ops.md`），并登记边界：**重放晚于
+幂等保留期**（§14：表 30d / Redis 键 7d）时幂等行已清，会重复执行业务写——重放前先核对。
+DLQ 深度进指标。
 
 ### 8.6 无自有 schema 消费宿主约定（M13 im-adapter 首用）
 
-无 schema ⇒ 无法"幂等行与业务写同事务"。约定：幂等键
-`SET consumed:<consumer>:<eventId> 1 NX EX 604800`（7 天）——成功才处理，处理成功后不回滚
-键。**弱一致窗口显式接受**：键写入后进程崩溃于业务动作前 ⇒ 该事件丢给这个消费者（重试
-认为已处理）。缓解：把键写入放在业务动作**成功后**、以"重复执行业务动作是否安全"为分界
-——im-adapter 的动作（OpenIM 增删改）天然可重入（upsert 语义），故采用"动作后落键"，重复
-执行无害。若未来出现不可重入且无 schema 的消费者，须建最小自有 schema（评审门槛写进
-module-contract 增补）。
+无 schema ⇒ 无法"幂等行与业务写同事务"，降级为 Redis 幂等键，**单一协议**：
+
+1. `EXISTS consumed:<consumer>:<eventId>` 命中 ⇒ 直接 XACK 跳过；
+2. 执行业务动作——**前提：动作必须可重入**（im-adapter 的 OpenIM 增删改是 upsert 语义，
+   满足）；
+3. 成功后 `SET consumed:<consumer>:<eventId> 1 EX 604800`（7 天）→ XACK。
+
+失败语义：**可能重复执行、不丢失**——步骤 3 前崩溃、或双副本竞态（2/3 非原子）都表现为
+业务动作重复执行，由可重入性吸收。**不可重入且无 schema 的消费者不得用本协议**，必须建
+最小自有 schema 走 §8.3（此评审门槛写进 module-contract 增补）。
 
 ## 9. SSE 多副本 fan-out
 
@@ -296,9 +363,13 @@ module-contract 增补）。
 
 - **搬机制**：`ScheduledJobDefinition`、`SchedulerRegistry` 动态 CronJob 注册、`runSafely`
   包装、启动时从配置读 cron/enabled 的引导流程——从 `modules/notification/api/src/scheduler/`
-  上移（保留 git história，逻辑等价搬运 + 泛化）。
-- **补互斥**：每次 tick 执行前 `pg_try_advisory_lock(hashtext('job:<jobKey>'))`，拿不到 =
-  另一副本在跑 ⇒ 本 tick 跳过；跑完释放。锁连接用宿主 DB 池。
+  上移（保留 git 历史，逻辑等价搬运 + 泛化）。
+- **补互斥（用事务级锁，规避 session 锁的连接池陷阱）**：每次 tick 把 job 执行包在一个
+  事务里，事务内 `SELECT pg_try_advisory_xact_lock(hashtext('job:<jobKey>'))`——**事务级锁**
+  随提交/回滚自动释放、锁与事务天然钉在同一连接，免疫 §7 所述 session 锁走池的失效问题
+  （relay 有 LISTEN 专线可用 session 锁，调度没有专线，用 xact 锁最稳）。拿不到 = 另一副本
+  在跑 ⇒ 本 tick 跳过。约束：**锁的生命周期必须 ≥ job 运行期且在同一连接**——job 自有
+  事务边界时锁事务作外层包裹，实现姿态归 M12-3 任务包。
 - **配置归宿主**：包定义 `ScheduleConfigPort`（读 cron/enabled/params）；notification 的
   `schedule_config` 表与双 repository 原地不动、实现该 port。新宿主（M13 对账 job）自带
   自己 schema 的配置表或静态配置实现同一 port。
@@ -320,7 +391,8 @@ module-contract 增补）。
   与 generic webhook（任意内网 HTTP 端点，如值班机器人）；两者都配则双发；都未配则降级
   `logger.error` 并在启动时 warn（部署检查清单收录"生产必须至少配一个"）。
 - 触发点（M12-4 接线）：DLQ 新增死信、outbox 最老未发布行龄超阈值（缺省 5 分钟）、relay
-  连续 XADD 失败超阈值、调度 job 连续失败超阈值。告警去重（同 key 冷却 15 分钟）。
+  连续 XADD 失败超阈值、stream 长度超护栏 10%（§8.1 修剪丢失的前哨）、最老 pending 龄超
+  阈值、调度 job 连续失败超阈值。告警去重（同 key 冷却 15 分钟）。
 
 ### 11.2 指标（Prometheus）
 
@@ -333,7 +405,8 @@ scrape**（端口不对外发布，部署基线写明）。最小指标集：
 | `relay_publish_total{module,result}` | XADD 成败计数 |
 | `event_consume_total{consumer,type,result}` / `event_retry_total{consumer}` | 消费面 |
 | `event_dlq_depth{consumer}` | 死信深度 |
-| `sse_connections` | 现 `getConnectionCount` 聚合暴露 |
+| `event_stream_length{module}` / `event_oldest_pending_age_seconds{consumer}` | 修剪丢失前哨（§8.1） |
+| `sse_connections` | registry 新增全量计数方法暴露（现仅有按用户的 `getConnectionCount`） |
 | `scheduled_job_runs_total{job,result}` / `scheduled_job_lock_skips_total{job}` | 调度面 |
 
 ### 11.3 部署基线（compose `observability` profile）
@@ -358,6 +431,8 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
      此规约，PG gate 一并回改核查。
   2. 每类 gate 在 testing-strategy 登记：env 变量、覆盖的测试文件模式、CI 哪个 step 真跑。
   3. 三 Vitest 配置按后缀收集的既有 gotcha 收录成文（根 CLAUDE.md 现状成文化）。
+  4. 登记后续义务条款：**M13/M15 RFC 须各自登记其外部依赖（OpenIM / k8s）的测试替身与
+     容器化策略**（spec §6.8 钦定，防止两个 RFC 抢跑漏项）。
 - `pnpm verify:full` 扩为同时拉起 Redis 的说明（docker run 一行命令进 runbook）。
 - **内存驱动语义差异**（§6.2）收录：回滚不投递、投递时序等断言必须在 PG+Redis 门内测。
 
@@ -404,12 +479,18 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
 ### ② Redis 持久化语义 —— **建议：AOF everysec + RDB，残余窗口显式接受 + 域级对账兜底**
 
 - 配置：`appendonly yes` + `appendfsync everysec` + 默认 RDB 快照；compose 基线落数据卷。
-- **at-least-once 的诚实论证**：outbox 兜底覆盖"relay 标记前"的一切丢失；但 relay 标记
-  `published_at` 之后、消费者 XACK 之前，事件唯一副本在 Redis——everysec 下 Redis 崩溃
-  最多丢约 1s 内的这类在途事件。**这 1s 窗口是本方案的残余风险，显式接受**，理由：
-  ① 规模小、窗口内在途事件预期个位数；② 关键链路自有域级对账兜底（M13 用户/部门同步
-  夜间对账、M16 起同类 job），漂移可修；③ 消除窗口的代价（同步 fsync=always 的吞吐损失，
-  或消费者确认才标记 outbox 的架构复杂化）不成比例。
+- **残余丢失路径清单（诚实版）**——outbox 兜底覆盖"relay 标记前"的一切丢失；标记
+  `published_at` 之后、消费者 XACK 之前，事件唯一副本在 Redis，此区间有两条路径：
+  1. **Redis 崩溃**：everysec 下最多丢约 1s 内的在途事件；
+  2. **stream 修剪**（§8.1）：消费积压触顶护栏时最老未消费/pending 条目被静默删除——
+     不需要 Redis 崩溃，且有前哨告警（长度超护栏 10%）在丢失前给人工介入窗口。
+- **兜底分层（不偷换）**：通知类链路（现有两条：presence/profile → 通知创建）**没有对账、
+  丢失即接受**——通知本质是可自愈的弱语义，用户下次打开通知中心即得全量；同步类链路
+  （M13 用户/部门 → OpenIM、M16 起同类）**必须自带夜间对账**修漂移。不得把"未来同步链路
+  的对账"当成"现有通知链路"的兜底。
+- **显式接受两条残余路径**，理由：① 规模小、窗口内在途事件预期个位数，且路径 2 有前哨
+  告警；② 消除窗口的代价（`fsync=always` 的吞吐损失，或消费者确认才标记 outbox 的架构
+  复杂化）不成比例；③ 零容忍链路当前不存在，出现时再议（§18）。
 - 重启恢复：AOF 重放 ⇒ pending 消息仍在 group ⇒ reclaimer 接手，无需人工。
 - **备份矩阵定位（deployment §6 扩列）**：Redis **不是事实源**（事实源=PG outbox 与业务表），
   不做异地备份；数据卷随机器快照即可，灾难恢复 = 接受 stream 内容丢失 + 域级对账修复。
@@ -424,8 +505,8 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
 
 | 切片 | 内容 | 退出标准 |
 | --- | --- | --- |
-| M12-1 outbox 写入侧 | 表工厂 + `publishInTx` + 路由注册 + 事件分级契约 + platform 表改造迁移 + presence/forms/files 建表迁移 + 四发布方接线（含 §5.4 行为反转）；投递仍内存直投（过渡态：outbox 记账 + 内存投递并行） | 单元 + PG 集成：回滚不落 outbox 行；四发布方业务写与事件行同事务 |
-| M12-2 传输与消费 | `RedisStreamEventBus` + relay + 消费三件套 + 幂等表 + 两个既有订阅器迁移（删自吞 try/catch）+ 无 schema 宿主约定成文 | 多进程 e2e 四断言（§12）全绿 |
+| M12-1 outbox 写入侧 | 表工厂 + `publishInTx` + 两档路由注册 + 事件分级契约（含聚合对照表接线）+ platform 表改造迁移 + presence/forms/files 建表迁移 + 四发布方接线（含 §5.4 两处行为反转）；投递仍内存直投（过渡态：outbox 记账 + 内存投递并行） | 单元 + PG 集成：回滚不落 outbox 行；四发布方业务写与事件行同事务；critical 事件误用 `publish()` 抛错的守护断言 |
+| M12-2 传输与消费 | `RedisStreamEventBus` + relay + 消费三件套 + 幂等表 + 两个既有订阅器迁移（删自吞 try/catch）+ 无 schema 宿主约定成文 + **cutover 迁移**（把切换时点前的既存 outbox 行 `SET published_at = now()` 设水位——M12-1 过渡态已内存投递过的历史行不得在开启 redis 驱动时全量重放成重复通知） | 多进程 e2e 四断言（§12）全绿；cutover 后无历史事件重放 |
 | M12-3 收口三件 | SSE `SseSignalBus` 双驱动 + realtime-gateway 处置执行（按拍板）+ `@work/scheduling` 抽壳 + notification 调度迁移 + outbox/幂等清理 job | SSE 双副本 fanout e2e；调度双副本互斥 e2e；scheduler 既有测试全绿 |
 | M12-4 可观测性 | `@work/alerting` + 告警触发点 + `/metrics` + compose observability profile + redis 持久化配置（按拍板）+ `docs/runbooks/event-pipeline-ops.md`（死信重放、积压排障、Redis 恢复） | 故障注入演练：杀 Redis / 塞死信，告警在带外通道收到 |
 | M12-5 CI 与交付验证 | CI 矩阵扩展 + `docs/testing-strategy.md` + PG gate 防假绿回改 + 文档落点收口（§17）+ 全量门禁 | `pnpm verify` + PG/Redis/多进程门 CI 真跑绿（防假绿自证：故意断依赖须红） |
@@ -437,10 +518,10 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
 
 | 文档 | 变更 |
 | --- | --- |
-| `docs/adr/0007-*.md`（新） | 事件传输选型决策记录（D1–D3），随 M12-1 入库 |
-| `docs/module-contract.md` | §4 增补：事件命名规则成文、可靠性分级判据、payload 最小化、消费三件套规范、无 schema 宿主约定、advisory lock key 约定 |
+| `docs/adr/0007-*.md`（新） | 事件传输选型决策记录（D1–D3 + §15①② 两个收口拍板结果——ADR-0006 钦定子 ADR 含此两决策位），随 M12-1 入库 |
+| `docs/module-contract.md` | §4 增补：沿用既有 `<module>.<aggregate>.<verb>` 命名规则并登记 `profile.updated` 历史豁免、可靠性分级判据、乱序消费明文、payload 最小化、消费三件套规范、无 schema 宿主约定（§8.6 单一协议）、advisory lock key 约定 |
 | `docs/architecture.md` | 事件与数据流章：outbox/relay/Streams 拓扑、SSE fanout、realtime-gateway 处置结果 |
-| `docs/deployment.md` | Redis 持久化与 requirepass、observability profile、§6 备份矩阵扩列（Redis 定位）、环境变量表（§14） |
+| `docs/deployment.md` | Redis 持久化与 requirepass、**给 gateway-api / im-adapter 注入 `REDIS_URL`**（现 compose 未注入，`docker-compose.prod.yml:63-76`）、observability profile、§6 备份矩阵扩列（Redis 定位）、环境变量表（§14） |
 | `docs/testing-strategy.md`（新） | §12 全部内容；doc-index §7 欠账销账 |
 | `docs/runbooks/event-pipeline-ops.md`（新） | 死信重放、积压排障、Redis 故障恢复 |
 | `docs/doc-index.md` / `docs/foundation-progress.md` | 收录新文档；M12 进度行 |
@@ -452,7 +533,7 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
 | 发布方事务改造（§5.4）触碰四个模块的 repository 层，回归面大 | M12-1 单切片集中做 + 既有测试全绿门禁；内存 repository 等价语义保证单元测试不改断言 |
 | 消费管道（EventConsumer 注入 tx）设计过重，订阅方接入成本高 | M12-2 任务包先以 notification 迁移打样，API 不顺手就地修正后再成文进 module-contract |
 | Redis 单点：broker 挂 ⇒ 事件停摆 | outbox 兜底不丢；告警 + runbook 恢复；单机部署本就单点（PG 同理），不为此上哨兵 |
-| at-least-once 的 ≤1s 残余丢失窗口（§15②） | 显式接受 + 域级对账兜底；如未来出现零容忍链路，彼时再议消费者确认式 outbox |
+| at-least-once 的两条残余丢失路径（Redis 崩溃 ≤1s + stream 修剪，§15②） | 显式接受 + 分层兜底（通知类丢失即接受、同步类域级对账）+ 修剪前哨告警；如未来出现零容忍链路，彼时再议消费者确认式 outbox |
 | 重试乱序破坏隐含顺序假设 | §8.4 契约明文 + 消费者幂等以库内状态为准；现有两个订阅器无顺序依赖（通知创建互相独立） |
 | 观测栈加重单机资源 | Prometheus+Grafana 约 +500MB 级，进容量规划；profile 可选、内网关闭不影响业务面 |
 | 与 M9 并行推进的合并冲突（presence 发布点同文件） | M12-1 排在 M9-2 合并后开工；冲突面仅 `presence-status.service.ts` 发布调用两处 |
@@ -463,7 +544,7 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
   任务包，RFC 不锁死。
 - forms/files 事件当前无订阅者，critical 定级带来 outbox 写放大（每次表单提交多一行）——
   可忽略量级，但若 M17 数据引擎高频写入场景出现，届时评估按事件类型旁路。
-- `notification.created` 是否启用为 SSE 信号载体（替代 §9 专用 channel）：本期不合并，
-  避免把 notify-only 信号混进领域事件语义；M13 通知 IM 投递落地时重看。
+- `notification.created` 是否**升格为领域事件**（其常量今日已是 SSE 信号的 wire 类型，
+  §3）：本期不动，避免把 notify-only 信号混进领域事件语义；M13 通知 IM 投递落地时重看。
 - 多进程 e2e 用"双应用上下文"近似真进程：若发现 Nest 全局单例（如 ScheduleModule）跨上下文
   串扰，升级为 child_process 真隔离（M12-5 任务包备选路径）。
