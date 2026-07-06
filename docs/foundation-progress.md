@@ -27,7 +27,7 @@
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | In Progress | M9-0 RFC 已 Accepted（2026-07-01）；M9-1 状态字典后端已合并（PR #31，security-reviewer 已通过）；下一步 M9-2                                                                  |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                                                                                                    |
 | M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending     | 简单串签流 + 节点通知 + 联动在位                                                                                                                                              |
-| vNext（M12–M19）            | 事件基建 → IM → Agent 基座 → 任务/日历/会议室 → 多维表格 → 自动化+Agent v2（双轨序列）                  | Planned     | 2026-07 由 ADR-0006 重定义并激活规划；周报/桌面端/内网交付强化进 M20+ 预留桶                                                                                                  |
+| vNext（M12–M19）            | 事件基建 → IM → Agent 基座 → 任务/日历/会议室 → 多维表格 → 自动化+Agent v2（双轨序列）                  | Pending     | 2026-07 由 ADR-0006 重定义并激活规划；周报/桌面端/内网交付强化进 M20+ 预留桶                                                                                                  |
 
 > M5 起为 2026-05 重规划后的里程碑，详见 `docs/adr/0005-product-replan-roadmap.md` 与
 > `docs/product-requirements.md`。老 M5–M8（审批优先/日报/通知-实时-IM/客户端交付）已作废。
