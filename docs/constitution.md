@@ -8,11 +8,18 @@
 - 在位管理：出差、外出调研、休假等状态登记，并提供统一看板。
 - 日/周工作汇报：员工填写、逐级汇总、领导查看团队整体情况。
 
-长期预留 IM、多维表格、日历与事项能力，但当前不实现。
+长期预留 IM、多维表格、日历与事项能力；其落地规划已由 `docs/adr/0006-vnext-roadmap.md`
+激活（vNext M12–M19），在对应里程碑启动前仍不实现。
 
-系统必须支持企业内网无公网环境部署。身份源默认使用企业内部账号，不依赖飞书、企业微信、LDAP、互联网 OAuth 或外部 OIDC。
+系统必须支持企业内网无公网环境部署；该前提为缺省与底线。例外经 ADR 显式修正：vNext M15
+起云 LLM API 为可选通道（显式开启项，air-gapped 部署降级为仅内网自部署 LLM 通道，见
+`docs/adr/0006-vnext-roadmap.md`）。身份源默认使用企业内部账号，不依赖飞书、企业微信、
+LDAP、互联网 OAuth 或外部 OIDC。
 
-系统需要同时提供 Web UI 与 C/S 客户端。Windows 7 使用 Web UI 兼容模式，不提供原生 C/S 客户端；原生 C/S 客户端首期面向 Windows 10+/Windows 11 x64，Linux 后续优先考虑 Ubuntu x64。
+系统需要同时提供 Web UI 与 C/S 客户端（桌面端交付时点见
+`docs/adr/0006-vnext-roadmap.md` M20+ 预留桶，vNext M12–M19 期间不排期）。Windows 7 使用
+Web UI 兼容模式，不提供原生 C/S 客户端；原生 C/S 客户端首期面向 Windows 10+/Windows 11
+x64，Linux 后续优先考虑 Ubuntu x64。
 
 ## 2. 架构路线
 
