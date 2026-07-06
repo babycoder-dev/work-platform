@@ -53,7 +53,9 @@ M0–M11 覆盖"以人为中心的组织管理"（人员/在位/日报/审批）
 2. LLM 双通道——云 API（Claude）与内网自部署（OpenAI 兼容端点）皆可切换；
 3. 开源接入姿态按组件混合决策；
 4. 产能维持"负责人 + AI 编程代理"，不设硬期限，保持 RFC→切片→独立评审流程；
-5. 大组件顺序 IM 优先。
+5. 大组件顺序 IM 优先；
+6. Agent 形态 = **数字员工**（2026-07-06 补拍板）：常驻实例、App 内注册/启用、k8s 全生命
+   周期管理；平台能力以 CLI/Skills 形式喂给 Agent（对标飞书官方 lark-cli）。
 
 ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 IM、内网交付强化"）只是清单，
 未回答顺序、依赖与接入姿态；本 ADR 给出可执行的里程碑序列并取代该段。
@@ -70,11 +72,11 @@ ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 I
 | M12 可靠事件与多进程基建 | 🔧 | 事务性 outbox + 按模块实例化的中继 + Redis Streams 驱动 + 消费幂等/重试/死信规范 + SSE 多副本 fan-out + 调度基建抽壳 `@work/scheduling` |
 | M13 IM 基座 | 📦 | OpenIM Server 独立部署基线 + im-adapter 实装（账号 provisioning / 部门群同步 / token 换发与撤销传播 / webhook 回流 / agent bot 消息回调专线） |
 | M14 IM 体验 | 📦 | Shell 内嵌聊天 UI（OpenIM JS SDK 以 npm 依赖引用）+ 站内通知可选 IM 投递 |
-| M15 Agent 基座 v1 | 🔧+📦 | pi harness（pi-ai + pi-agent-core）+ k8s 沙箱运行时（OpenClaw 拓扑、SandboxDriver 抽象）+ 平台 MCP 工具面规范（manifest `agentTools`）+ Agent 身份/委托令牌/审计双主体 + 首个内置助手挂 IM |
+| M15 Agent 基座 v1 | 🔧+📦 | 数字员工实例模型（`agent.*` 状态机）+ Agent Sandbox CRD 编排（k8s 全生命周期、空闲缩零、SandboxDriver 三档）+ pi harness（pi-ai + pi-agent-core）+ 能力供给三层（manifest `agentTools` 单源 → MCP / `work-cli` / AgentSkills 三投影）+ Agent 双模式身份（委托 + 自主任职）/审计 + 首个数字员工（内置助手）挂 IM |
 | M16 任务+日历+会议室 | 📦 | 自建 `modules/calendar` + `modules/tasks`；RRULE 真源 + occurrence 物化；会议室=资源日历 + 排他约束冲突检测 |
 | M17 数据引擎 | 🔧 | `modules/bitable` 动态物理表内核（Teable 路线）；员工档案槽位迁移跑通（既有 UI 无感） |
 | M18 多维表格 UI | 📦 | 网格（canvas+虚拟滚动）/Kanban/表单视图；forms 填报页切换新引擎，迁毕 forms 退役 |
-| M19 自动化 + Agent v2 | 📦 | when-trigger-then-action 引擎（归属 bitable 子域）+ 组织级可配置 Agent + 治理面板 |
+| M19 自动化 + Agent v2 | 📦 | when-trigger-then-action 引擎（归属 bitable 子域）+ 数字员工自助注册/启用 UI 与自主任职全量开放 + Skills 覆盖面扩展 + 治理面板 |
 | M20+ 持续项 | 🔧/📦 预留桶 | gateway 真拆分、桌面 Qt、多层部门、周报、Excel 导入、内网交付强化【均预留：按业务触发插入，不阻塞主线】 |
 
 两条贯穿原则：① 无用户可见交付的纯 🔧 里程碑仅 M12、M17，其获得感风险已显式接受；
@@ -98,9 +100,14 @@ ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 I
 - **IM**：OpenIM userID = 平台 user id、零独立账号；token 换发短 TTL + 平台禁用/登出事件
   驱动 admin API 强制下线（撤销传播）；聊天内容不回流平台库，agent bot 回调专线是唯一
   白名单例外（非领域事件、不走 outbox/总线）。
-- **Agent**：运行时 = pi harness + 沙箱 Pod（k3s 起步，egress 白名单三端点）；平台侧不变量 =
-  MCP 工具面继承既有权限/审计、委托令牌（用户权限 ∩ 工具白名单、platform-api 签发、级联
-  吊销）、审计双主体、**写操作确认平台锚定**（IM 卡片只载深链；IM 内联确认标预留）。
+- **Agent = 数字员工**：常驻实例为平台一等实体（`agent.*` 状态机 registered→provisioning→
+  running/idle→upgrading→suspended→archived）；运行时编排 = **Kubernetes Agent Sandbox
+  CRD**（持久工作区、空闲缩零、快速恢复；SandboxDriver 三档：CRD/裸 Pod/Docker；k3s 起步，
+  egress 白名单三端点）；**双模式身份**——委托模式（用户权限 ∩ 工具白名单、platform-api
+  签发、级联吊销、审计双主体）+ 自主任职模式（平台账号新主体类型 `kind=agent`，挂部门配
+  角色，复用既有 RBAC/数据范围，M15 建模型 M19 全量开放）；**能力供给单源三投影**——
+  manifest `agentTools` 编译出 MCP server / `work-cli` / AgentSkills 包（对标 lark-cli）；
+  **写操作确认平台锚定**（IM 卡片只载深链；IM 内联确认标预留）。
 - **bitable**：存储模型定调**动态物理表**（翻案须新 ADR）；运行时 DDL 经 DDL 管理层单一
   入口、运行账号 DDL 权限限定 `bitable.*`（security-baseline §8 增量豁免边界）。
 - **任务/日历**：自建；RRULE 为真源、occurrence 物化为冲突检测前提；日程可见性引入参与者
@@ -111,8 +118,9 @@ ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 I
 1. 事件传输选型（M12）；
 2. IM 集成边界（M13）= **对 ADR-0001 的显式修正**（Web SDK 依赖引用 + agent bot 通道 +
    token 换发/撤销传播 + AGENTS.md §7 / constitution §4 措辞例外）；
-3. Agent 身份与工具面（M15）= **对 ADR-0004 的显式扩展**（委托令牌第二形态 + introspection
-   双主体 + 确认信任锚）；
+3. Agent 身份、工具面与运行时编排（M15）= **对 ADR-0004 的显式扩展**（双模式身份：委托
+   令牌 + `kind=agent` 平台账号新主体、introspection 双主体、确认信任锚、Agent Sandbox
+   CRD 编排选型）；
 4. bitable 存储模型（M17）。
 
 ## 对既有文档的修正
@@ -134,8 +142,10 @@ ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 I
 
 **代价与风险**（登记于 spec §14，摘要）：部署基线两次扩展（OpenIM 全家桶、k3s）；业务
 数据出内网（云通道，显式开启）；OpenIM token 撤销窗口；pi 治理漂移（已移交 earendil-works
-PBC，版本锁定 + 许可审查 + MIT fork 逃生舱）；bitable 运行时 DDL 突破生产禁改 schema 基线
-（豁免边界收口）；Teable 搬运缝合成本不确定（spike 先行）。
+PBC，版本锁定 + 许可审查 + MIT fork 逃生舱）；Agent Sandbox CRD 项目年轻（SandboxDriver
+三档保底）；数字员工自主模式的权限失控面（复用 RBAC + 角色最小化 + 敏感工具 HITL + 全量
+审计 + 治理面板）；bitable 运行时 DDL 突破生产禁改 schema 基线（豁免边界收口）；Teable
+搬运缝合成本不确定（spike 先行）。
 
 ## 备选方案（已否）
 
@@ -301,15 +311,21 @@ SDK 宿主）、会话/单聊/群聊/未读、站内通知可选 IM 投递（点
 
 #### M15：Agent 基座 v1（🔧+📦）
 
-目标：Agent 运行时与平台工具面就位，首个内置助手可在 IM 里帮员工干活。
+目标：**数字员工**模型与运行时就位——常驻实例、k8s 全生命周期、平台能力三层供给；首个
+数字员工（内置助手）在 IM 里帮员工干活。
 
-交付：pi harness（pi-ai + pi-agent-core，版本锁定）、`apps/agent-gateway` + SandboxDriver
-（k8s 主线 / Docker 降级）+ 沙箱 egress 白名单、平台 MCP 工具面规范（manifest `agentTools`，
-gateway-api 聚合，权限/审计继承）、Agent 身份模型（委托令牌 + 审计双主体 + 平台锚定写
-确认）、`agent.*` schema、首个内置助手（查在位/查待办/代登记/代发审批，写操作带确认）。
+交付：数字员工实例模型（`agent.*` schema：定义/实例/状态机 registered→provisioning→
+running/idle→upgrading→suspended→archived）、**Agent Sandbox CRD 编排**（持久工作区 +
+空闲缩零 + 快速恢复；`apps/agent-gateway` = 生命周期管理器 + 会话路由；SandboxDriver
+三档：CRD / 裸 Pod / Docker）+ 沙箱 egress 白名单、pi harness（pi-ai + pi-agent-core，
+版本锁定）、**能力供给单源三投影**（manifest `agentTools` → 平台 MCP server + `work-cli`
+预装沙箱镜像 + AgentSkills 包，权限/审计继承既有管道）、Agent 双模式身份（委托令牌 +
+审计双主体 + 平台锚定写确认；自主任职 `kind=agent` 账号只建模型）、首个数字员工（查在位/
+查待办/代登记/代发审批，写操作带确认，全走委托模式）。
 
-退出标准：内置助手在 IM 中完成一次带确认的写操作，全链路审计含双主体；沙箱 Pod 无法触达
-白名单外网络。
+退出标准：内置助手在 IM 中完成一次带确认的写操作，全链路审计含双主体；实例空闲缩零后被
+@ 可秒级唤醒续聊（记忆在卷）；沙箱 Pod 无法触达白名单外网络；`work-cli` 在沙箱内以委托
+令牌完成一次平台查询。
 
 #### M16：任务 + 日历 + 会议室（📦）
 
@@ -342,13 +358,15 @@ forms 填报页全部切换新引擎（日报/在位登记迁移，迁毕 forms 
 
 #### M19：自动化 + Agent v2（📦）
 
-目标：表单、通知、审批在自动化收敛；Agent 升级为组织可配置的自动化工人。
+目标：表单、通知、审批在自动化收敛；数字员工全量开放为"组织按需配置的自动化工人"。
 
 交付：when-trigger-then-action 引擎（bitable 子域；触发器=领域事件/记录变更/定时，动作=
-通知/IM/创建记录/发起审批/调用 Agent）、组织级可配置 Agent（指令 + 工具白名单 + 触发方式）、
-治理面板（用量/审计/配额）。
+通知/IM/创建记录/发起审批/调用 Agent）、数字员工自助注册/启用/停用 UI（指令 + 工具白名单 +
+触发方式 IM @/定时/自动化动作）、**自主任职模式全量开放**（挂部门/配角色/接任务/出现在 IM
+联系人，按自身角色权限行事）、Skills 覆盖面扩展到全模块、治理面板（实例清单/用量/审计/配额）。
 
-退出标准：一条"记录变更 → 通知 + 发起审批"自动化与一个自定义 Agent 在真实场景跑通。
+退出标准：一条"记录变更 → 通知 + 发起审批"自动化跑通；一名用户自助注册的数字员工以自主
+模式完成一项定时任务，审计 `actor=agent` 可查。
 
 #### M20+：持续项（🔧/📦 预留桶）
 
@@ -412,14 +430,18 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - **边界**：聊天内容不进平台审计/搜索（显式决策，内容级审计留预留接口位）；不做已读回执/
   音视频等高级能力的本期承诺。基座 OpenIM 独立部署、可替换。
 
-### 5.2 AI Agent【vNext 已规划：M15、M19】
+### 5.2 AI Agent（数字员工）【vNext 已规划：M15、M19】
 
-- 第一阶段（M15）：平台内置助手挂在 IM 里，员工用自然语言查在位/查待办与日报/代登记状态/
-  代发审批；一切变更类操作需本人确认后执行。
-- 第二阶段（M19）：组织/用户可**按需配置** Agent（自定义指令、工具白名单、触发方式：IM @/
-  定时/自动化动作），自动化日常重复工作；管理侧有用量/审计/配额治理面板。
-- **边界**：Agent 权限永不超过发起用户本人（委托令牌）；所有 Agent 操作可审计、可区分
-  "谁的 Agent 替谁做的"；LLM 双通道（云 API 可选开启、内网自部署为缺省）。
+- **产品定位：数字员工**——常驻的智能工作伙伴（非一次性对话工具）：有名字、有记忆、可被
+  @、可接任务，在 App 内注册/启用/停用，后台自动管理其运行环境的全生命周期。
+- 第一阶段（M15）：平台内置数字员工挂在 IM 里，员工用自然语言查在位/查待办与日报/代登记
+  状态/代发审批；一切变更类操作需本人确认后执行。
+- 第二阶段（M19）：组织/用户可**按需注册** 数字员工（自定义指令、工具白名单、触发方式：
+  IM @/定时/自动化动作），可给它挂部门、配角色、指派例行工作；管理侧有实例清单/用量/审计/
+  配额治理面板。
+- **边界**：替人办事时权限永不超过发起用户本人（委托模式）；以自己身份任职时按自身角色
+  权限行事、与人类员工同一套权限体系（自主模式）；所有操作可审计、可区分"谁的 Agent、
+  替谁做的/自己做的"；LLM 双通道（云 API 可选开启、内网自部署为缺省）。
 
 ### 5.3 任务管理 + 日历 + 会议室【vNext 已规划：M16】
 
@@ -572,7 +594,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 | spike | 服务的里程碑 | 任务包 | 报告 |
 | --- | --- | --- | --- |
 | OpenIM 部署裁剪评估 | M13 | `docs/tasks/vnext-spike-openim-deployment.md` | `openim-deployment-evaluation.md`（待产出） |
-| pi / OpenClaw 运行时评估 | M15 | 待立项 | `pi-openclaw-runtime-evaluation.md`（待产出） |
+| Agent 运行时评估（pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli 的 CLI/Skills 形态解剖） | M15 | 待立项 | `agent-runtime-evaluation.md`（待产出） |
 | Teable 解剖（DDL 层/公式/视图/协同） | M17-M18 | 待立项 | `teable-anatomy.md`（待产出） |
 ```
 

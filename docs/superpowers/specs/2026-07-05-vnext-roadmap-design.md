@@ -22,6 +22,12 @@
 > 内联确认标预留）、**M-N3** "业务模块不得直接调用 OpenIM"铁律例外未登记（modules/im/web 为
 > 唯一获准 SDK 宿主）、**M-N4** 新数据类型触发 baseline §5 落点缺失；Minor 含 constitution
 > 落点、中继实例化粒度、委托令牌签发方、消费者状态存储、files 引用迁移、自动化引擎归属等。
+>
+> 增补（产品负责人拍板，2026-07-06）：**Agent 定位升级为"数字员工"**——常驻实例（非会话
+> 工具）、App 内注册/启用、k8s 全生命周期管理（采用 Kubernetes Agent Sandbox CRD 路线）、
+> 双模式身份（委托代办 + 自主任职）；平台能力按**单源三投影**供给 Agent（manifest
+> `agentTools` → MCP + `work-cli` + AgentSkills，对标飞书官方 lark-cli）。详见 §2 表末行、
+> §3.3、§8、§12、§13、§14 对应修订。
 
 ## 1. 愿景与范围
 
@@ -43,6 +49,7 @@
 | 开源接入姿态 | **混合：按组件定** | 见 §3.5 姿态矩阵 |
 | 产能节奏 | **继续"负责人 + AI 编程代理"模式，不设硬期限** | 里程碑按依赖排序即可；保持 RFC→切片→独立评审重流程 |
 | 大组件顺序 | **IM 优先**（M11 之后） | IM 先行还带来 Agent 的对话入口 |
+| Agent 形态（2026-07-06 补拍板） | **数字员工**：常驻实例 + App 内注册启用 + k8s 全生命周期管理；平台能力以 CLI/Skills 形式喂给 Agent（对标 lark-cli） | Agent 实例模型与运行时编排见 §8；能力供给三层见 §8.5；身份双模式见 §8.4 |
 
 ## 3. 开源调研结论（2026-07 实况）
 
@@ -75,7 +82,16 @@
   仓库已于 2026-04 移交 `earendil-works/pi`（公益公司持有，核心仍 MIT）——依赖风险从
   "个人项目断更"转为"商业化/许可漂移"，缓解见 §14。
 - **OpenClaw**：自托管助手网关模式标杆（单网关桥接多消息渠道 ↔ 沙箱 agent 会话），底层即 pi
-  stack。**采用其拓扑**。
+  stack。**采用其拓扑**；其 sandbox 默认即 **per-agent 作用域**、会话状态持久化磁盘——
+  佐证"常驻实例 + 按需容器"的数字员工运行模型。
+- **Kubernetes Agent Sandbox**（SIG Apps，2026-03 发布）：专为 Agent 设计的 **Sandbox CRD**
+  ——有状态持久环境、内建生命周期（shutdownTime/shutdownPolicy）、**空闲缩零 + 快速恢复**、
+  可选 gVisor/Kata 强隔离运行时，标准 controller 模式。**选为 Agent 实例编排主线**（§8.3）。
+- **kagent**（CNCF）：Agent 即 CRD 资源、kubectl/GitOps 管生命周期——声明式姿态作参考，
+  不直接引入（其框架与 pi harness 定位重叠）。
+- **lark-cli**（飞书官方开源，2026）：11 业务域 / 200+ 命令 / **19 个 AgentSkills**，官方
+  定位 CLI 与 MCP 互补（CLI 轻量无常驻进程、MCP 管实时订阅）。**作为平台能力供给 Agent 的
+  形态基准**（§8.5 `work-cli` + Skills）。
 - **hermes-agent**（Nous Research，Python）：多渠道 IM 桥接（Telegram/Discord/Slack/WhatsApp/
   Signal 等已核实；飞书/企微渠道待 spike 核实）+ 技能自习得 + 持久记忆。完整产品难嫁接我们
   权限模型，**作 v2 借鉴**（技能/记忆）。
@@ -121,11 +137,11 @@ iCalendar RRULE 标准建模、CalDAV 服务端留预留。
 | M12 可靠事件与多进程基建 | 🔧 | 事务性 outbox + 中继 + Redis Streams 驱动 + 消费三件套规范 + SSE fan-out + 调度基建抽壳与多副本互斥 |
 | M13 IM 基座 | 📦 | OpenIM 部署基线 + 账号 provisioning/部门群同步/token 换发与撤销传播/webhook 回流 + **agent bot 消息通道** |
 | M14 IM 体验 | 📦 | Shell 内嵌聊天 UI（OpenIM JS SDK 依赖引用）+ 通知 IM 投递（点亮 M7 预留接口位） |
-| M15 Agent 基座 v1 | 🔧+📦 | pi harness + 沙箱（k8s）运行时 + 平台 MCP 工具面规范 + Agent 身份/委托令牌/审计 + 首个内置助手挂 IM |
+| M15 Agent 基座 v1 | 🔧+📦 | 数字员工实例模型 + Agent Sandbox CRD 编排（k8s 全生命周期）+ pi harness + 能力供给三层（MCP/`work-cli`/Skills 单源三投影）+ Agent 双模式身份/审计 + 首个数字员工（内置助手）挂 IM |
 | M16 任务+日历+会议室 | 📦 | 自建 `modules/calendar` + `modules/tasks`，RRULE 建模 + occurrence 物化，会议室=资源日历 |
 | M17 数据引擎 | 🔧 | `modules/bitable` 动态物理表内核（Teable 路线），员工档案槽位迁移跑通（既有 UI 无感） |
 | M18 多维表格 UI | 📦 | 网格（canvas+虚拟滚动）/Kanban/表单视图；forms 填报页切换到新引擎，迁毕 forms 退役 |
-| M19 自动化 + Agent v2 | 📦 | when-trigger-then-action 引擎 + 组织级可配置 Agent + 治理面板 |
+| M19 自动化 + Agent v2 | 📦 | when-trigger-then-action 引擎 + 数字员工自助注册/启用 UI 与自主任职模式全量开放 + Skills 覆盖面扩展 + 治理面板 |
 | M20+ 持续项 | 🔧/📦（预留桶） | gateway 真拆分、桌面 Qt、多层部门【均预留：按业务触发按需插入，不阻塞主线】 |
 
 ## 6. M12 可靠事件与多进程基建
@@ -202,51 +218,82 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
 基线 + 备份 runbook 是 M13 一等公民交付物；M13 前 spike 评估组件裁剪空间。
 交付：子 ADR（IM 集成边界 + 对 ADR-0001 的修正，编号随 ADR-0006 后顺排）+ M13/M14 两个 RFC。
 
-## 8. M15 Agent 基座 v1（pi harness + 沙箱 + IM 入口）
+## 8. M15 Agent 基座 v1（数字员工模型：pi harness + Agent Sandbox + IM 入口）
 
-自研面收窄为"平台工具面 + 身份治理 + 沙箱编排"，其余用现成：
+**定位拍板（2026-07-06）：Agent = 数字员工**——常驻实例、有身份、有记忆、可被注册/启用/
+停用，不是"聊完即毁"的会话工具。自研面收窄为"实例生命周期 + 平台能力供给面 + 身份治理"，
+其余用现成：
 
 1. **LLM 层 = pi-ai**（放弃自研 `@work/llm-provider`），外包一层部署配置（模型清单/密钥/
    内网 OpenAI 兼容端点）。双通道语义：**内网自部署通道为缺省**；云通道（Claude API）为
    显式开启项，开启即接受业务上下文出内网（§2 前提修正、§14 风险）。
 2. **Agent 循环 = pi-agent-core**；我们只写平台工具集与治理钩子。
-3. **运行时拓扑 = OpenClaw 模式落 k8s**：
-   - `apps/agent-gateway`：消费 agent bot 消息（§7.5 回调直连专线，接管 M13 的 echo 探针
-     位；不经 outbox/总线），管理会话生命周期，为每会话调度**沙箱 Pod**（注入委托令牌 +
-     平台 MCP 端点 + pi 运行时），流式回复经 im-provider 桥回 IM；
-   - **`SandboxDriver` 抽象**：k8s Job/Pod 驱动为主线（内网基线推荐 k3s），Docker 驱动作
-     开发/降级——沿双实现模式；k8s 是继 OpenIM 后第二个部署基线扩展，需专门 runbook；
+3. **实例模型与运行时编排 = Agent Sandbox CRD（k8s 全生命周期）**：
+   - **Agent 是平台一等实体**：`agent.*` schema 存定义与实例（所属人/组织、指令、工具白名单、
+     触发方式、状态机 `registered → provisioning → running/idle → upgrading → suspended →
+     archived`）。M15 的内置助手就是第一个实例走同一模型；M19 开放自助注册/启用 UI。
+   - **每个启用实例对应一个 k8s Agent Sandbox（Sandbox CRD，SIG Apps）**：持久工作区
+     （pi 会话/记忆/技能落卷）、**空闲缩零 + 被唤醒秒级恢复**（用户视角"我的数字员工常驻
+     在线"，资源视角闲时不占——几百人规模单机 k3s 可养）；升级 = 换镜像重建沙箱，状态在
+     卷上故可滚动；可选 gVisor/Kata 强隔离。
+   - `apps/agent-gateway` 职责 = **Agent 生命周期管理器 + 会话路由**：管实例状态机与 Sandbox
+     CRD 编排；消费 agent bot 消息（§7.5 回调直连专线，接管 M13 echo 探针位；不经 outbox/
+     总线）并按收件 Agent 路由到其沙箱（必要时先唤醒）；流式回复经 im-provider 桥回 IM。
+   - **`SandboxDriver` 抽象三档**：Agent Sandbox CRD 主线 / 裸 Pod（CRD 项目不成熟时的
+     fallback）/ Docker（开发降级）——沿双实现模式；k8s（k3s）是继 OpenIM 后第二个部署
+     基线扩展，需专门 runbook。
    - **沙箱 egress 白名单闭环**：仅放行 ① LLM 端点（内网通道时无公网 egress；云通道开启时
-     仅 Claude API 域名）② 平台 MCP 端点 ③ **agent-gateway 控制通道**（会话指令下发与流式
-     回传，Pod 与 gateway 间的专用连接——上一版漏列，回传不闭环）。不给 DB、不给内网横向。
+     仅 Claude API 域名）② 平台 MCP/API 端点 ③ **agent-gateway 控制通道**（会话指令下发与
+     流式回传）。不给 DB、不给内网横向。
 4. **平台侧不变量（不因 harness 改变）**：
    - **MCP 工具面规范**：模块 manifest 声明 `agentTools`（工具名/描述/输入 JSON Schema/
      绑定权限点/数据范围语义），**gateway-api**（模块 manifest 的组合宿主，非 agent-gateway）
      聚合为平台 MCP server；工具 = 既有 service 薄适配器，
      授权与审计**继承** `@RequirePermissions` + scope 管道，不为 Agent 重写一套；manifest
      扩展的规范归属 `docs/module-contract.md`（§13）；
-   - **Agent 身份模型（专门 ADR，安全基线第二次大扩展）**：审计双主体
-     `actor=agent:<id>, onBehalfOf=user:<id>`（连带 `platform.audit_logs` 增列——schema
-     变更，过 doc-index §5 文档审查）；**委托令牌** = 用户权限 ∩ Agent 工具白名单、短时效、
-     永不超过用户本人；**签发与存储归 platform-api**（令牌真源只有一个）；**gateway 鉴权面
-     须认第二种令牌形态**——`PlatformAuthGuard` / introspection 现仅认用户 token 且入口为
-     `GET /auth/me` 返回 `CurrentUserDto`（ADR-0004 §2），扩展为可辨识委托令牌并解析双主体
-     （扩 DTO 或新 introspection 端点，Agent 身份 ADR 定），属 ADR-0004 的显式扩展 +
-     security-baseline §4 增量（§13）；**用户会话失效 → 其派生的委托令牌级联吊销**是硬语义；
+   - **Agent 身份模型 = 双模式（专门 ADR，安全基线第二次大扩展）**。数字员工有两种行事
+     模式，审计与令牌形态区分：
+     - **委托模式（代人办事）**：用户在 IM 里让 Agent 替自己做事。审计双主体
+       `actor=agent:<id>, onBehalfOf=user:<id>`（连带 `platform.audit_logs` 增列——schema
+       变更，过 doc-index §5 文档审查）；**委托令牌** = 用户权限 ∩ Agent 工具白名单、短
+       时效、永不超过用户本人；**用户会话失效 → 派生委托令牌级联吊销**是硬语义。
+     - **自主模式（以自己身份任职）**【M15 建模型、M19 全量开放】：数字员工作为**平台账号
+       体系的新主体类型**（`kind=agent` 的账号，可挂部门、配角色、出现在 IM 联系人里、被
+       指派任务），在定时/事件触发下以**自身角色权限**行事（审计 `actor=agent:<id>`、无
+       onBehalfOf）。权限经角色最小化授予，与人类员工同一套 RBAC/数据范围机制——复用
+       平台底盘而非另造 Agent 权限系统；敏感操作仍可按工具配置 HITL 升级为找 owner 确认。
+     - 两种令牌**签发与存储归 platform-api**（令牌真源只有一个）；**gateway 鉴权面须认新
+       令牌形态**——`PlatformAuthGuard` / introspection 现仅认用户 token 且入口为
+       `GET /auth/me` 返回 `CurrentUserDto`（ADR-0004 §2），扩展为可辨识 agent 主体并解析
+       双主体（扩 DTO 或新 introspection 端点，Agent 身份 ADR 定），属 ADR-0004 的显式
+       扩展 + security-baseline §4/§5 增量（§13）；
    - **写操作 human-in-the-loop，确认信任锚拍板 = 平台锚定**：查询类直接执行；变更类的 IM
      卡片只承载**平台深链**，用户点击后在平台侧（携平台会话）完成确认——授权动作的信任锚
      不落在 OpenIM 上（IM 回调签名只能证明"消息来自 OpenIM Server"，证明不了"用户本人
      点了确认"；OpenIM 是平台外信任域的可替换卫星，不进写授权 TCB）。**IM 内联按钮直接
      确认**【预留：需 Agent 身份 ADR 论证把 OpenIM 纳入确认 TCB 的条件后方可启用】。确认
      落审计；风险登记 §14；
-   - 治理数据归 `agent.*` schema（会话元数据/token 用量/工具调用审计）；pi 会话文件留沙箱卷。
-5. **首个内置助手**（不可配置）：查在位/查我的待办与日报/代登记状态（带确认）/代发审批
-   （带确认）。
-6. 依赖治理：pi 已由公益公司接管（§3.3），风险转为商业化/许可漂移——**版本锁定 + 逐版本
-   许可审查 + MIT fork 逃生舱**写进 RFC；agent-gateway 不深耦合 pi 内部 API。
+   - 治理数据归 `agent.*` schema（实例状态/会话元数据/token 用量/工具调用审计）；pi 会话
+     文件与记忆留沙箱持久卷。
+5. **平台能力供给三层 = 单源三投影（对标 lark-cli）**：模块 manifest 的 `agentTools` 声明
+   是**唯一定义源**，编译出三种投影，避免多套工具定义漂移：
+   - **MCP server**（gateway-api 聚合，见上）——结构化调用与实时订阅；
+   - **`work-cli`**——平台官方 CLI，薄壳包公开 API，预装进 Agent 沙箱基础镜像，鉴权读
+     沙箱注入的令牌；轻量、可组合、pi 这类 harness 天生吃 CLI（lark-cli 同款定位：11 域
+     200+ 命令的形态基准）；
+   - **AgentSkills 包**——markdown + 脚本的流程知识（"帮张三补登记出差的完整流程"），
+     随模块交付、预装沙箱，M15 后与 menus/permissions 一样是模块出厂标配。
+   三投影共享同一权限点绑定与审计管道；`work-cli` 与 Skills 的规范同归
+   `docs/module-contract.md`（§13）。
+6. **首个数字员工（内置助手，不可自助注册）**：查在位/查我的待办与日报/代登记状态（带
+   确认）/代发审批（带确认）——全部走委托模式；自主模式在 M15 只建身份模型不放业务。
+7. 依赖治理：pi 已由公益公司接管（§3.3），风险转为商业化/许可漂移——**版本锁定 + 逐版本
+   许可审查 + MIT fork 逃生舱**写进 RFC；agent-gateway 不深耦合 pi 内部 API。Agent Sandbox
+   CRD 为 2026-03 新项目——`SandboxDriver` 三档保底（§8.3），风险登记 §14。
 
-留 M19【预留，触发条件 = M15 内置助手验收通过】：组织自定义 Agent、定时/事件触发、RAG
-知识库、技能自习得（hermes 借鉴）、Claude Agent SDK 高级驱动（沙箱代码执行场景）。
+留 M19【预留，触发条件 = M15 内置助手验收通过】：数字员工自助注册/启用 UI、自主任职模式
+全量开放（挂部门/配角色/接任务）、定时/事件触发、RAG 知识库、技能自习得（hermes 借鉴）、
+Claude Agent SDK 高级驱动（沙箱代码执行场景）、Skills 覆盖面扩展到全模块。
 
 ## 9. M16 任务 + 日历 + 会议室（自建）
 
@@ -302,9 +349,11 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
    Agent）；事件类全部长在 M12 总线上；**归属拍板 = bitable 模块的子域**（automation 作为
    `modules/bitable` 内子能力，Teable 同构）——规则存 `bitable.*` 即为模块内自举，不跨
    schema；跨模块动作（通知/审批/Agent）一律经公开 API 与事件，不直写他模块。
-2. **Agent v2**：组织级可配置 Agent（自定义指令 + 工具白名单 + 触发方式 IM @/定时/自动化
-   动作）；hermes 式技能自习得与持久记忆；Claude Agent SDK 作为高级驱动【预留：沙箱代码
-   执行场景出现真实需求时触发】；治理面板（用量/审计/配额）。
+2. **Agent v2 = 数字员工全量开放**：自助注册/启用/停用 UI（用户与组织按需配置：指令 +
+   工具白名单 + 触发方式 IM @/定时/自动化动作）；**自主任职模式全量开放**（挂部门/配角色/
+   接任务/出现在 IM 联系人，§8.4）；hermes 式技能自习得与持久记忆；Skills 覆盖面扩展到
+   全模块；Claude Agent SDK 作为高级驱动【预留：沙箱代码执行场景出现真实需求时触发】；
+   治理面板（实例清单/用量/审计/配额）。
 
 ## 13. 文档落点（本设计进仓库的方式）
 
@@ -315,11 +364,13 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
    - 事件传输选型（M12）；
    - **IM 集成边界（M13）= 对 ADR-0001 的显式修正**：Web SDK 依赖引用姿态（附 AGPL 合规
      结论 + 数据流审查）、agent bot 消息通道对隐私边界的开洞、token 换发与撤销传播；
-   - **Agent 身份与工具面（M15）= 对 ADR-0004 的显式扩展**：委托令牌形态、gateway 鉴权面
-     第二令牌、确认回传防伪；
+   - **Agent 身份、工具面与运行时编排（M15）= 对 ADR-0004 的显式扩展**：双模式身份（委托
+     令牌 + 自主任职的平台账号新主体类型 `kind=agent`）、gateway 鉴权面新令牌形态、确认
+     回传防伪、Agent Sandbox CRD 编排选型与 SandboxDriver 三档；
    - bitable 存储模型（M17，定调动态物理表，翻案须新 ADR）。
 3. **`docs/security-baseline.md` 增量（遵守其 §16"先改文档再动代码"门禁）**：§4 新令牌
-   形态（委托令牌）与撤销窗口/级联吊销语义；**§5 新数据类型扩展机制**——现"可配置数据
+   形态（委托令牌 + agent 自主身份令牌）、平台账号体系新主体类型 `kind=agent` 的认证与
+   吊销语义、撤销窗口/级联吊销；**§5 新数据类型扩展机制**——现"可配置数据
    类型固定为 profile/presence/report"，M16 日历参与者制/任务指派链、M17 bitable 权限桥
    都触发数据范围模型调整（按模块声明的数据类型注册 + 参与者制与组织范围制并存口径，随
    M16/M17 子 RFC）；**§8 bitable 运行时 DDL 豁免边界**（单一入口/schema 限定权限/配额与
@@ -332,13 +383,15 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
    Streams、OpenIM 全家桶、k8s 沙箱的拓扑更新（各里程碑交付时同步）。
 6. `docs/deployment.md` + runbooks：OpenIM 部署与备份（M13）、k3s 沙箱基线（M15）——
    doc-index §5"改变内网部署方式"必审项。
-7. `docs/module-contract.md`：`agentTools` manifest 扩展规范（M15）、事件消费三件套（M12）。
+7. `docs/module-contract.md`：`agentTools` manifest 扩展规范与**单源三投影**（MCP /
+   `work-cli` / AgentSkills，M15）、事件消费三件套（M12）。
 8. AGENTS.md §7 与 constitution 措辞更新（随对应 ADR）：保留"不复制源码"，放行"SDK 依赖
    引用"；"业务模块不得直接调用 OpenIM"补 `modules/im/web` 唯一 SDK 宿主例外（AGENTS.md
    §7 + constitution §4）；constitution §1"内网无公网部署"补云 LLM 可选通道的前提修正、
    "IM 长期预留当前不实现"等过时表述随 ADR-0006 更新（doc-index §6：过时文档必须标注替代）。
 9. 新增 `docs/research/` 目录承接开源深评 spike 报告（Teable 解剖、OpenIM 部署裁剪、
-   pi/OpenClaw 运行时评估）。
+   **Agent 运行时评估**——pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli
+   的 CLI/Skills 形态解剖）。
 10. 各里程碑 RFC 在启动时按既有两轮独立评审流程产出。
 
 ## 14. 风险登记
@@ -356,6 +409,8 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
 | 聊天内容不进平台审计的合规争议 | 显式 ADR 决策 + 内容级审计预留接口位；agent bot 通道为白名单例外（§7.5） |
 | outbox/中继从零接线的工作量被"表已存在"掩盖 | §6.1 已如实登记（零写入方 + 索引改造）；M12 RFC 按真实工作量拆片 |
 | **OpenIM 进入授权链的诱惑**（IM 内联确认体验更好，但把卫星服务拉进写授权 TCB） | 确认信任锚拍板平台锚定（§8.4）：IM 卡片只载深链、确认在平台侧携平台会话完成；内联确认标【预留】且启用须 Agent 身份 ADR 论证 |
+| **数字员工自主模式的权限失控面**（agent 以自身角色权限自主行事，无人在环） | 复用平台 RBAC/数据范围（不另造权限系统）+ 角色最小化授予 + 敏感工具可配 HITL 找 owner 确认 + 全量审计 `actor=agent` + 治理面板配额；M15 只建模型不放业务，M19 全量开放前过 Agent 身份 ADR 评审 |
+| **Agent Sandbox CRD 项目年轻**（SIG Apps 2026-03 发布，API 可能变动） | `SandboxDriver` 三档抽象（CRD/裸 Pod/Docker）保底；Agent 运行时 spike 实测后再定版本锁定策略 |
 | **bitable 运行时 DDL 突破"生产禁自动改 schema"基线** | baseline §8 增量定豁免边界：DDL 管理层单一入口 + 运行账号 DDL 权限限定 `bitable.*` + 配额/命名/审计（§10.2、§13.3） |
 
 ## 15. 后续步骤
