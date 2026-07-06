@@ -2,20 +2,23 @@
 
 ## 状态
 
-Draft（待两轮独立评审 + 拍板）｜ 起草 2026-07-06 ｜ 依据 `docs/adr/0006-vnext-roadmap.md`、
+Accepted（两轮独立评审已修订 + 三项拍板）｜ 起草 2026-07-06、一审 + 二审修订 2026-07-06/07、
+拍板定稿 2026-07-07 ｜ 依据 `docs/adr/0006-vnext-roadmap.md`、
 设计推演 `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md` §6，承接 M7 通知 + 调度、
 M8 `profile.updated` 链路；是 M13 IM、M15 Agent、SSE 多副本与 gateway 拆分（vNext）的共同前置。
 
 > 阅读约定沿用需求文档：每项能力标 **【本期做】/【预留】/【不做(vNext)】**。预留项必须留好
 > 数据模型 / 接口 / 事件名并写清未来用途，不留无人知晓的空白字段。
 
-> 本 RFC 含 **三个拍板项**（§15）：① `apps/realtime-gateway` 处置（建议退役）、② Redis 作为
-> critical broker 的持久化语义（建议 AOF everysec + 域级对账兜底）、③ 日志聚合栈深度（建议
-> 本期"更轻"档，Loki 推迟到 M13 前评估）。①② 为 ADR-0006 钦定的收口决策位。
+> **2026-07-07 拍板**（§15，产品负责人确认按建议执行）：① `apps/realtime-gateway` **退役
+> （删除）**、② Redis 持久化 = **AOF everysec + RDB，两条残余丢失路径显式接受 + 分层兜底**、
+> ③ 日志聚合**本期"更轻"档**（结构化 stdout + docker 轮转），Loki 推迟到 M13 前评估。
+> ①② 为 ADR-0006 钦定的收口决策位，随 ADR-0007 记录。RFC 转 Accepted。
 
 > 配套 ADR：**ADR-0007 事件传输选型（事务性 outbox + Redis Streams）** 在本 RFC Accepted 后
 > 与 M12-1 同批入库，内容 = §4 D1–D3 的决策记录化 **+ §15①② 两个收口拍板结果**（ADR-0006
-> 钦定该子 ADR 含此两决策位），编号顺排 ADR-0006 之后。
+> 钦定该子 ADR 含此两决策位）**+ 三处对 spec/blueprint 原始表述的有意修正登记**（§6.1 表
+> 工厂定形、§8.4 顺序承诺、§15② 持久化兜底），编号顺排 ADR-0006 之后。
 
 > 一审（独立 sub-agent，2026-07-06）发现并已修订：**C1** advisory lock 是 session 级、按原文走
 > 连接池互斥会静默失效（relay 锁改钉在 LISTEN 专线、调度改 `pg_try_advisory_xact_lock`，§7/§10）、
@@ -512,24 +515,24 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
 
 ## 15. 收口决策位（拍板项）
 
-### ① `apps/realtime-gateway` 处置 —— **建议：退役（删除）**
+### ① `apps/realtime-gateway` 处置 —— **拍板：退役（删除）**（2026-07-07）
 
 | 选项 | 评估 |
 | --- | --- |
-| **退役（建议）** | 骨架无生产消费方；SSE 长在 gateway 进程 notification 模块且 fan-out 由 §9 Redis pub/sub 解决，不需要独立 ws 宿主；IM 走 OpenIM 自有 ws（spec §7）；M15 agent 状态推送可复用 SSE 通道。删 app + `dev:realtime` script + compose 服务 + **仓库级引用全扫**（含根 CLAUDE.md 命令清单、AGENTS.md、architecture/deployment）。**成本最低、无功能损失。** |
+| **退役（建议，拍板采纳）** | 骨架无生产消费方；SSE 长在 gateway 进程 notification 模块且 fan-out 由 §9 Redis pub/sub 解决，不需要独立 ws 宿主；IM 走 OpenIM 自有 ws（spec §7）；M15 agent 状态推送可复用 SSE 通道。删 app + `dev:realtime` script + compose 服务 + **仓库级引用全扫**（含根 CLAUDE.md 命令清单、AGENTS.md、architecture/deployment）。**成本最低、无功能损失。** |
 | 收编为 SSE fan-out 宿主 | 把 SSE 从 gateway 搬出去 ⇒ 引入新跨进程链路与部署面，只为一个"未来可能的"推送宿主；SSE 多副本已由 §9 解决。过度设计。 |
 | 并入 gateway | socket.io 骨架无消费方，并入=搬运死代码。无意义。 |
 
 复活成本：若 vNext 真需要独立推送网关，按彼时需求新建比维护空壳便宜（git 历史在）。
 
-### ② Redis 持久化语义 —— **建议：AOF everysec + RDB，残余窗口显式接受 + 域级对账兜底**
+### ② Redis 持久化语义 —— **拍板：AOF everysec + RDB，残余路径显式接受 + 分层兜底**（2026-07-07）
 
 - 配置：`appendonly yes` + `appendfsync everysec` + 默认 RDB 快照；compose 基线落数据卷。
 - **残余丢失路径清单（诚实版）**——outbox 兜底覆盖"relay 标记前"的一切丢失；标记
   `published_at` 之后、消费者 XACK 之前，事件唯一副本在 Redis，此区间有两条路径：
   1. **Redis 崩溃**：everysec 下最多丢约 1s 内的在途事件；
   2. **stream 修剪**（§8.1）：消费积压触顶护栏时最老未消费/pending 条目被静默删除——
-     不需要 Redis 崩溃，且有前哨告警（长度超护栏 10%）在丢失前给人工介入窗口。
+     不需要 Redis 崩溃，且有前哨告警（长度 > MAXLEN × 10%，§8.1）在丢失前给人工介入窗口。
 - **兜底分层（不偷换）**：通知类链路（现有两条：presence/profile → 通知创建）**没有对账、
   丢失即接受**——通知本质是可自愈的弱语义，用户下次打开通知中心即得全量；同步类链路
   （M13 用户/部门 → OpenIM、M16 起同类）**必须自带夜间对账**修漂移。不得把"未来同步链路
@@ -544,10 +547,11 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
   不做异地备份；数据卷随机器快照即可，灾难恢复 = 接受 stream 内容丢失 + 域级对账修复。
 - 监控：`redis_up`、AOF 状态进 Prometheus 抓取（redis-exporter 进 observability profile）。
 
-### ③ 日志聚合栈 —— **建议：本期"更轻"档（结构化 stdout + docker 轮转），Loki 推迟 M13 前评估**
+### ③ 日志聚合栈 —— **拍板：本期"更轻"档（结构化 stdout + docker 轮转），Loki 推迟 M13 前评估**（2026-07-07）
 
 单机 compose、进程数 <10，`docker logs` + 结构化 JSON 已可支撑排障；Loki/promtail 在 OpenIM
-全家桶（+8 容器）落地前评估更有依据。若拍板本期就上，并入 M12-4 observability profile。
+全家桶（+8 容器）落地前评估更有依据。（拍板未采纳本期上 Loki；若 M13 前评估翻案，彼时
+并入 observability profile。）
 
 ## 16. 切片计划（4~5 切片 + 交付验证）
 
@@ -566,10 +570,10 @@ Prometheus + Grafana（预置一块"事件管道"看板：未发布积压、DLQ�
 
 | 文档 | 变更 |
 | --- | --- |
-| `docs/adr/0007-*.md`（新） | 事件传输选型决策记录（D1–D3 + §15①② 两个收口拍板结果——ADR-0006 钦定子 ADR 含此两决策位），随 M12-1 入库 |
+| `docs/adr/0007-*.md`（新） | 事件传输选型决策记录（D1–D3 + §15①② 两个收口拍板结果——ADR-0006 钦定子 ADR 含此两决策位——+ 三处对 spec/blueprint 的有意修正登记：§6.1 表工厂、§8.4 顺序、§15② 兜底），随 M12-1 入库 |
 | `docs/module-contract.md` | §4 增补：沿用既有 `<module>.<aggregate>.<verb>` 命名规则并登记 `profile.updated` 历史豁免、可靠性分级判据、乱序消费明文、payload 最小化、消费三件套规范、无 schema 宿主约定（§8.6 单一协议）、advisory lock key 约定 |
 | `docs/architecture.md` | 事件与数据流章：outbox/relay/Streams 拓扑、SSE fanout、realtime-gateway 处置结果 |
-| `docs/deployment.md` | Redis 持久化与 requirepass、**给 gateway-api / im-adapter 注入 `REDIS_URL`**（现 compose 未注入，`docker-compose.prod.yml:63-76`）、observability profile、§6 备份矩阵扩列（Redis 定位）、环境变量表（§14） |
+| `docs/deployment.md` | Redis 持久化与 requirepass、**给 gateway-api / im-adapter 注入 `REDIS_URL`**（现 compose 未注入，`docker-compose.prod.yml:63-76`）、observability profile、§6 备份矩阵扩列（Redis 定位）、环境变量表（§14）、relay/调度锁连接预算容量说明（§7/§10）、`idle_in_transaction_session_timeout` 禁设约束（§10） |
 | `docs/testing-strategy.md`（新） | §12 全部内容；doc-index §7 欠账销账 |
 | `docs/runbooks/event-pipeline-ops.md`（新） | 死信重放、积压排障、Redis 故障恢复、**M12-2 上线切换序**（stop-the-world 升级步骤，§16）、调度锁的 `idle_in_transaction_session_timeout` 约束（§10） |
 | `docs/foundation-blueprint.md` | M12 节两处措辞随 ADR-0007 同批修正：**"聚合分区键"→"顺序尽力而为（分片预留）"**（§8.4）、**"在途丢失依 outbox 重发补齐"→"残余窗口显式接受 + 分层兜底"**（§15②）——按 doc-index 优先级 blueprint > RFC，不同批改会留高低文档打架 |
