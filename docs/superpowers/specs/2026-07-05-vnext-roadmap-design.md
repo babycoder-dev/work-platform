@@ -189,13 +189,14 @@ worker、SSE 多副本、gateway 拆分的共同前置。
 
 7. **最小可观测性基线（2026-07-06 缺漏审计后本里程碑认领）**：**告警带外通道**拍板——
    死信/管道故障告警不能走站内通知或 IM 投递（管道自身故障时告警一起死），候选：邮件 /
-   独立 webhook / 经 OpenIM admin API 直发运维群，M12 RFC 定；指标采集 + 日志聚合最小栈
+   独立 webhook / 经 OpenIM admin API 直发运维群（该候选依赖 M13 后才可用且与 IM 同命，
+   M12 验收须用前两者），M12 RFC 定；指标采集 + 日志聚合最小栈
    （Prometheus + Loki 级或更轻）进部署基线；M13（OpenIM 全家桶）/M15（k3s/沙箱）各自
    组件的监控项挂各自 runbook。
 8. **CI 矩阵与测试策略扩展**：CI 增加 Redis service 与**多进程 e2e 形态**（下方退出标准
    所需）；借此补齐 doc-index §7 欠账的 `docs/testing-strategy.md`，统一 Redis/OpenIM/k8s
-   三类新 env-gate 的防假绿规约（沿 PG-gated"静默跳过"教训）；M13/M15 RFC 各登记其外部
-   依赖的测试替身/容器化策略。
+   三类新 env-gate 的防假绿规约（连同既有 PG gate 一并收口，沿其"静默跳过"教训）；
+   M13/M15 RFC 各登记其外部依赖的测试替身/容器化策略。
 9. **两个收口决策位**：① `apps/realtime-gateway` 处置——现为无业务的 socket.io 骨架，
    SSE 实际长在 gateway 内 notification 模块、IM 走 OpenIM 自有 ws，退役 / 收编为 SSE
    fan-out 宿主 / 并入 gateway 三选一（architecture/deployment 随之更新）；② Redis 升格
@@ -441,9 +442,8 @@ Win7/Chrome 109 引用 architecture §3.3 既有降级豁免（"复杂表格可�
    非目标登记**（缺漏审计 P2：① 云文档/知识库——不做文档产品，结构化协作以 bitable 承接，
    M19 的"RAG 知识库"是 agent 语料非用户文档；② 全局搜索——不做统一搜索，且 IM 消息因
    隐私边界（内容不回流平台）**结构性**无法进平台搜索，此为 §7.5 拍板的隐含后果须写明；
-   ③ 通知偏好/免打扰——三渠道叠加后的用户侧设置，后置到 M14 一并定或显式不做）（标注
-   状态；若
-   搬运 APITable 代码，§5"不轻易引入其代码"口径在此翻案）。
+   ③ 通知偏好/免打扰——三渠道叠加后的用户侧设置，后置到 M14 一并定或显式不做）；各
+   条目标注状态；若搬运 APITable 代码，§5"不轻易引入其代码"口径在此翻案。
 5. `docs/architecture.md`：新增 agent-gateway、modules/{im,calendar,tasks,bitable}、Redis
    Streams、OpenIM 全家桶、k8s 沙箱的拓扑更新，**§3.1 身份认证架构**（agent 主体类型进入
    身份模型，M15），及 **realtime-gateway 处置结论**（§6.9 决策位落定后同步）（各里程碑

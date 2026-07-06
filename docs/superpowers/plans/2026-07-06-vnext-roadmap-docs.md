@@ -38,7 +38,8 @@
 
 ## 状态
 
-Accepted（2026-07-06）｜ 修正 ADR-0005 的 vNext 段；对 constitution §1 的两处前提作显式修正
+Accepted（2026-07-06）｜ 修正 ADR-0005 的 vNext 段；对 constitution §1 作两处前提修正
+并加一处时点标注（C/S 客户端交付时点）
 （见「对既有文档的修正」）。设计推演过程与逐里程碑细节见
 `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md`（两轮独立评审已落修）。
 
@@ -91,9 +92,9 @@ ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 I
 | 解剖搬运（spike 深评后成块搬代码） | 平台命脉组件，必须长在自有底盘 | Teable（bitable 内核/前端）；APITable 仅参考协同设计，搬运须先在 product-requirements 翻案 |
 
 **流程规范**：每个大组件 RFC 前置一个"开源深评 spike"切片（拉起候选 + 读关键子系统源码，
-输出可搬运/自研/风险清单），报告沉淀于 `docs/research/`。已立项四个：OpenIM 部署裁剪
+输出可搬运/自研/风险清单），报告沉淀于 `docs/research/`。已规划四个：OpenIM 部署裁剪
 （M13）、Agent 运行时评估（M15）、**内网 LLM 推理基线评估（M15 部署前置）**、Teable 解剖
-（M17）；OpenIM 与 LLM 两个 spike 的资源实测汇总为容量规划输入。
+（M17-M18）；OpenIM 与 LLM 两个 spike 的资源实测汇总为容量规划输入。
 
 ### 3. 关键技术拍板（细节与理由见 spec）
 
@@ -210,13 +211,13 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task 2: constitution §1 前提修正标注
 
 **Files:**
-- Modify: `docs/constitution.md:11-13`
+- Modify: `docs/constitution.md:11-15`
 
 **Interfaces:**
 - Consumes: Task 1 的 `docs/adr/0006-vnext-roadmap.md`。
-- Produces: constitution §1 中对 ADR-0006 的两处标注（供后续文档引用宪法时口径一致）。
+- Produces: constitution §1 中对 ADR-0006 的三处标注（供后续文档引用宪法时口径一致）。
 
-- [ ] **Step 1: 修改 §1 两处过时表述**
+- [ ] **Step 1: 修改 §1 三处表述（两处前提修正 + 一处时点标注）**
 
 将 `docs/constitution.md` 第 11 行：
 
@@ -408,7 +409,9 @@ RFC 检查项：canvas 网格对 Win7/Chrome 109 引用 architecture §3.3 既�
 交付：when-trigger-then-action 引擎（bitable 子域；触发器=领域事件/记录变更/定时，动作=
 通知/IM/创建记录/发起审批/调用 Agent）、数字员工自助注册/启用/停用 UI（指令 + 工具白名单 +
 触发方式 IM @/定时/自动化动作）、**自主任职模式全量开放**（挂部门/配角色/接任务/出现在 IM
-联系人，按自身角色权限行事）、Skills 覆盖面扩展到全模块、治理面板（实例清单/用量/审计/配额）。
+联系人，按自身角色权限行事）、Skills 覆盖面扩展到全模块、治理面板（实例清单/用量/审计/
+配额）；RAG 知识库【预留：数字员工出现组织知识问答场景时触发，语料库定位（非用户文档
+产品，见 product-requirements §5.6）】。
 
 退出标准：一条"记录变更 → 通知 + 发起审批"自动化跑通；一名用户自助注册的数字员工以自主
 模式完成一项定时任务，审计 `actor=agent` 可查。
@@ -841,8 +844,12 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 rg -oN "docs/[A-Za-z0-9/_.-]+\.md" docs/adr/0006-vnext-roadmap.md docs/research/README.md docs/tasks/vnext-spike-openim-deployment.md | sort -u | while read -r f; do [ -f "$f" ] || echo "MISSING: $f"; done
 ```
 
-预期：无 `MISSING:` 输出（注：`docs/research/openim-deployment-evaluation.md` 是待产出
-交付物，若被脚本报 MISSING 属预期，人工豁免该一条）。
+预期：除以下**三条预期豁免**外无 `MISSING:` 输出（均为已立项、待后续里程碑产出的文件，
+被 ADR/README 前向引用属设计使然）：
+- `docs/research/openim-deployment-evaluation.md`（spike 报告，spike 执行时产出）
+- `docs/testing-strategy.md`（M12 补齐，doc-index §7 欠账）
+- `docs/offline-deployment-runbook.md`（M13 立项，doc-index §7 欠账）
+出现第四条 MISSING 才算失败。
 
 ```bash
 # 六个被改/新建文档全部指回 ADR-0006
