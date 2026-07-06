@@ -1,10 +1,12 @@
 # 任务包：vNext spike —— 内网 LLM 推理基线评估（M15 部署前置）
 
-状态：Ready（**前置**：`docs/adr/0006-vnext-roadmap.md` 与 `docs/research/README.md`
-随文档落地计划 Task 1/6 入库后方可开工）｜ 类型：研究型 spike（产出报告 + 采购建议，
-不改产品代码）｜ 依据 `docs/adr/0006-vnext-roadmap.md`（设计推演见
-`docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md` §2/§8.1/§14）；报告规范见
-`docs/research/README.md`。
+状态：**已取消（2026-07-07 产品拍板）**——采购线上 LLM API 为主通道、放弃内网自部署
+（ADR-0006 状态节增补拍板）。本 spike 的 go/no-go 判定被拍板前置替代（所走正是 §3.6
+预设的"云通道为主"退路）。两项残留义务改道：① pi 真实 provider 协议实测（原 §3.4 与
+Agent 运行时 spike 共享项）→ M15 首切片以真实 API key 冒烟；② 可发送数据类别边界 →
+Agent 身份子 ADR 新增拍板位。正文保留备查（若未来重启内网自部署，按 §6 保鲜期规则全量
+重做）。｜ 原类型：研究型 spike｜ 依据 `docs/adr/0006-vnext-roadmap.md`（设计推演见
+`docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md` §2/§8.1/§14）。
 
 > **这是缺漏审计定级 P0 的 spike，也是唯一带 go/no-go 判定的 spike**：spec 拍板"内网自
 > 部署 LLM 为缺省通道"，但硬件/模型/推理服务零落地规划。本 spike 结论若为"不可行"，须
