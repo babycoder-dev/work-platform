@@ -67,7 +67,7 @@
 
 | 项目 | 栈 | 存储模型 | 许可 | 活跃度 | 结论 |
 | --- | --- | --- | --- | --- | --- |
-| **Teable** | NestJS + Prisma + PostgreSQL + Next.js | **动态物理表**（用户表=真实 PG 表、字段=真实列） | CE AGPL-3.0；**自动化/权限矩阵/AI 在闭源企业版**；packages 层 MIT | 21.4k stars，2026-07 仍在发版 | ✅ **首选代码来源**（同栈同库） |
+| **Teable** | NestJS + Prisma + PostgreSQL + Next.js | **动态物理表**（用户表=真实 PG 表、字段=真实列） | CE AGPL-3.0；**自动化/权限矩阵在闭源企业版**（2026-07-06 spike 实证修正：AI 基础能力已进 CE，商业授权边界 M19 前重核，见 `docs/research/teable-anatomy.md` §6）；packages 层 MIT | 21.4k stars，2026-07 仍在发版 | ✅ **首选代码来源**（同栈同库） |
 | APITable | Java Spring Boot（backend-server）+ NestJS（room-server，OT 协同）+ Next.js + MySQL | 记录 JSON + OT changeset | AGPL-3.0 | 主仓最后更新 2025-10，公司重心转 AITable.ai SaaS | ❌ 基座（异构双后端 + MySQL + 低维护）；✅ 参考 OT 协同引擎与 canvas 网格交互。**注**：现行 product-requirements §5 口径为"仅借鉴概念、不轻易引入其代码"，若 spike 后决定搬运 room-server 源码，须在 product-requirements 增量中显式翻案（§13） |
 | Baserow | Django + Vue, PG | 元数据驱动 | 核心 MIT | 活跃 | 二线参考（字段类型语义） |
 | Grist | Node + Python 沙箱公式引擎 | SQLite 文档 | Apache-2.0 | 活跃 | 公式引擎单点参考 |
