@@ -1,7 +1,8 @@
 # 任务包：vNext spike —— Agent 运行时评估（M15 前置）
 
-状态：Ready ｜ 类型：研究型 spike（产出报告，不改产品代码）｜ 依据
-`docs/adr/0006-vnext-roadmap.md`（落地中，设计推演见
+状态：Ready（**前置**：`docs/adr/0006-vnext-roadmap.md` 与 `docs/research/README.md`
+随文档落地计划 Task 1/6 入库后方可开工）｜ 类型：研究型 spike（产出报告，不改产品代码）｜
+依据 `docs/adr/0006-vnext-roadmap.md`（设计推演见
 `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md` §3.3/§8）；报告规范见
 `docs/research/README.md`。
 
@@ -23,15 +24,24 @@ ADR** 与 **M15 RFC**——产出实证输入。回答四个问题：
 **做**：
 
 - **pi-mono（earendil-works/pi）**：锁定当前 release 跑通——① pi-ai 双通道实测（Anthropic
-  API + 任一本地 OpenAI 兼容端点，与 LLM spike 共享环境）；② pi-agent-core 注入 3 个自定义
-  工具（模拟平台工具面：一读一写一确认），观察 tool-call 循环、流式输出、错误处理；③ 会话
-  持久化格式解剖（文件结构、能否按用户分区、体积增长）；④ 治理核查：移交 earendil-works 后
-  的许可证现状（逐子包）、release 节奏、破坏性变更历史 → 版本锁定与 fork 逃生舱策略建议。
+  API + 任一本地 OpenAI 兼容端点；LLM spike 环境可用则共享，不可用则本地 Ollama 独立完成，
+  两包解耦）；② pi-agent-core 注入 3 个自定义工具（模拟平台工具面：一读一写一确认），观察
+  tool-call 循环、流式输出、错误处理；③ 会话持久化格式解剖（文件结构、能否按用户分区、
+  体积增长、**是否把 API key/token 等鉴权材料写进落盘文件**——spec §8.3"令牌逐消息下发、
+  不落卷"候选的直接证据）；④ 治理核查：移交 earendil-works 后的许可证现状（逐子包）、
+  release 节奏、破坏性变更历史 → 版本锁定与 fork 逃生舱策略建议。
 - **Kubernetes Agent Sandbox（SIG Apps）**：k3d/kind 起单机集群装 controller，实测——
   ① Sandbox CR 创建到可用的时延；② `shutdownTime/shutdownPolicy` 缩零行为；③ 缩零后唤醒
-  时延（数字员工"被 @ 秒级唤醒"的可行性红线：p95 ≤ 5s，超出则评估常驻不缩零的资源代价）；
-  ④ PVC 持久工作区跨重建的保持；⑤ gVisor/Kata 可选运行时在目标环境的可用性；⑥ API 版本
-  （alpha/beta？）与升级破坏面 → SandboxDriver 三档中 CRD 档的落地建议与版本锁定策略。
+  时延（数字员工"被 @ 秒级唤醒"的可行性红线：p95 ≤ 5s，**采样 ≥ 20 次**，超出则评估常驻
+  不缩零的资源代价）；④ PVC 持久工作区跨重建的保持；⑤ **令牌注入路径实测**：env/Secret
+  注入 vs 运行中更新的可行性、缩零重建后令牌如何跟随——spec §8.3 三候选对比的核心证据；
+  ⑥ **egress 白名单冒烟**：k3d 内 NetworkPolicy 对沙箱 Pod 的生效形态（M15 硬约束，顺手
+  验证；受限则列 open question）；⑦ gVisor/Kata 强隔离运行时**文档级核实 + Linux VM 冒烟
+  （若可得）**——本机 Windows/k3d 环境大概率跑不了 runsc，测不了如实列 open question，
+  不烧时间盒；⑧ API 版本（alpha/beta？）与升级破坏面 → SandboxDriver 三档中 CRD 档的
+  落地建议与版本锁定策略。
+- **kagent（CNCF）**：文档级核实（不部署、不引入）——Agent-as-CRD 声明式姿态与 Agent
+  Sandbox CRD 编排的关系一句话定论（互补/重叠/无关），半天内。
 - **OpenClaw**：只读源码不引代码——gateway/session/sandbox 三个子系统的路径级解剖，提炼
   per-agent 沙箱作用域、会话落盘、多渠道桥接、提示注入防护的设计要点清单。
 - **lark-cli（@larksuite/cli）**：命令域组织（11 域怎么切）、AgentSkills 包格式（frontmatter/
@@ -59,8 +69,9 @@ ADR** 与 **M15 RFC**——产出实证输入。回答四个问题：
 ## 4. 产出与验收断言
 
 - [ ] 报告含 README 规范全部七章，评审对象全部带版本/commit 锚点。
-- [ ] **关键数字实测在案**：Sandbox 创建时延、缩零后唤醒时延（p50/p95）、单沙箱内存基线、
-      10 沙箱单机开销；唤醒时延与 5s 红线的判定结论明确。
+- [ ] **关键数字实测在案**：Sandbox 创建时延、缩零后唤醒时延（p50/p95，≥20 次采样）、
+      单沙箱内存基线、10 沙箱单机开销；唤醒时延与 5s 红线的判定结论明确。
+- [ ] 报告产出后登记回 `docs/research/README.md` spike 表（状态改「已产出」）。
 - [ ] **三个决策建议**直接可写进 Agent 子 ADR：① 编排选型（CRD 档可用性结论 + 版本锁定
       策略，或降级裸 Pod 档的触发条件）；② 隔离/令牌语义三候选的成本对比与推荐；③ work-cli
       + Skills 包的形态基准（含与 lark-cli 的差异清单）。

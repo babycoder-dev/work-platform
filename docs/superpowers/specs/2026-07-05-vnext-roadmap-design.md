@@ -465,8 +465,9 @@ Win7/Chrome 109 引用 architecture §3.3 既有降级豁免（"复杂表格可�
    C/S 客户端"加时点标注（桌面端见 ADR-0006 M20+ 预留桶，长期悬置须显式）（doc-index §6：
    过时文档必须标注替代）。
 9. 新增 `docs/research/` 目录承接开源深评 spike 报告，共四个：Teable 解剖、OpenIM 部署
-   裁剪、**Agent 运行时评估**（pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli
-   的 CLI/Skills 形态解剖）、**内网 LLM 推理基线评估**（缺漏审计 P0 新增：GPU 规格 × 候选
+   裁剪、**Agent 运行时评估**（pi/OpenClaw 拓扑 + Agent Sandbox CRD 实测 + kagent 姿态
+   文档级核实 + lark-cli 的 CLI/Skills 形态解剖）、**内网 LLM 推理基线评估**（缺漏审计
+   P0 新增：GPU 规格 × 候选
    模型 × vLLM 等推理服务 × 离线权重导入，M15 部署前置）；OpenIM 与 LLM 两个 spike 的
    资源实测汇总为容量规划输入（§13.6）。
 10. 各里程碑 RFC 在启动时按既有两轮独立评审流程产出。

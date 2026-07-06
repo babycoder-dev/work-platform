@@ -660,7 +660,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 | spike | 服务的里程碑 | 任务包 | 报告 |
 | --- | --- | --- | --- |
 | OpenIM 部署裁剪评估 | M13 | `docs/tasks/vnext-spike-openim-deployment.md` | `openim-deployment-evaluation.md`（待产出） |
-| Agent 运行时评估（pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli 的 CLI/Skills 形态解剖） | M15 | `docs/tasks/vnext-spike-agent-runtime.md` | `agent-runtime-evaluation.md`（待产出） |
+| Agent 运行时评估（pi/OpenClaw 拓扑 + Agent Sandbox CRD 实测 + kagent 姿态文档级核实 + lark-cli 的 CLI/Skills 形态解剖） | M15 | `docs/tasks/vnext-spike-agent-runtime.md` | `agent-runtime-evaluation.md`（待产出） |
 | 内网 LLM 推理基线评估（GPU 规格 × 候选模型中文/工具调用能力 × vLLM 等 OpenAI 兼容推理服务 × 离线权重导入；**M15 部署前置，带 go/no-go 判定**） | M15 | `docs/tasks/vnext-spike-llm-inference.md` | `llm-inference-baseline.md`（待产出） |
 | Teable 解剖（DDL 层/公式/视图/协同） | M17-M18 | `docs/tasks/vnext-spike-teable-anatomy.md` | `teable-anatomy.md`（待产出） |
 
