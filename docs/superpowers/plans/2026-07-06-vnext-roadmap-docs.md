@@ -624,7 +624,10 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: Task 1 的 ADR-0006（三姿态与 spike 流程规范）。
-- Produces: spike 报告模板与命名约定（`docs/research/<topic>.md`）；首个可执行 spike 任务包
+- Produces: spike 报告模板与命名约定（`docs/research/<topic>.md`）；首个可执行 spike 任务包。
+  注：其余三个 spike 任务包（agent-runtime / llm-inference / teable-anatomy）已由设计轨
+  于 2026-07-06 直接产出并入库 `docs/tasks/`，README 表引用的路径均已真实存在，Task 8 的
+  引用检查无需为它们豁免。
   （其交付物路径 `docs/research/openim-deployment-evaluation.md` 被任务包定义）。
 
 - [ ] **Step 1: 写入 `docs/research/README.md`**
@@ -657,9 +660,9 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 | spike | 服务的里程碑 | 任务包 | 报告 |
 | --- | --- | --- | --- |
 | OpenIM 部署裁剪评估 | M13 | `docs/tasks/vnext-spike-openim-deployment.md` | `openim-deployment-evaluation.md`（待产出） |
-| Agent 运行时评估（pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli 的 CLI/Skills 形态解剖） | M15 | 待立项 | `agent-runtime-evaluation.md`（待产出） |
-| 内网 LLM 推理基线评估（GPU 规格 × 候选模型中文/工具调用能力 × vLLM 等 OpenAI 兼容推理服务 × 离线权重导入；**M15 部署前置**） | M15 | 待立项 | `llm-inference-baseline.md`（待产出） |
-| Teable 解剖（DDL 层/公式/视图/协同） | M17-M18 | 待立项 | `teable-anatomy.md`（待产出） |
+| Agent 运行时评估（pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli 的 CLI/Skills 形态解剖） | M15 | `docs/tasks/vnext-spike-agent-runtime.md` | `agent-runtime-evaluation.md`（待产出） |
+| 内网 LLM 推理基线评估（GPU 规格 × 候选模型中文/工具调用能力 × vLLM 等 OpenAI 兼容推理服务 × 离线权重导入；**M15 部署前置，带 go/no-go 判定**） | M15 | `docs/tasks/vnext-spike-llm-inference.md` | `llm-inference-baseline.md`（待产出） |
+| Teable 解剖（DDL 层/公式/视图/协同） | M17-M18 | `docs/tasks/vnext-spike-teable-anatomy.md` | `teable-anatomy.md`（待产出） |
 
 > OpenIM 与 LLM 两个 spike 须各自产出资源占用实测，汇总为 `docs/deployment.md`"vNext
 > 部署基线与容量规划"的输入（单机堆叠 vs 拆机的判断依据）。
