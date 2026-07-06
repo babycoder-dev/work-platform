@@ -119,8 +119,9 @@ ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 I
 2. IM 集成边界（M13）= **对 ADR-0001 的显式修正**（Web SDK 依赖引用 + agent bot 通道 +
    token 换发/撤销传播 + AGENTS.md §7 / constitution §4 措辞例外）；
 3. Agent 身份、工具面与运行时编排（M15）= **对 ADR-0004 的显式扩展**（双模式身份：委托
-   令牌 + `kind=agent` 平台账号新主体、introspection 双主体、确认信任锚、Agent Sandbox
-   CRD 编排选型）；
+   令牌 + 自主任职的平台账号新主体类型 `kind=agent` 及其 schema 落位、gateway 鉴权面新
+   令牌形态、确认回传防伪、Agent Sandbox CRD 编排选型与 SandboxDriver 三档、常驻沙箱的
+   多用户会话隔离与令牌注入/续期语义、agent 的 IM 账号 provisioning——与 IM 子 ADR 联合）；
 4. bitable 存储模型（M17）。
 
 ## 对既有文档的修正
@@ -131,9 +132,11 @@ ADR-0005 的 vNext 段（"多维表格+自动化、周报、桌面端、外部 I
   - "系统必须支持企业内网无公网环境部署" → 保持为缺省与底线，但 M15 起云 LLM API 为
     **可选通道**（显式开启项）；air-gapped 部署降级为仅内网自部署 LLM 通道。业务数据出
     内网的风险与缓解见 spec §14。
-- **security-baseline**：§4（委托令牌/级联吊销）、§5（新数据类型扩展机制）、§8（bitable
-  运行时 DDL 豁免边界）、§9（Redis Streams 加固）、§10（IM token 换发/撤销 + JS SDK 许可
-  与数据流审查）五处增量，按其 §16"先改文档再动代码"门禁随对应里程碑 RFC 落地。
+- **security-baseline**：§4（委托令牌 + agent 自主身份令牌、平台账号新主体类型
+  `kind=agent` 的认证与吊销语义、撤销窗口/级联吊销）、§5（新数据类型扩展机制 + agent
+  主体在授权基线的口径）、§8（bitable 运行时 DDL 豁免边界）、§9（Redis Streams 加固）、
+  §10（IM token 换发/撤销 + JS SDK 许可与数据流审查）五处增量，按其 §16"先改文档再动
+  代码"门禁随对应里程碑 RFC 落地。
 
 ## 后果
 
@@ -436,7 +439,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
   @、可接任务，在 App 内注册/启用/停用，后台自动管理其运行环境的全生命周期。
 - 第一阶段（M15）：平台内置数字员工挂在 IM 里，员工用自然语言查在位/查待办与日报/代登记
   状态/代发审批；一切变更类操作需本人确认后执行。
-- 第二阶段（M19）：组织/用户可**按需注册** 数字员工（自定义指令、工具白名单、触发方式：
+- 第二阶段（M19）：组织/用户可**按需注册**数字员工（自定义指令、工具白名单、触发方式：
   IM @/定时/自动化动作），可给它挂部门、配角色、指派例行工作；管理侧有实例清单/用量/审计/
   配额治理面板。
 - **边界**：替人办事时权限永不超过发起用户本人（委托模式）；以自己身份任职时按自身角色
@@ -577,7 +580,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## 报告命名
 
 `docs/research/<topic>.md`，如 `openim-deployment-evaluation.md`、`teable-anatomy.md`、
-`pi-openclaw-runtime-evaluation.md`。
+`agent-runtime-evaluation.md`。
 
 ## 报告必含章节
 

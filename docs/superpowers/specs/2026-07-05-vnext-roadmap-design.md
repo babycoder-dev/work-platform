@@ -27,7 +27,8 @@
 > 工具）、App 内注册/启用、k8s 全生命周期管理（采用 Kubernetes Agent Sandbox CRD 路线）、
 > 双模式身份（委托代办 + 自主任职）；平台能力按**单源三投影**供给 Agent（manifest
 > `agentTools` → MCP + `work-cli` + AgentSkills，对标飞书官方 lark-cli）。详见 §2 表末行、
-> §3.3、§8、§12、§13、§14 对应修订。
+> §3.3、§5 里程碑表、§8、§12、§13、§14 对应修订。增量经独立 delta 评审（1C/3M/5m，核心：
+> 常驻化后的隔离单元与令牌语义须重算）已全部落修。
 
 ## 1. 愿景与范围
 
@@ -212,7 +213,10 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
      不走 outbox/总线**——若走总线，critical 级事件行落 PG 即违反"内容不落平台业务库"的
      本节承诺；可靠性由回调重试 + 会话级对账兜底。M13 交付物界定为：bot 账号 + 回调白名单 +
      签名校验 + im-adapter 侧转发契约（M15 前以 echo 探针验收，agent-gateway 到位后接管）；
-     消息内容不落平台业务库、会话元数据进 `agent.*`（M15 建 schema）。
+     消息内容不落平台业务库、会话元数据进 `agent.*`（M15 建 schema）。**转发契约预留收件
+     agent 标识**（M19 多数字员工各有 IM 账号后按收件方路由）；agent 账号的 IM
+     provisioning（无档案——昵称/头像取自 agent 定义）与回调白名单随 agent 注册**动态
+     维护**，归 IM 子 ADR × Agent 身份 ADR 联合决策位。
 
 部署注意：OpenIM 全家桶（Mongo/Kafka/MinIO/Redis）是平台首次引入非 PG 存储——compose
 基线 + 备份 runbook 是 M13 一等公民交付物；M13 前 spike 评估组件裁剪空间。
@@ -242,6 +246,13 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
    - **`SandboxDriver` 抽象三档**：Agent Sandbox CRD 主线 / 裸 Pod（CRD 项目不成熟时的
      fallback）/ Docker（开发降级）——沿双实现模式；k8s（k3s）是继 OpenIM 后第二个部署
      基线扩展，需专门 runbook。
+   - **常驻化的安全语义重算（决策位，归 Agent 身份 ADR + M15 RFC）**：隔离单元从会话变为
+     常驻实例后，**沙箱内多用户会话隔离与委托令牌注入/续期语义**必须显式拍板——候选：
+     内置助手按用户实例化 / 单实例内按会话分区且记忆不跨用户 / 委托令牌**逐消息**经
+     agent-gateway 控制通道下发、不落持久卷（预倾向：令牌逐消息下发 + 记忆按用户分区）；
+     持久记忆与 §14"会话上下文最小化"缓解之间的张力一并论证。
+   - 定时/自动化触发（M19"调用 Agent"动作、自主任职定时任务）经 agent-gateway 公开 API
+     进入，唤醒语义同消息路由；升级（换镜像）时在途会话的 drain/切换语义归 M15 RFC。
    - **沙箱 egress 白名单闭环**：仅放行 ① LLM 端点（内网通道时无公网 egress；云通道开启时
      仅 Claude API 域名）② 平台 MCP/API 端点 ③ **agent-gateway 控制通道**（会话指令下发与
      流式回传）。不给 DB、不给内网横向。
@@ -262,6 +273,10 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
        指派任务），在定时/事件触发下以**自身角色权限**行事（审计 `actor=agent:<id>`、无
        onBehalfOf）。权限经角色最小化授予，与人类员工同一套 RBAC/数据范围机制——复用
        平台底盘而非另造 Agent 权限系统；敏感操作仍可按工具配置 HITL 升级为找 owner 确认。
+       **落位注意**：平台现无独立 users 表，"用户"即 `platform.employees`（identities/
+       部门负责人均外键指向它）——agent 主体落位为**独立 agent 实体挂 `local_identities`**
+       还是 **employees 扩 kind 列**，归 Agent 身份 ADR 拍板；属 platform schema 变更，
+       过 doc-index §5 文档审查。
      - 两种令牌**签发与存储归 platform-api**（令牌真源只有一个）；**gateway 鉴权面须认新
        令牌形态**——`PlatformAuthGuard` / introspection 现仅认用户 token 且入口为
        `GET /auth/me` 返回 `CurrentUserDto`（ADR-0004 §2），扩展为可辨识 agent 主体并解析
@@ -365,22 +380,26 @@ Claude Agent SDK 高级驱动（沙箱代码执行场景）、Skills 覆盖面�
    - **IM 集成边界（M13）= 对 ADR-0001 的显式修正**：Web SDK 依赖引用姿态（附 AGPL 合规
      结论 + 数据流审查）、agent bot 消息通道对隐私边界的开洞、token 换发与撤销传播；
    - **Agent 身份、工具面与运行时编排（M15）= 对 ADR-0004 的显式扩展**：双模式身份（委托
-     令牌 + 自主任职的平台账号新主体类型 `kind=agent`）、gateway 鉴权面新令牌形态、确认
-     回传防伪、Agent Sandbox CRD 编排选型与 SandboxDriver 三档；
+     令牌 + 自主任职的平台账号新主体类型 `kind=agent` 及其 schema 落位）、gateway 鉴权面
+     新令牌形态、确认回传防伪、Agent Sandbox CRD 编排选型与 SandboxDriver 三档、**常驻
+     沙箱的多用户会话隔离与令牌注入/续期语义**、agent 的 IM 账号 provisioning（与 IM 子
+     ADR 联合）；
    - bitable 存储模型（M17，定调动态物理表，翻案须新 ADR）。
 3. **`docs/security-baseline.md` 增量（遵守其 §16"先改文档再动代码"门禁）**：§4 新令牌
    形态（委托令牌 + agent 自主身份令牌）、平台账号体系新主体类型 `kind=agent` 的认证与
    吊销语义、撤销窗口/级联吊销；**§5 新数据类型扩展机制**——现"可配置数据
    类型固定为 profile/presence/report"，M16 日历参与者制/任务指派链、M17 bitable 权限桥
    都触发数据范围模型调整（按模块声明的数据类型注册 + 参与者制与组织范围制并存口径，随
-   M16/M17 子 RFC）；**§8 bitable 运行时 DDL 豁免边界**（单一入口/schema 限定权限/配额与
+   M16/M17 子 RFC）+ **agent 主体在授权基线的口径**（§3 登录/锁定/员工状态校验对 agent
+   的适用与排除、数据范围对 agent 的适用，随 Agent 身份 ADR）；**§8 bitable 运行时 DDL 豁免边界**（单一入口/schema 限定权限/配额与
    审计，见 §10.2）；§9 Redis Streams 承载业务事件后的访问控制加固；§10 OpenIM token
    换发/撤销传播 + JS SDK 许可与数据流审查结论。
 4. `docs/foundation-blueprint.md` 增补 vNext 篇章（M12–M19 门禁）；
    `docs/product-requirements.md` 补 IM/任务日历/多维表格/Agent 需求条目（标注状态；若
    搬运 APITable 代码，§5"不轻易引入其代码"口径在此翻案）。
 5. `docs/architecture.md`：新增 agent-gateway、modules/{im,calendar,tasks,bitable}、Redis
-   Streams、OpenIM 全家桶、k8s 沙箱的拓扑更新（各里程碑交付时同步）。
+   Streams、OpenIM 全家桶、k8s 沙箱的拓扑更新，及 **§3.1 身份认证架构**（agent 主体类型
+   进入身份模型，M15）（各里程碑交付时同步）。
 6. `docs/deployment.md` + runbooks：OpenIM 部署与备份（M13）、k3s 沙箱基线（M15）——
    doc-index §5"改变内网部署方式"必审项。
 7. `docs/module-contract.md`：`agentTools` manifest 扩展规范与**单源三投影**（MCP /
@@ -410,6 +429,7 @@ Claude Agent SDK 高级驱动（沙箱代码执行场景）、Skills 覆盖面�
 | outbox/中继从零接线的工作量被"表已存在"掩盖 | §6.1 已如实登记（零写入方 + 索引改造）；M12 RFC 按真实工作量拆片 |
 | **OpenIM 进入授权链的诱惑**（IM 内联确认体验更好，但把卫星服务拉进写授权 TCB） | 确认信任锚拍板平台锚定（§8.4）：IM 卡片只载深链、确认在平台侧携平台会话完成；内联确认标【预留】且启用须 Agent 身份 ADR 论证 |
 | **数字员工自主模式的权限失控面**（agent 以自身角色权限自主行事，无人在环） | 复用平台 RBAC/数据范围（不另造权限系统）+ 角色最小化授予 + 敏感工具可配 HITL 找 owner 确认 + 全量审计 `actor=agent` + 治理面板配额；M15 只建模型不放业务，M19 全量开放前过 Agent 身份 ADR 评审 |
+| **共享常驻沙箱的跨用户上下文隔离**（多用户令牌/记忆共存一个常驻实例，提示注入的横向面） | §8.3 决策位：令牌逐消息下发不落卷（预倾向）+ 记忆按用户分区 / 按用户实例化，Agent 身份 ADR + M15 RFC 拍板后才放行内置助手多用户服务 |
 | **Agent Sandbox CRD 项目年轻**（SIG Apps 2026-03 发布，API 可能变动） | `SandboxDriver` 三档抽象（CRD/裸 Pod/Docker）保底；Agent 运行时 spike 实测后再定版本锁定策略 |
 | **bitable 运行时 DDL 突破"生产禁自动改 schema"基线** | baseline §8 增量定豁免边界：DDL 管理层单一入口 + 运行账号 DDL 权限限定 `bitable.*` + 配额/命名/审计（§10.2、§13.3） |
 
