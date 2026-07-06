@@ -25,7 +25,7 @@
 | spike | 服务的里程碑 | 任务包 | 报告 |
 | --- | --- | --- | --- |
 | OpenIM 部署裁剪评估 | M13 | `docs/tasks/vnext-spike-openim-deployment.md` | `openim-deployment-evaluation.md`（待产出） |
-| Agent 运行时评估（pi/OpenClaw 拓扑 + Agent Sandbox CRD 实测 + kagent 姿态文档级核实 + lark-cli 的 CLI/Skills 形态解剖） | M15 | `docs/tasks/vnext-spike-agent-runtime.md` | `agent-runtime-evaluation.md`（待产出） |
+| Agent 运行时评估（pi/OpenClaw 拓扑 + Agent Sandbox CRD 实测 + kagent 姿态文档级核实 + lark-cli 的 CLI/Skills 形态解剖） | M15 | `docs/tasks/vnext-spike-agent-runtime.md` | `agent-runtime-evaluation.md`（已产出） |
 | ~~内网 LLM 推理基线评估~~ | M15 | `docs/tasks/vnext-spike-llm-inference.md` | **已取消**（2026-07-07 拍板：采购线上 API，见 ADR-0006 状态节增补拍板；残留义务改道见任务包状态行） |
 | Teable 解剖（DDL 层/公式/视图/协同） | M17-M18 | `docs/tasks/vnext-spike-teable-anatomy.md` | `teable-anatomy.md`（待产出） |
 
