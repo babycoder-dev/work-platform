@@ -16,7 +16,8 @@
 8. `docs/module-contract.md`、`docs/platform-core.md`、`docs/im-foundation.md` 等专题文档。
 9. `docs/tasks/*.md`：单切片任务包，自包含、可执行、可验收；不定义新规则，权威性低于 RFC 与专题文档。
 10. `docs/runbooks/*.md`：可重跑的操作手册（部署、smoke、迁移演练等），自包含、可执行；不定义新规则。
-11. `docs/verification-log.md`：验证记录，不定义新规则。
+11. `docs/research/*.md`：开源深评 spike 报告，支撑对应里程碑 RFC 的决策输入；不定义新规则，权威性同任务包。
+12. `docs/verification-log.md`：验证记录，不定义新规则。
 
 `README.md` 和 `AGENTS.md` 是入口文件，不承载详细设计。它们必须链接到权威文档，而不是复制复杂规则。
 
@@ -137,6 +138,17 @@ modules/forms/contract/src/slots.ts（presence.status.<key> 预留槽位）+ mod
 packages/platform-contract（PlatformEmployeeLookupPort 扩面）, modules/notification/api（statusLabel 消费）
 ```
 
+### 2.11 开始 vNext 里程碑（M12+）
+
+```text
+docs/adr/0006-vnext-roadmap.md
+docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md
+docs/foundation-blueprint.md（vNext 篇章 M12–M19）
+docs/product-requirements.md（§5）
+docs/research/README.md 与该里程碑对应 spike 报告
+该里程碑子 ADR 与 RFC（启动时产出）
+```
+
 ## 3. 文档职责
 
 | 文档                           | 职责                         | 什么时候更新                          |
@@ -154,6 +166,7 @@ packages/platform-contract（PlatformEmployeeLookupPort 扩面）, modules/notif
 | `docs/deployment.md`           | 部署说明                     | Docker、环境变量、部署流程变化        |
 | `docs/development-workflow.md` | 开发流程                     | Git、测试、代码审查流程变化           |
 | `docs/runbooks/*.md`           | 可重跑操作手册               | 每个 runbook 主题首次落地时           |
+| `docs/research/*.md`           | 开源深评 spike 报告          | 每个大组件 RFC 前置 spike 完成时       |
 | `docs/verification-log.md`     | 验证记录                     | 每个重要交付点后追加                  |
 
 ## 4. ADR 与 RFC 的区别
@@ -234,6 +247,12 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M8-6 交付验证任务包：`docs/tasks/m8-6-delivery-verification.md`（全量 verify(:full) + Docker/compose + 人员域八步 smoke + RFC §15/§16 对账；仅允许修验证暴露的回归，M8 整段退出）
 - M9-1 状态字典后端任务包：`docs/tasks/m9-1-status-dictionary-backend.md`（`presence.status_types` 建表 + `is_default` partial unique index + archive-only 管理 API 七端点(无硬删) + `presence:status-type:manage` + 记录 `status` 放宽(DROP `status_records_status_check`，服务层三类拒登) + 重叠豁免改键 `is_default` + `form_record_id` 增列 + 事件加 `statusLabel` + 改 M7 订阅器消费；预置种子走运行时幂等 ensure(非迁移 SQL)；独立 sub-agent 二审已过，合并前强制 security-reviewer）
 - M9-2 自助登记 v2 + forms 泛化任务包：`docs/tasks/m9-2-self-registration-forms-generalization.md`（激活 `presence.status.<key>` 槽位 + 注册 `forms:presence-definition:*` 并翻转 seed 守护测试 + forms 记录服务泛化(createRecord subject 授权从无到有、slot 家族 dataType 单源) + `GET /forms/records/by-id/:recordId`(收口 §7.5 getRecord follow-up) + presence 出站端口 `PresenceFormsLinkPort` 经 gateway `@Global()` 宿主适配器建 forms append 记录、`form_record_id` 随 presence 记录一次落库；编排拍板 = 出站端口+宿主适配器(对 RFC §5.2 的实现方式声明)，通用 POST /forms/records HTTP 面预留不做；独立 sub-agent 二审已过(4 Major 全落修)，合并前强制 security-reviewer）
+- vNext 技术路线图 ADR：`docs/adr/0006-vnext-roadmap.md`（M12–M19 双轨序列、开源接入三姿态、
+  子 ADR 立项、constitution §1 前提修正；设计规格
+  `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md`，两轮独立评审已落修）
+- 开源深评 spike 规范：`docs/research/README.md`（报告模板七章 + 已规划 spike 清单）
+- vNext 首个 spike 任务包：`docs/tasks/vnext-spike-openim-deployment.md`（OpenIM 部署裁剪
+  评估，M13 前置；产出 `docs/research/openim-deployment-evaluation.md`）
 
 后续建议补充：
 
