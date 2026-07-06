@@ -29,6 +29,15 @@
 > `agentTools` → MCP + `work-cli` + AgentSkills，对标飞书官方 lark-cli）。详见 §2 表末行、
 > §3.3、§5 里程碑表、§8、§12、§13、§14 对应修订。增量经独立 delta 评审（1C/3M/5m，核心：
 > 常驻化后的隔离单元与令牌语义须重算）已全部落修。
+>
+> 缺漏审计（独立 sub-agent gap audit，2026-07-06）：2 P0 / 9 P1 / 7 P2 已全部落修——核心
+> 盲区是"物理世界"：**P0-1** 内网 LLM 硬件/推理服务零规划却为缺省通道（新增第 4 个 spike，
+> M15 部署前置）、**P0-2** 可观测性无人认领且告警不能走自身管道（M12 认领带外告警 + 最小
+> 观测栈，§6.7）；P1 含 CI 矩阵/testing-strategy 还账（§6.8）、realtime-gateway 处置与
+> Redis 持久化决策位（§6.9）、`agent.*` 归属/业务面逐面口径/owner 离职联动（§13.2）、统一
+> 备份矩阵与容量规划与离线交付（§13.6）、Chrome109×OpenIM SDK 检查项（§7.3）；P2 含云文档/
+> 全局搜索/通知偏好显式非目标（§13.4）、baseline §11 密钥落点、C/S 承诺时点标注（§13.8）、
+> bitable Win7 降级引用（§11）、数据保留策略（§13.2）。
 
 ## 1. 愿景与范围
 
@@ -135,8 +144,8 @@ iCalendar RRULE 标准建模、CalDAV 服务端留预留。
 
 | 里程碑 | 类型 | 内容摘要 |
 | --- | --- | --- |
-| M12 可靠事件与多进程基建 | 🔧 | 事务性 outbox + 中继 + Redis Streams 驱动 + 消费三件套规范 + SSE fan-out + 调度基建抽壳与多副本互斥 |
-| M13 IM 基座 | 📦 | OpenIM 部署基线 + 账号 provisioning/部门群同步/token 换发与撤销传播/webhook 回流 + **agent bot 消息通道** |
+| M12 可靠事件与多进程基建 | 🔧 | 事务性 outbox + 中继 + Redis Streams 驱动 + 消费三件套规范 + SSE fan-out + 调度基建抽壳与多副本互斥 + **最小可观测性基线** + **CI 矩阵/测试策略扩展** |
+| M13 IM 基座 | 📦 | OpenIM 部署基线（备份/监控 runbook + 离线导入）+ 账号 provisioning/部门群同步/token 换发与撤销传播/webhook 回流 + **agent bot 消息通道** |
 | M14 IM 体验 | 📦 | Shell 内嵌聊天 UI（OpenIM JS SDK 依赖引用）+ 通知 IM 投递（点亮 M7 预留接口位） |
 | M15 Agent 基座 v1 | 🔧+📦 | 数字员工实例模型 + Agent Sandbox CRD 编排（k8s 全生命周期）+ pi harness + 能力供给三层（MCP/`work-cli`/Skills 单源三投影）+ Agent 双模式身份/审计 + 首个数字员工（内置助手）挂 IM |
 | M16 任务+日历+会议室 | 📦 | 自建 `modules/calendar` + `modules/tasks`，RRULE 建模 + occurrence 物化，会议室=资源日历 |
@@ -178,8 +187,23 @@ worker、SSE 多副本、gateway 拆分的共同前置。
    调度能力 ⇒ 抽为 `@work/scheduling` 共享包（含 PG advisory lock 多副本互斥），notification
    先迁移自证。
 
+7. **最小可观测性基线（2026-07-06 缺漏审计后本里程碑认领）**：**告警带外通道**拍板——
+   死信/管道故障告警不能走站内通知或 IM 投递（管道自身故障时告警一起死），候选：邮件 /
+   独立 webhook / 经 OpenIM admin API 直发运维群，M12 RFC 定；指标采集 + 日志聚合最小栈
+   （Prometheus + Loki 级或更轻）进部署基线；M13（OpenIM 全家桶）/M15（k3s/沙箱）各自
+   组件的监控项挂各自 runbook。
+8. **CI 矩阵与测试策略扩展**：CI 增加 Redis service 与**多进程 e2e 形态**（下方退出标准
+   所需）；借此补齐 doc-index §7 欠账的 `docs/testing-strategy.md`，统一 Redis/OpenIM/k8s
+   三类新 env-gate 的防假绿规约（沿 PG-gated"静默跳过"教训）；M13/M15 RFC 各登记其外部
+   依赖的测试替身/容器化策略。
+9. **两个收口决策位**：① `apps/realtime-gateway` 处置——现为无业务的 socket.io 骨架，
+   SSE 实际长在 gateway 内 notification 模块、IM 走 OpenIM 自有 ws，退役 / 收编为 SSE
+   fan-out 宿主 / 并入 gateway 三选一（architecture/deployment 随之更新）；② Redis 升格
+   为 critical 事件 broker 后的**持久化语义**——AOF/RDB 配置、重启时在途事件丢失依 outbox
+   重发补齐的论证、备份策略（deployment §6 统一备份矩阵扩列）。
+
 不做：不拆 gateway、不做 exactly-once、不引入 schema registry（事件契约仍在 `packages/*-contract`）。
-交付：ADR（事件传输选型）+ RFC + 3~4 切片。
+交付：ADR（事件传输选型）+ RFC + 4~5 切片（含可观测性与 CI 基建切片）。
 
 ## 7. M13-14 IM 接入
 
@@ -201,7 +225,10 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
    树为准。
 3. **聊天 UI 自建**：`modules/im/web` 标准模块挂 shell，OpenIM JS SDK 以 **npm 依赖**引入
    （不复制源码，姿态与 ADR 修正见 §3.2）；OpenIM websocket 经反代直连，不穿 realtime-gateway
-   （平台 SSE 管通知信号，IM ws 管消息，两通道各司其职）。
+   （平台 SSE 管通知信号，IM ws 管消息，两通道各司其职）。**Win7 口径 = M14 RFC 检查项**：
+   OpenIM JS SDK（wasm 形态，或依赖 SharedArrayBuffer/跨源隔离响应头）在 Chrome 109 + 企业
+   反代下**实测**，跑不通则显式豁免"IM 不入 Win7 核心功能清单"并同步 constitution §7 与
+   architecture §3.3 清单口径。
 4. **通知 IM 投递**：站内通知可选投递渠道 `ImProvider.sendSystemMessage`（系统账号），按
    触发点配置；通知中心仍是事实源。
 5. **隐私边界（写进 IM 子 ADR），含 agent 通道的显式开洞**：
@@ -231,6 +258,10 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
 1. **LLM 层 = pi-ai**（放弃自研 `@work/llm-provider`），外包一层部署配置（模型清单/密钥/
    内网 OpenAI 兼容端点）。双通道语义：**内网自部署通道为缺省**；云通道（Claude API）为
    显式开启项，开启即接受业务上下文出内网（§2 前提修正、§14 风险）。
+   **内网 LLM 端点是 M15 的部署前置（缺漏审计 P0）**：GPU 服务器规格、候选模型（中文
+   能力/工具调用能力）、推理服务选型（vLLM 等 OpenAI 兼容形态）、离线权重导入——由专项
+   spike"内网 LLM 推理基线评估"（§13.9，M15 前置）实证；硬件不到位则缺省通道不存在，
+   风险登记 §14。
 2. **Agent 循环 = pi-agent-core**；我们只写平台工具集与治理钩子。
 3. **实例模型与运行时编排 = Agent Sandbox CRD（k8s 全生命周期）**：
    - **Agent 是平台一等实体**：`agent.*` schema 存定义与实例（所属人/组织、指令、工具白名单、
@@ -355,7 +386,9 @@ Claude Agent SDK 高级驱动（沙箱代码执行场景）、Skills 覆盖面�
 
 网格视图（canvas + 虚拟滚动，搬 Teable 前端）为主交付；Kanban/表单视图次之；画册/日历视图
 【预留：网格/Kanban 验收后按需求触发】。`modules/bitable/web` 标准模块挂 shell。既有 forms
-填报页切换到新引擎渲染即为迁移验收面。像素级还原门禁照 UI 收口切片先例。
+填报页切换到新引擎渲染即为迁移验收面。像素级还原门禁照 UI 收口切片先例。canvas 网格对
+Win7/Chrome 109 引用 architecture §3.3 既有降级豁免（"复杂表格可对 Win7 降级"），M18 RFC
+显式定义降级形态（如表单视图兜底），避免还原度门禁与旧浏览器降级在验收时打架。
 
 ## 12. M19 自动化 + Agent v2
 
@@ -378,12 +411,19 @@ Claude Agent SDK 高级驱动（沙箱代码执行场景）、Skills 覆盖面�
 2. 子 ADR 按里程碑启动补（编号随 ADR-0006 后顺排）：
    - 事件传输选型（M12）；
    - **IM 集成边界（M13）= 对 ADR-0001 的显式修正**：Web SDK 依赖引用姿态（附 AGPL 合规
-     结论 + 数据流审查）、agent bot 消息通道对隐私边界的开洞、token 换发与撤销传播；
+     结论 + 数据流审查）、agent bot 消息通道对隐私边界的开洞、token 换发与撤销传播、
+     **IM 消息留存/归档策略**（Mongo 留存时长——合规争议 §14 已登记，留存口径在此拍板）；
    - **Agent 身份、工具面与运行时编排（M15）= 对 ADR-0004 的显式扩展**：双模式身份（委托
      令牌 + 自主任职的平台账号新主体类型 `kind=agent` 及其 schema 落位）、gateway 鉴权面
      新令牌形态、确认回传防伪、Agent Sandbox CRD 编排选型与 SandboxDriver 三档、**常驻
      沙箱的多用户会话隔离与令牌注入/续期语义**、agent 的 IM 账号 provisioning（与 IM 子
-     ADR 联合）；
+     ADR 联合）、**`agent.*` schema 归属**（agent-gateway 是 app 非 module——归属/迁移
+     入口 `db:migrate:agent` 由谁提供/是否新建 `modules/agent` 承载 contract+api）、
+     **agent 主体在既有业务面的逐面纳入-排除清单**（在位看板名册/日报"在岗须报"/组织树/
+     人员统计与导出 vs IM 联系人/任务指派——前者大概率排除、后者必须出现，逐面拍板）、
+     **owner 生命周期联动**（owner 禁用/离职 → 其名下实例 suspend/转移/归档 + 持久记忆卷
+     处置）、**审计与用量数据的增长预算**（agent 逐工具调用全量审计下 audit_logs 与
+     `agent.*` 用量表的保留/归档策略）；
    - bitable 存储模型（M17，定调动态物理表，翻案须新 ADR）。
 3. **`docs/security-baseline.md` 增量（遵守其 §16"先改文档再动代码"门禁）**：§4 新令牌
    形态（委托令牌 + agent 自主身份令牌）、平台账号体系新主体类型 `kind=agent` 的认证与
@@ -392,25 +432,43 @@ Claude Agent SDK 高级驱动（沙箱代码执行场景）、Skills 覆盖面�
    都触发数据范围模型调整（按模块声明的数据类型注册 + 参与者制与组织范围制并存口径，随
    M16/M17 子 RFC）+ **agent 主体在授权基线的口径**（§3 登录/锁定/员工状态校验对 agent
    的适用与排除、数据范围对 agent 的适用，随 Agent 身份 ADR）；**§8 bitable 运行时 DDL 豁免边界**（单一入口/schema 限定权限/配额与
-   审计，见 §10.2）；§9 Redis Streams 承载业务事件后的访问控制加固；§10 OpenIM token
-   换发/撤销传播 + JS SDK 许可与数据流审查结论。
+   审计，见 §10.2）；§9 Redis Streams 承载业务事件后的访问控制加固 + **持久化/备份语义**
+   （在途事件即业务数据，§6.9）；§10 OpenIM token 换发/撤销传播 + JS SDK 许可与数据流
+   审查结论；**§11 新密钥类别**（OpenIM admin API secret、云 LLM API key、内网 LLM 端点
+   凭据、k8s Secret 与沙箱令牌注入机制的存放姿态）。
 4. `docs/foundation-blueprint.md` 增补 vNext 篇章（M12–M19 门禁）；
-   `docs/product-requirements.md` 补 IM/任务日历/多维表格/Agent 需求条目（标注状态；若
+   `docs/product-requirements.md` 补 IM/任务日历/多维表格/Agent 需求条目 + **三条显式
+   非目标登记**（缺漏审计 P2：① 云文档/知识库——不做文档产品，结构化协作以 bitable 承接，
+   M19 的"RAG 知识库"是 agent 语料非用户文档；② 全局搜索——不做统一搜索，且 IM 消息因
+   隐私边界（内容不回流平台）**结构性**无法进平台搜索，此为 §7.5 拍板的隐含后果须写明；
+   ③ 通知偏好/免打扰——三渠道叠加后的用户侧设置，后置到 M14 一并定或显式不做）（标注
+   状态；若
    搬运 APITable 代码，§5"不轻易引入其代码"口径在此翻案）。
 5. `docs/architecture.md`：新增 agent-gateway、modules/{im,calendar,tasks,bitable}、Redis
-   Streams、OpenIM 全家桶、k8s 沙箱的拓扑更新，及 **§3.1 身份认证架构**（agent 主体类型
-   进入身份模型，M15）（各里程碑交付时同步）。
-6. `docs/deployment.md` + runbooks：OpenIM 部署与备份（M13）、k3s 沙箱基线（M15）——
+   Streams、OpenIM 全家桶、k8s 沙箱的拓扑更新，**§3.1 身份认证架构**（agent 主体类型进入
+   身份模型，M15），及 **realtime-gateway 处置结论**（§6.9 决策位落定后同步）（各里程碑
+   交付时同步）。
+6. `docs/deployment.md` + runbooks 扩为"vNext 部署基线与容量规划"：OpenIM 部署与备份/
+   监控（M13）、k3s 沙箱基线 + agent 持久卷备份（M15）、**内网 LLM 推理端点**（M15 部署
+   前置，spike 产出）、**可观测性组件进基线**（M12）、**统一备份矩阵**（PG + files +
+   Redis + Mongo/MinIO + agent PV 的 RPO/RTO 口径）、**容量规划**（单机堆叠 vs 拆机——
+   平台 compose + OpenIM 全家桶 + k3s 沙箱群 + LLM 推理的叠加视角，两个 spike 产出汇总，
+   M15 前完成）、**离线交付链路**（OpenIM 镜像集、k3s air-gap 安装、沙箱基础镜像、模型
+   权重与 GPU 驱动离线导入；借 M13 立项欠账的 `docs/offline-deployment-runbook.md`）——
    doc-index §5"改变内网部署方式"必审项。
 7. `docs/module-contract.md`：`agentTools` manifest 扩展规范与**单源三投影**（MCP /
    `work-cli` / AgentSkills，M15）、事件消费三件套（M12）。
 8. AGENTS.md §7 与 constitution 措辞更新（随对应 ADR）：保留"不复制源码"，放行"SDK 依赖
    引用"；"业务模块不得直接调用 OpenIM"补 `modules/im/web` 唯一 SDK 宿主例外（AGENTS.md
    §7 + constitution §4）；constitution §1"内网无公网部署"补云 LLM 可选通道的前提修正、
-   "IM 长期预留当前不实现"等过时表述随 ADR-0006 更新（doc-index §6：过时文档必须标注替代）。
-9. 新增 `docs/research/` 目录承接开源深评 spike 报告（Teable 解剖、OpenIM 部署裁剪、
-   **Agent 运行时评估**——pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli
-   的 CLI/Skills 形态解剖）。
+   "IM 长期预留当前不实现"等过时表述随 ADR-0006 更新；constitution §1"同时提供 Web UI 与
+   C/S 客户端"加时点标注（桌面端见 ADR-0006 M20+ 预留桶，长期悬置须显式）（doc-index §6：
+   过时文档必须标注替代）。
+9. 新增 `docs/research/` 目录承接开源深评 spike 报告，共四个：Teable 解剖、OpenIM 部署
+   裁剪、**Agent 运行时评估**（pi/OpenClaw 拓扑 + Agent Sandbox CRD/kagent 实测 + lark-cli
+   的 CLI/Skills 形态解剖）、**内网 LLM 推理基线评估**（缺漏审计 P0 新增：GPU 规格 × 候选
+   模型 × vLLM 等推理服务 × 离线权重导入，M15 部署前置）；OpenIM 与 LLM 两个 spike 的
+   资源实测汇总为容量规划输入（§13.6）。
 10. 各里程碑 RFC 在启动时按既有两轮独立评审流程产出。
 
 ## 14. 风险登记
@@ -431,6 +489,9 @@ Claude Agent SDK 高级驱动（沙箱代码执行场景）、Skills 覆盖面�
 | **数字员工自主模式的权限失控面**（agent 以自身角色权限自主行事，无人在环） | 复用平台 RBAC/数据范围（不另造权限系统）+ 角色最小化授予 + 敏感工具可配 HITL 找 owner 确认 + 全量审计 `actor=agent` + 治理面板配额；M15 只建模型不放业务，M19 全量开放前过 Agent 身份 ADR 评审 |
 | **共享常驻沙箱的跨用户上下文隔离**（多用户令牌/记忆共存一个常驻实例，提示注入的横向面） | §8.3 决策位：令牌逐消息下发不落卷（预倾向）+ 记忆按用户分区 / 按用户实例化，Agent 身份 ADR + M15 RFC 拍板后才放行内置助手多用户服务 |
 | **Agent Sandbox CRD 项目年轻**（SIG Apps 2026-03 发布，API 可能变动） | `SandboxDriver` 三档抽象（CRD/裸 Pod/Docker）保底；Agent 运行时 spike 实测后再定版本锁定策略 |
+| **内网 LLM 硬件不到位 → M15 缺省通道空转**（GPU/模型/推理服务无落地则被迫全走云通道，数据出内网缓解整体失效） | "内网 LLM 推理基线评估" spike 为 M15 部署前置（§13.9）；采购/选型结论进 deployment 容量规划（§13.6）；spike 结论为"不可行"时须回到 §2 前提重议 |
+| **owner 离职后数字员工失主**（实例继续以旧授权运行，记忆卷含离职者业务数据） | Agent 身份 ADR 登记 owner 生命周期联动（禁用/离职 → suspend/转移/归档 + 记忆卷处置）；M19 治理面板含归属转移 |
+| **观测缺位下的多组件运维盲区**（Mongo 打满/Kafka 积压/沙箱泄漏无人知晓） | M12 认领最小可观测性基线（§6.7：带外告警通道 + 指标/日志最小栈）；M13/M15 runbook 各挂组件监控项 |
 | **bitable 运行时 DDL 突破"生产禁自动改 schema"基线** | baseline §8 增量定豁免边界：DDL 管理层单一入口 + 运行账号 DDL 权限限定 `bitable.*` + 配额/命名/审计（§10.2、§13.3） |
 
 ## 15. 后续步骤
