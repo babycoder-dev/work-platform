@@ -256,6 +256,10 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - Agent 身份、工具面与运行时编排 ADR：`docs/adr/0009-agent-identity-tools-runtime.md`
   （M15；对 ADR-0004 的显式扩展；双模式身份 + 组合隔离 + SandboxDriver 三档 + 云 LLM 数据
   类别硬边界 + 单源三投影；两轮独立评审 + 两项拍板，Accepted）
+- IM 集成边界 ADR：`docs/adr/0008-im-integration-boundary.md`（M13/M14 前置；对 ADR-0001 的
+  三处显式修正 + 业务模块直连 OpenIM 铁律的唯一例外（im/web 前端）+ 撤销传播补链路 + 身份
+  映射/webhook 无签名的 spike 实证对策；两轮独立评审 + delta 校验 + 两项拍板（聊天 agent 可读、
+  AGPL 待法务背书），Accepted）
 - 开源深评 spike 规范：`docs/research/README.md`（报告模板七章 + 已规划 spike 清单；
   agent-runtime/teable-anatomy 已产出，LLM spike 已取消）
 - vNext 首个 spike 任务包：`docs/tasks/vnext-spike-openim-deployment.md`（OpenIM 部署裁剪

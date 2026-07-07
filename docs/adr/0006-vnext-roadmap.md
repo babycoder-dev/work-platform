@@ -115,7 +115,7 @@ M20+ 由本 ADR 维护完整清单与触发条件，其他文档只按自身职�
 ### 4. 子 ADR 立项（编号顺排，各里程碑启动时产出）
 
 1. 事件传输选型（M12，含 realtime-gateway 处置与 Redis 持久化语义两个收口决策位）；
-2. IM 集成边界（M13）= **对 ADR-0001 的显式修正**（Web SDK 依赖引用 + agent bot 通道 +
+2. IM 集成边界（M13）**【已落 `docs/adr/0008-im-integration-boundary.md`，Accepted 2026-07-07】** = **对 ADR-0001 的显式修正**（Web SDK 依赖引用 + agent bot 通道 +
    token 换发/撤销传播 + IM 消息留存/归档策略 + AGENTS.md §7 / constitution §4 措辞例外；
    M14 RFC 另含 Chrome 109 × OpenIM JS SDK 实测或 Win7 显式豁免检查项）；
 3. Agent 身份、工具面与运行时编排（M15）**【已落 `docs/adr/0009-agent-identity-tools-runtime.md`，Accepted 2026-07-07】** = **对 ADR-0004 的显式扩展**（双模式身份：委托

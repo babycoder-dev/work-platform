@@ -2,7 +2,7 @@
 
 ## 状态
 
-Proposed（待两轮独立评审 + 拍板）｜ 起草 2026-07-07 ｜ 依据 `docs/adr/0006-vnext-roadmap.md`
+Accepted（两轮独立评审 + delta 校验已修订 + 两项拍板，2026-07-07）｜ 起草 2026-07-07 ｜ 依据 `docs/adr/0006-vnext-roadmap.md`
 §4 子 ADR 立项第 2 条、`docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md` §7；实证
 输入 `docs/research/openim-deployment-evaluation.md`（OpenIM 部署 spike，2026-07-07 已产出）。
 
@@ -37,6 +37,14 @@ Proposed（待两轮独立评审 + 拍板）｜ 起草 2026-07-07 ｜ 依据 `do
 > 缺"拍板项"节——聊天留存 + AGPL bundle 分发定性两处业务/法务判断藏正文未升格（补拍板项节）。
 > minor（三态对账表、doc-index 收录、ADR-0001 状态注记入 Accept 动作、im-provider 反向边界、
 > architecture 边方向、user token 已签发未测能力的措辞）一并落修。二审结论：修完可交拍板。
+
+> 拍板 + delta 校验（2026-07-07）：产品负责人拍两项——① 聊天留存策略 = 局域网云留存 + 新
+> 设备历史 + **聊天信息 agent 可读**（覆盖原"不落库"默认，§D5/§拍板项 1）；② AGPL bundle 分发
+> 定性 = 待法务背书（M14 前）。拍板后一轮 delta 校验（独立 sub-agent）抓出 **1 Major**：新
+> "agent 可读"pull 路径把聊天内容送进云 LLM prompt 的**出网面**（≠ 落库面）无人堵——已补
+> 定性（聊天正文属"平台工具取回"、默认从紧不整段进 prompt、不适用"用户自带内容"豁免、M15
+> 回填 ADR-0009 D6，§D5）+ 连带待办从两项扩三项 + 摆明"ADR-0009 D6 未认领 IM 出站/聊天 pull
+> 扩责由本 ADR 登记 M15 回填"。转 Accepted。
 
 ## 背景
 
@@ -171,6 +179,14 @@ OpenIM userID 不接受平台 UUID 主键（含连字符被拒，spike §2.3；O
   scoping 模型 + 与 ADR-0009 D6 出站白名单的接力（读到的敏感类别不得经 agent IM 账号外发）
   归 M13/M15 硬设计。**"agent 可读他人聊天"是隐私敏感扩张，M13 前须评估是否需独立 scoping
   ADR**（本 ADR 记方向，不替 M13 定 scope 模型）。
+- **聊天内容进云 LLM prompt 的定性（delta 校验 Major：出网面 ≠ 落库面，须单独堵）**：invariant
+  "内容不落平台库"只管**落库**面；"agent 可读"另开一条**出网**面——agent 把 pull 到的聊天内容
+  编进 prompt 发云 LLM。**定性 = agent 主动 pull 的他人聊天内容属"平台工具取回面"，进 cloud
+  LLM prompt 同受 ADR-0009 D6 数据类别白名单约束，不适用其"用户自带内容"豁免**（豁免仅限
+  令牌持有者本人在自己消息里自带的内容）。聊天正文是**新数据类别**，**默认从紧 = 不可整段进
+  prompt**——未经产品/法务拍板前，agent 可读仅限落到处理逻辑（关键词/元数据/摘要不出网），
+  不得整段聊天正文进云 LLM。此类别定性 + 回填 ADR-0009 D6 归 M15（ADR-0009 已 Accepted、其
+  D6 文本只覆盖 prompt 的既有四类、未认领聊天 pull 这一新类别，由 M15 回填）。
 - **内容级合规审计 / 搜索 / 敏感词 = 预留**（ADR-0001 Phase E）：留存已由上述落地（OpenIM
   Mongo），但平台侧**内容审计 / 全文搜索 / 敏感词**仍预留（可后续基于 OpenIM Mongo 或独立
   索引，启用走独立 ADR）。
@@ -209,9 +225,12 @@ OpenIM userID 不接受平台 UUID 主键（含连字符被拒，spike §2.3；O
   `dataClasses` 定义归 ADR-0009 D7 工具面，本 ADR 只提供 IM 传输。**须点名的攻击链**："读敏感
   数据（只读工具、在委托权限内；**D5 拍板后聊天内容也是可读源**）+ 经 agent IM 账号外发到群"
   这条 read-then-exfil **既不触发 ADR-0009 D8 写确认（读不是写），外发目标又非云 LLM（不触发
-  ADR-0009 D6 的 prompt 白名单——D6 只 gate 进 prompt、不 gate IM 出站）**。故**兜底须由 ADR-0009 D6 数据类别白名单同时
-  约束 IM 出站面（非仅 LLM prompt 面）**——"读到的敏感类别不得经 IM 外发"与 prompt 白名单
-  同源，此接力点归 M15 RFC 落，本 ADR 在此显式登记，勿让实施者漏防。
+  ADR-0009 D6 的 prompt 白名单——D6 只 gate 进 prompt、不 gate IM 出站）**。故**兜底须把 ADR-0009
+  D6 数据类别白名单**扩用**到 IM 出站面（非仅 LLM prompt 面）**——"读到的敏感类别不得经 IM
+  外发"与 prompt 白名单同源。**⚠️ ADR-0009 D6 当前文本只覆盖 prompt 面、未认领 IM 出站扩责**
+  （其 D6 边界声明"只约束……进 prompt"）；把同一类别集扩用到 IM 出站是**本 ADR 登记、由 M15
+  RFC 落地并回填 ADR-0009 D6/security-baseline**——不让读者误以为 0009 已覆盖出站。本 ADR 显式
+  登记此接力点，勿让实施者漏防。
 
 ### D7 webhook 安全入口（spike 实证驱动，security-baseline §10 增量）
 
@@ -329,8 +348,8 @@ im/web 成为安全关注面（进 security-baseline 审查）；③ OpenIM 无 
 （M13 RFC 前置验证，兜底映射表）；⑤ OpenIM 全家桶首次引入非 PG 存储，部署/备份复杂度上升
 （spike 已量化，归 M13）；⑥ **拍板"聊天信息 agent 可读"是隐私姿态扩张**（D5）：agent 读聊天
 面从 bot-directed 扩到 scoped 会话，放大 M-1 读+外发面——保 invariant（按需读不落库）但引入
-"scoping 模型 + 出站白名单接力"两项 M13/M15 硬设计，且"agent 可读他人聊天"本身须评估是否
-独立 scoping ADR。
+**scoping 模型 + 两个出网面（IM 外发 + 云 LLM prompt）的白名单接力共三项** M13/M15 硬设计，
+且"agent 可读他人聊天"本身须评估是否独立 scoping ADR。
 
 ## 实装时点
 
@@ -341,7 +360,7 @@ im/web 成为安全关注面（进 security-baseline 审查）；③ OpenIM 无 
 | Web SDK 依赖引用 | 已决方向 + 移交 M14 | D1.1；实装 + Chrome 109 实测 M14 RFC |
 | agent bot 通道 | 已决 + 移交 M13 | D1.2 / D6；im-adapter 侧实装 M13 |
 | token 换发 / 撤销传播 | 已决方向 + 移交 M13 | D4；TTL 与最坏窗口 M13 定 |
-| IM 消息留存 / 归档策略 | 已决（不落库）+ 拍板确认 | D5 / 拍板项 1；接口预留位 M13 |
+| IM 消息留存 / 归档策略 | 已决（留 OpenIM Mongo、不落平台库）+ 拍板扩展（agent 可读） | D5 / 拍板项 1；scoping + 出网接力 M13/M15 |
 | AGENTS.md §7 / constitution 措辞例外 | 已决 + 移交 M13 首切片改文档 | D2 / 对既有文档的修正 |
 | Chrome 109 × SDK 实测 | 移交 M14 | M14 RFC 检查项 |
 
@@ -368,9 +387,11 @@ ADR-0009 拍板项同量级，勿留在正文漏签）：
    + 聊天信息 agent 可读**（**覆盖 ADR 原"不落库"默认建议**）。落地口径见 D5：留存以 OpenIM
    Mongo（内网私有部署）为事实库、平台不镜像（保"内容不落平台业务库"invariant）；新设备历史
    走 OpenIM 原生同步；agent 可读经 im-adapter 按需从 OpenIM 读、不落平台库、**读取范围
-   scoped**。**两个连带待办（M13 前）**：① "聊天信息 agent 可读"的 scoping 模型（哪些会话对
-   哪个 agent 可读）是隐私敏感扩张，须评估是否需独立 scoping ADR；② 该扩张放大二审 M-1 的
-   读+外发面，与 ADR-0009 D6 出站白名单接力须 M15 硬约束。内容级审计/搜索仍预留。
+   scoped**。**三个连带待办（M13/M15 前）**：① "聊天信息 agent 可读"的 scoping 模型（哪些会话
+   对哪个 agent 可读）是隐私敏感扩张，须评估是否需独立 scoping ADR；② 该扩张放大二审 M-1 的
+   读+外发面，与 ADR-0009 D6 出站白名单接力（IM 外发面）须 M15 硬约束；③ **聊天正文进 cloud
+   LLM prompt 的类别定性**（delta 校验 Major）——默认从紧 = 不整段进 prompt、属"平台工具取回"
+   受 D6 白名单管、不适用"用户自带内容"豁免，接 ADR-0009 D6 并 M15 回填。内容级审计/搜索仍预留。
 2. **AGPL 组件进前端 bundle 的分发定性**（D1.1）：**2026-07-07 拍板 = 待法务背书（M14 前）**。
    ADR-0006 已拍"纯内部使用、AGPL 可依赖引用"，但"OpenIM JS SDK（AGPL-3.0）打进 `modules/im/web`
    前端构建产物、分发给企业内网用户浏览器"是否触发 AGPL 的 conveying/distribution 义务，是
