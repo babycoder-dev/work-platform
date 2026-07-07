@@ -248,9 +248,16 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M9-1 状态字典后端任务包：`docs/tasks/m9-1-status-dictionary-backend.md`（`presence.status_types` 建表 + `is_default` partial unique index + archive-only 管理 API 七端点(无硬删) + `presence:status-type:manage` + 记录 `status` 放宽(DROP `status_records_status_check`，服务层三类拒登) + 重叠豁免改键 `is_default` + `form_record_id` 增列 + 事件加 `statusLabel` + 改 M7 订阅器消费；预置种子走运行时幂等 ensure(非迁移 SQL)；独立 sub-agent 二审已过，合并前强制 security-reviewer）
 - M9-2 自助登记 v2 + forms 泛化任务包：`docs/tasks/m9-2-self-registration-forms-generalization.md`（激活 `presence.status.<key>` 槽位 + 注册 `forms:presence-definition:*` 并翻转 seed 守护测试 + forms 记录服务泛化(createRecord subject 授权从无到有、slot 家族 dataType 单源) + `GET /forms/records/by-id/:recordId`(收口 §7.5 getRecord follow-up) + presence 出站端口 `PresenceFormsLinkPort` 经 gateway `@Global()` 宿主适配器建 forms append 记录、`form_record_id` 随 presence 记录一次落库；编排拍板 = 出站端口+宿主适配器(对 RFC §5.2 的实现方式声明)，通用 POST /forms/records HTTP 面预留不做；独立 sub-agent 二审已过(4 Major 全落修)，合并前强制 security-reviewer）
 - vNext 技术路线图 ADR：`docs/adr/0006-vnext-roadmap.md`（M12–M19 双轨序列、开源接入三姿态、
-  子 ADR 立项、constitution §1 前提修正；设计规格
-  `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md`，两轮独立评审已落修）
-- 开源深评 spike 规范：`docs/research/README.md`（报告模板七章 + 已规划 spike 清单）
+  子 ADR 立项、constitution §1 前提修正；2026-07-07 增补拍板 = LLM 改线上 API 为主通道；
+  设计规格 `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md`，两轮独立评审已落修）
+- M12 可靠事件与多进程基建 RFC：`docs/rfc/m12-reliable-events-multiprocess.md`（事务性
+  outbox + 按模块中继 + Redis Streams；两轮独立评审 + delta 校验 + 三项拍板，Accepted；
+  配套 ADR-0007 事件传输选型随 M12-1 入库）
+- Agent 身份、工具面与运行时编排 ADR：`docs/adr/0009-agent-identity-tools-runtime.md`
+  （M15；对 ADR-0004 的显式扩展；双模式身份 + 组合隔离 + SandboxDriver 三档 + 云 LLM 数据
+  类别硬边界 + 单源三投影；两轮独立评审 + 两项拍板，Accepted）
+- 开源深评 spike 规范：`docs/research/README.md`（报告模板七章 + 已规划 spike 清单；
+  agent-runtime/teable-anatomy 已产出，LLM spike 已取消）
 - vNext 首个 spike 任务包：`docs/tasks/vnext-spike-openim-deployment.md`（OpenIM 部署裁剪
   评估，M13 前置；产出 `docs/research/openim-deployment-evaluation.md`）
 

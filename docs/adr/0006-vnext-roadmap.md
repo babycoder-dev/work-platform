@@ -118,7 +118,7 @@ M20+ 由本 ADR 维护完整清单与触发条件，其他文档只按自身职�
 2. IM 集成边界（M13）= **对 ADR-0001 的显式修正**（Web SDK 依赖引用 + agent bot 通道 +
    token 换发/撤销传播 + IM 消息留存/归档策略 + AGENTS.md §7 / constitution §4 措辞例外；
    M14 RFC 另含 Chrome 109 × OpenIM JS SDK 实测或 Win7 显式豁免检查项）；
-3. Agent 身份、工具面与运行时编排（M15）= **对 ADR-0004 的显式扩展**（双模式身份：委托
+3. Agent 身份、工具面与运行时编排（M15）**【已落 `docs/adr/0009-agent-identity-tools-runtime.md`，Accepted 2026-07-07】** = **对 ADR-0004 的显式扩展**（双模式身份：委托
    令牌 + 自主任职的平台账号新主体类型 `kind=agent` 及其 schema 落位、gateway 鉴权面新
    令牌形态、确认回传防伪、Agent Sandbox CRD 编排选型与 SandboxDriver 三档、常驻沙箱的
    多用户会话隔离与令牌注入/续期语义、agent 的 IM 账号 provisioning——与 IM 子 ADR 联合、
