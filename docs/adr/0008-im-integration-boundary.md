@@ -149,12 +149,31 @@ OpenIM userID 不接受平台 UUID 主键（含连字符被拒，spike §2.3；O
 
 ### D5 隐私边界 + 消息留存/归档策略
 
-- **常规聊天内容不回流平台库**：不进平台审计、不进平台搜索。OpenIM Mongo 是消息事实库，
-  平台**不镜像、不双写**。
-- **webhook 默认只回流账号/群组生命周期事件**（用户注册、建群等，spike §2.4 实测载荷），
-  用于同步对账（D-同步）；**消息级 webhook 默认关**，仅 agent bot 白名单例外（D6）。
-- **内容级合规审计 / 搜索 / 归档 / 敏感词 = 预留**（ADR-0001 Phase E）：留接口位不实现；启用
-  须走独立 ADR（触及"聊天内容是否落平台库"的隐私姿态翻案）。
+> **2026-07-07 产品拍板改写本节隐私姿态**（覆盖原"内容不回流、agent 只读 bot-directed"默认）：
+> 需求 = **聊天消息局域网云留存 + 新设备加载历史会话 + 聊天信息 agent 可读**。落地口径如下，
+> 核心原则 = **满足留存/历史/可读三需求，同时保住"内容不落平台业务库"invariant**（M12 critical
+> 事件不落库 §2、ADR-0009 D6 都依赖此 invariant；破它会级联翻案）。
+
+- **聊天消息留存**：以 **OpenIM Mongo（内网私有部署，本就是内网姿态）为消息事实库**——即
+  "局域网云留存"由 OpenIM 承载；平台**不镜像、不双写**（内容不落平台业务库，保 invariant）。
+- **新设备加载历史会话** = OpenIM **原生消息同步**能力（客户端从 server 拉历史）——无需平台侧
+  额外设计，M13 验证 OpenIM 同步 API + 前端 SDK 覆盖此场景。
+- **webhook 回流范围**：webhook 默认只回流账号/群组生命周期事件（用户注册、建群等，spike §2.4
+  实测载荷），用于同步对账（下条）；**消息级 webhook 默认关**，仅 agent bot 白名单例外（D6 =
+  push 路径）。注意"聊天信息 agent 可读"（上条）走 **pull**（agent 按需读），**不是**打开消息级
+  webhook 广播——二者机制分离，避免"全量消息 webhook"的隐私/流量灾难。
+- **聊天信息 agent 可读（拍板扩展，须 scoped）**：agent 可读聊天内容，**机制 = 经 im-adapter
+  按需从 OpenIM 读取**（transient、读时取、不持久化到平台业务库，保 invariant，非平台镜像
+  一份）；与 D6 bot 回调专线分工——**D6 = push**（发给 bot 的消息实时推 agent），**本条 = pull**
+  （agent 主动读其 scoped 范围的会话）。**读取范围必须 scoped**：哪些会话对哪个 agent 可读，
+  按 agent 是会话参与方 / owner 授权 / 被加入的群界定，**不是"agent 可读全公司聊天"**。
+  ⚠️ **这条显著扩大二审 M-1 的"读+外发"面**（agent 从只读 bot-directed 扩为可读更广聊天）；
+  scoping 模型 + 与 ADR-0009 D6 出站白名单的接力（读到的敏感类别不得经 agent IM 账号外发）
+  归 M13/M15 硬设计。**"agent 可读他人聊天"是隐私敏感扩张，M13 前须评估是否需独立 scoping
+  ADR**（本 ADR 记方向，不替 M13 定 scope 模型）。
+- **内容级合规审计 / 搜索 / 敏感词 = 预留**（ADR-0001 Phase E）：留存已由上述落地（OpenIM
+  Mongo），但平台侧**内容审计 / 全文搜索 / 敏感词**仍预留（可后续基于 OpenIM Mongo 或独立
+  索引，启用走独立 ADR）。
 - **同步 = 事件驱动 + 夜间对账**：platform 用户/部门事件 → im-adapter 消费 → OpenIM 用户与
   **部门群**增删；夜间全量对账 job 修漂移，调度能力来自 M12 抽壳的 `@work/scheduling`
   （不复用 notification 内部调度）。部门群成员资格以平台组织树为准。
@@ -188,9 +207,9 @@ OpenIM userID 不接受平台 UUID 主键（含连字符被拒，spike §2.3；O
   （发给 bot 的消息回流给 agent）；**agent 经自身 IM 账号发消息（出站）**同在 IM 侧、也归本
   ADR 传输面，但其**授权定性 = 一类平台工具**，`readOnly/write` + `confirmationPolicy` +
   `dataClasses` 定义归 ADR-0009 D7 工具面，本 ADR 只提供 IM 传输。**须点名的攻击链**："读敏感
-  数据（只读工具、在委托权限内）+ 经 agent IM 账号外发到群"这条 read-then-exfil **既不触发
-  ADR-0009 D8 写确认（读不是写），外发目标又非云 LLM（不触发 ADR-0009 D6 的 prompt 白名单
-  ——D6 只 gate 进 prompt、不 gate IM 出站）**。故**兜底须由 ADR-0009 D6 数据类别白名单同时
+  数据（只读工具、在委托权限内；**D5 拍板后聊天内容也是可读源**）+ 经 agent IM 账号外发到群"
+  这条 read-then-exfil **既不触发 ADR-0009 D8 写确认（读不是写），外发目标又非云 LLM（不触发
+  ADR-0009 D6 的 prompt 白名单——D6 只 gate 进 prompt、不 gate IM 出站）**。故**兜底须由 ADR-0009 D6 数据类别白名单同时
   约束 IM 出站面（非仅 LLM prompt 面）**——"读到的敏感类别不得经 IM 外发"与 prompt 白名单
   同源，此接力点归 M15 RFC 落，本 ADR 在此显式登记，勿让实施者漏防。
 
@@ -308,7 +327,10 @@ OpenIM 全家桶（server/chat/mongo/redis/kafka/etcd/minio）以**独立 compos
 im/web 成为安全关注面（进 security-baseline 审查）；③ OpenIM 无 webhook 签名，内网信任模型下
 靠 ACL + 共享密钥兜底，公网暴露即失效（部署硬约束）；④ 身份映射的 32 hex 长度上限未实测
 （M13 RFC 前置验证，兜底映射表）；⑤ OpenIM 全家桶首次引入非 PG 存储，部署/备份复杂度上升
-（spike 已量化，归 M13）。
+（spike 已量化，归 M13）；⑥ **拍板"聊天信息 agent 可读"是隐私姿态扩张**（D5）：agent 读聊天
+面从 bot-directed 扩到 scoped 会话，放大 M-1 读+外发面——保 invariant（按需读不落库）但引入
+"scoping 模型 + 出站白名单接力"两项 M13/M15 硬设计，且"agent 可读他人聊天"本身须评估是否
+独立 scoping ADR。
 
 ## 实装时点
 
@@ -342,15 +364,19 @@ im/web 成为安全关注面（进 security-baseline 审查）；③ OpenIM 无 
 本 ADR 多数为技术边界与对 ADR-0001 的修正，但有两处**业务/合规判断**须产品负责人拍板（与
 ADR-0009 拍板项同量级，勿留在正文漏签）：
 
-1. **聊天内容留存策略**（D5）：本 ADR 选"常规聊天内容不回流平台库、合规审计留预留位、启用走
-   独立 ADR"。这是**隐私/合规业务判断**（企业是否需要聊天审计留存、监管是否要求），非工程
-   取舍。默认建议 = 不落库（隐私优先 + 存储/合规成本）；若企业/监管要求内容级审计，须翻此
-   默认并起独立 ADR。
-2. **AGPL 组件进前端 bundle 的分发定性**（D1.1）：ADR-0006 已拍"纯内部使用、AGPL 可依赖引用"，
-   但"OpenIM JS SDK（AGPL-3.0）打进 `modules/im/web` 前端构建产物、分发给企业内网用户浏览器"
-   是否触发 AGPL 的 conveying/distribution 义务，是**法务判断**（spec §3.2 当年只做工程姿态、
-   未做法务定性）。须法务一次性背书"内网 bundle 分发在纯内部姿态下的 AGPL 义务边界"，M14
-   （Web SDK 实装）前完成；若已背书，注明出处即闭合。
+1. **聊天内容留存策略**（D5）：**2026-07-07 拍板 = 聊天消息局域网云留存 + 新设备加载历史会话
+   + 聊天信息 agent 可读**（**覆盖 ADR 原"不落库"默认建议**）。落地口径见 D5：留存以 OpenIM
+   Mongo（内网私有部署）为事实库、平台不镜像（保"内容不落平台业务库"invariant）；新设备历史
+   走 OpenIM 原生同步；agent 可读经 im-adapter 按需从 OpenIM 读、不落平台库、**读取范围
+   scoped**。**两个连带待办（M13 前）**：① "聊天信息 agent 可读"的 scoping 模型（哪些会话对
+   哪个 agent 可读）是隐私敏感扩张，须评估是否需独立 scoping ADR；② 该扩张放大二审 M-1 的
+   读+外发面，与 ADR-0009 D6 出站白名单接力须 M15 硬约束。内容级审计/搜索仍预留。
+2. **AGPL 组件进前端 bundle 的分发定性**（D1.1）：**2026-07-07 拍板 = 待法务背书（M14 前）**。
+   ADR-0006 已拍"纯内部使用、AGPL 可依赖引用"，但"OpenIM JS SDK（AGPL-3.0）打进 `modules/im/web`
+   前端构建产物、分发给企业内网用户浏览器"是否触发 AGPL 的 conveying/distribution 义务，是
+   **法务判断**（spec §3.2 当年只做工程姿态、未做法务定性）。**登记为待确认项**：须法务一次性
+   背书"内网 bundle 分发在纯内部姿态下的 AGPL 义务边界"，M14（Web SDK 实装）前完成；背书前
+   M14 不得合入 Web SDK bundle。
 
 （其余如身份映射选型、TTL 取值、user token 能力收窄均为技术决策，随 M13 RFC 定，不在拍板项。）
 
