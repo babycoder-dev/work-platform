@@ -17,9 +17,19 @@ Proposed（待两轮独立评审 + 拍板）｜ 起草 2026-07-07 ｜ 依据 `do
 > M13 首切片"先改文档再动代码"。AGPL 合规姿态不在本 ADR 重议（ADR-0006 已拍板：纯内部
 > 使用、不商业化、AGPL 可依赖引用），本 ADR 只界定引用方式与边界。
 
+> 一审（独立 sub-agent，2026-07-07）发现并已修订：**C1** D2"仅消息收发"是无实证乐观断言
+> ——前端持的是 OpenIM **user token**（用户级、含建群/拉会话/改档），改为诚实界定 + M13 前置
+> 实测能力清单 + 显式接受残余（§D2）；及 **M1** 短 TTL 与 spike 实测 90 天默认冲突、可否
+> 参数化未验（§D4）、**M2** 撤销最坏时延漏消费延迟段且无上界（补三段公式对齐 ADR-0009 D3，
+> §D4）、**M3** 短 TTL×高频换发×introspection 压力矛盾未展开（§D4）、**M4** architecture.md
+> §5.1 拓扑 + 铁律第四副本双漏（补入修正清单）、**M5** 共享密钥泄露→伪造 bot 消息→喂 agent
+> 执行的攻击链未防、丢了 spec §7.5"发送者 userID 绑定"（补 D7 第 4 条 + 信任边界 + agent 侧
+> 最终防线，§D7）。minor（去连字符 UUID 大小写维度、透传归因指 ADR-0006 §3/spec §7、内容 vs
+> 元数据字段级判据 + 禁 log content、四存储措辞对齐 spike、回指 spec §7、笔误）一并落修。
+
 ## 背景
 
-ADR-0001（2020 年代初起草，Accepted）把 OpenIM 定为可插拔 IM Provider，立下四条约束沿用
+ADR-0001（基建早期起草，Accepted，无日期标注）把 OpenIM 定为可插拔 IM Provider，立下四条约束沿用
 至今：① 平台账号体系自持，OpenIM 不接管；② 业务模块不直接调用 OpenIM，只经 `im-adapter-api`
 与 `@work/im-provider`；③ 第一阶段只验证服务端 REST/Webhook，**不集成 AGPL 客户端 SDK**；
 ④ Web/C-S 客户端接入 SDK 需单独 License 评估（Phase D）。彼时 `im-adapter-api` /
@@ -49,8 +59,9 @@ ADR-0001 的账号自持、Provider 可替换、服务端经 `im-adapter-api` �
    **agent bot 回调直连专线**（D6）：发给 bot 的消息经回调白名单转发给 agent 消费端，内容
    **不落平台业务库**、不进审计/搜索。这是 ADR-0001 未预见的内容级回流通道，显式开洞并限死
    边界。
-3. **身份映射**：ADR-0001"OpenIM 用户 ID 使用平台用户 ID 映射"（默认读作直接透传）→ 修正为
-   **不可直接透传**（D3，spike 实证 userID 规则不兼容含连字符 UUID），须经确定性转换或映射表。
+3. **身份映射**：ADR-0001"OpenIM 用户 ID 使用平台用户 ID **映射**"（本不排斥转换）被 **ADR-0006
+   §3 / spec §7.1 具体化为"直接透传"**（`OpenIM userID = 平台 user id`）→ 本 ADR 据 spike 实证
+   修正为**不可直接透传**（D3，userID 规则不兼容含连字符 UUID），须经确定性转换或映射表。
 
 ### D2 业务模块直连 OpenIM 铁律的唯一例外（安全边界，精确划界）
 
@@ -58,8 +69,15 @@ ADR-0001 的账号自持、Provider 可替换、服务端经 `im-adapter-api` �
 OpenIM"**。本 ADR 立**唯一例外**，边界四条同时成立方生效，缺一即回落铁律：
 
 1. **仅** `modules/im/web`（前端）——不是任何服务端、不是任何其他模块的 web；
-2. **仅**消息收发的实时通道——OpenIM JS SDK + websocket，用于聊天 UI 的发消息/收消息/会话
-   列表/已读回执等 IM 原生能力；
+2. **仅**用于聊天 UI 的 IM 原生能力（OpenIM JS SDK + websocket：发消息/收消息/会话列表/
+   已读回执）——但**须诚实界定（一审 C1）**：前端持的是 OpenIM **user token**，其实际能力面
+   = OpenIM 服务端对 user token 的授权面（**用户级**，很可能含建群/拉取本人所在任意会话/向
+   其发消息/改本人资料等，**非仅消息收发**；spike 只测过 admin token、未测 user token 能力
+   边界）。故"仅消息收发"是**前端行为约束、非服务端授权约束**，浏览器是不可信执行环境、
+   约束不住攻击者。**M13 RFC 前置实测 user token 能力清单** + 评估 OpenIM 能否按能力收窄
+   user token（禁建群/禁改档）；不能收窄则把"前端能以自己身份做 OpenIM 允许用户做的一切"
+   登记为**显式接受的残余**，靠平台账号/组织自持（不以 OpenIM 侧建群/改档为组织真源）+ D4
+   短 TTL + 撤销传播兜底；
 3. **ws 经反代直连 OpenIM，不穿平台网关、不穿 realtime-gateway**（平台 SSE 管通知信号、IM ws
    管消息，两通道各司其职，`docs/rfc/m12-reliable-events-multiprocess.md` §15① realtime-gateway
    退役后 SSE 走 gateway 内 fan-out，与 IM ws 无关）；
@@ -72,11 +90,13 @@ OpenIM"**。本 ADR 立**唯一例外**，边界四条同时成立方生效，�
 
 ### D3 身份映射策略（spike 实证驱动）
 
-OpenIM userID 不接受平台 UUID 主键（含连字符被拒 `userID is legal`，spike §2.3）。决策：
+OpenIM userID 不接受平台 UUID 主键（含连字符被拒，spike §2.3；OpenIM 原文 errDlt
+`userID is legal`，措辞疑为 `illegal` 笔误）。决策：
 
-- **主候选 = 去连字符 UUID**（32 hex，无状态、双向可逆、不建表）：`im-adapter-api` 在平台
-  UUID ↔ OpenIM userID 间做确定性转换。**M13 RFC 须实测确认** OpenIM userID 的长度上限与
-  字符集是否容纳 32 hex（spike 未测长度上限）。
+- **主候选 = 去连字符 UUID**（32 hex，无状态、双向可逆——纯格式变换删 4 个连字符，可逆无
+  碰撞成立，风险在长度/字符集/大小写而非碰撞）：`im-adapter-api` 在平台 UUID ↔ OpenIM userID
+  间做确定性转换。**M13 RFC 须实测确认** OpenIM userID 的**长度上限、字符集、大小写敏感性**
+  是否容纳 32 hex 全小写（spike 报错 `userID is legal` 只证含连字符被拒，未穷举这三项）。
 - **兜底候选 = `im_user_id` 映射表**（若 32 hex 超长度限或字符集更窄）：im-adapter 自有最小
   schema 存平台 id ↔ OpenIM id 双向映射。
 - 昵称/头像从档案同步（`profile.updated` 事件驱动，D5 同步链路）；**不设 OpenIM 密码**。
@@ -88,18 +108,32 @@ OpenIM userID 不接受平台 UUID 主键（含连字符被拒 `userID is legal`
 ### D4 IM token 换发 + 撤销传播（对 ADR-0004 phantom-token 的补链路）
 
 - **换发**：Web 端 IM token 仅经 `im-adapter-api` 的 token 换发端点——平台会话（phantom
-  token，经 introspection 验明）→ im-adapter 调 OpenIM admin API 签发**短 TTL** user token
-  → 下发前端。前端不接触 admin secret。admin secret 只存 im-adapter 服务端密钥管理
-  （security-baseline §11 新密钥类别，ADR-0009 已同列 `OpenIM admin secret`）。
+  token，经 introspection 验明）→ im-adapter 调 OpenIM admin API 签发 user token → 下发前端。
+  前端不接触 admin secret（只存 im-adapter 服务端密钥管理，security-baseline §11 新密钥类别，
+  ADR-0009 已同列 `OpenIM admin secret`）。**⚠️ 短 TTL 的可行性未验证（一审 M1）**：spike
+  实测 `get_user_token` 默认 `expireTimeSeconds=7776000`（**90 天**，同 admin token，
+  `openim-deployment-evaluation.md` §2.3），且**未测 OpenIM 是否支持按请求指定短 TTL**。若
+  不支持逐次指定，"短 TTL 兜底"在当前版本落空、只剩事件驱动强制下线单链路——**M13 RFC 前置
+  验证 user token 可否参数化短 TTL，此为 M13 go 条件之一**；不可则评估替代（im-adapter 侧包
+  短时效换发凭据、或缩短强制下线周期）。
 - **撤销传播（硬要求，本 ADR 的安全命门）**：OpenIM ws **不穿平台网关**，phantom-token 的
   "即时撤销"语义（ADR-0004 / security-baseline §4.1、§4.4）对它**不自动生效**——平台吊销
   session 后，OpenIM 侧已签发的 user token 仍在其 TTL 内有效、ws 仍连着。故必须**显式补
   链路**：平台禁用用户/登出/会话失效 → 发平台事件 → `im-adapter-api` 消费（**M12 事件基建的
   消费者之一**，走 at-least-once）→ 经 OpenIM admin API 强制下线该用户 OpenIM 会话 + 吊销
   token。
-- **撤销时延 = 两段之和**：平台事件传播（M12 outbox→relay→消费，秒级）+ OpenIM admin API
-  生效。**短 TTL 是兜底**（即使撤销链路延迟/失败，token 也在 TTL 内自然过期）——TTL 取值是
-  "撤销窗口 vs 换发频率"的权衡，归 M13 RFC；本 ADR 定"短 TTL + 事件驱动强制下线"双保险。
+- **撤销最坏时延 = 三段（对齐 ADR-0009 D3 的取长边诚实声明，一审 M2）**：事件传播（M12
+  outbox→relay，秒级）+ **消费延迟（im-adapter 作 M12 at-least-once 消费者的残余窗口，事件
+  未消费/延迟）** + OpenIM admin API 生效——**上界由 user token TTL 封顶**（撤销链路彻底失败
+  时 token 存活到 TTL 尽头）。故 **user token TTL 上界 = 撤销 SLA 上界**：TTL 未定 + 90 天
+  默认未排除（见换发）⇒ 最坏撤销窗口当前**无上界**（最坏可达 90 天）。M13 RFC 定 TTL 时须
+  同时声明可接受的最坏撤销窗口。
+- **短 TTL × 高频换发 × introspection 压力的权衡（一审 M3，M13 RFC 定量）**：TTL 越短 →
+  前端越频繁向换发端点要新 token → 每次换发一次 platform introspection（验 phantom token）→
+  introspection QPS 随 TTL 缩短放大；且 **IM token TTL 与 introspection 缓存 TTL（≤60s，
+  ADR-0004 §4.4）的相对大小影响撤销即时性**（缓存命中期内换发读到旧身份，撤销再打折）。
+  M13 RFC 定 TTL 须给出：预期在线用户数 × 换发频率的 introspection QPS 估算 + IM token TTL
+  与缓存 TTL 的约束关系。
 
 ### D5 隐私边界 + 消息留存/归档策略
 
@@ -124,8 +158,13 @@ OpenIM userID 不接受平台 UUID 主键（含连字符被拒 `userID is legal`
   重试 + 会话级对账兜底，与 M12 RFC §2 非目标一致。
 - **回流范围白名单**：仅"发给 bot / @bot"的消息回流；其余聊天不回流。
 - **转发契约预留收件 agent 标识**（M19 多数字员工各有 IM 账号后按收件方路由）；M13 交付以
-  echo 探针验收，agent-gateway（M15）到位后接管消费端。消息内容不落平台业务库、会话元数据
-  进 `agent.*`（M15 建 schema）。
+  echo 探针验收，agent-gateway（M15）到位后接管消费端。
+- **内容 vs 元数据的字段级判据（一审 m3，细化归 M13/M15 RFC）**：消息 `content`（正文）**不落
+  平台业务库**；会话元数据（`serverMsgID/sessionType/contentType/时间戳/收件 agent 标识`）可进
+  `agent.*`（M15 建 schema）；`sendID↔bot` 会话映射属社交图谱、按内容级隐私处理，不入 `agent.*`
+  明文。**im-adapter 转发链路禁止 log 消息 `content`**（审计只记 `serverMsgID` + 转发结果，不记
+  正文），与 security-baseline §13"日志不得含完整请求体"一致——否则转发这一跳会把内容落日志、
+  违反"不落库"承诺。
 
 ### D7 webhook 安全入口（spike 实证驱动，security-baseline §10 增量）
 
@@ -135,17 +174,29 @@ spike 实证 OpenIM v3.8.3 webhook **无签名头**——ADR-0001/spec §7 原"w
 1. **不公网暴露**：OpenIM webhook 只能打到 `im-adapter-api` 的**内网地址** + 网络 ACL；
 2. **共享密钥 / 不可猜路径**：im-adapter 校验共享密钥或路径密钥（配置化，进密钥管理）；
 3. **幂等 + 重放防护**：按 `serverMsgID` / `operationID` 去重（spike 实证载荷含此二字段）；
-4. **签名待启用**：OpenIM 后续版本若提供 webhook 签名，**升级即启用**签名校验（作为第 2 条
-   的强化，不是替代）。
+4. **发送者真实性绑定（一审 M5，spec §7.5 原设计"发送者 userID 绑定"，勿在搬运中丢）**：
+   转发给 agent 前，im-adapter 必须校验回调 `sendID` 与会话上下文自洽（该 sendID 确在该 bot
+   的会话中），并按 `serverMsgID` 回查 OpenIM 核对消息存在性——**不得仅凭密钥通过就转发**；
+5. **签名待启用**：OpenIM 后续版本若提供 webhook 签名，**升级即启用**（强化第 2 条，非替代）。
 
-本条同时是 D6 agent bot 专线的入口安全，二者共用 im-adapter 的 webhook 接收面。
+**共享密钥的信任边界（一审 M5，须诚实）**：共享密钥只证明调用方**持密**，**不证明消息真实
+来自 OpenIM Server、更不证明发送者身份**——比 ADR-0009 D8 假设的"有签名"还弱一档（签名至少
+证明来自 OpenIM Server）。故防"密钥泄露 → 伪造 agent bot 消息 → 喂数字员工执行"这条攻击链
+（后果 = 以任意用户身份驱动数字员工按 ADR-0009 委托权限行事）的**最终防线不在 webhook 层**，
+而在 agent 侧：ADR-0009 委托令牌 ∩ 工具白名单限权 + 写操作平台锚定确认（其 D8）把伪造指令
+挡在授权写之前。webhook 层的 ACL + 密钥 + 发送者绑定 + 幂等是**纵深的第一道、非唯一道**；
+spike §7.5 明令"agent bot 不直接接 webhook，必须经平台层过滤/限流/权限判断"在此落为第 4 条
++ agent 侧最终防线。本条同时是 D6 agent bot 专线的入口安全，二者共用 im-adapter webhook
+接收面。
 
 ### D8 部署形态（引用 spike，落地归 M13 RFC）
 
 OpenIM 全家桶（server/chat/mongo/redis/kafka/etcd/minio）以**独立 compose provider**部署
 （spike §7.2 推荐拓扑），**不并入平台主 compose 默认启动路径**；不部署 OpenIM Web/Admin
-前端（license 不适合复用）、不引入客户端 SDK 的 monitoring 前端栈。四个存储组件均**不可裁**
-（spike §7.1），仅开发档单副本。资源基线（空载 ~1.5 GiB、建议预留 2–3 GiB + 20 GiB 盘）+
+前端（license 不适合复用）、不引入客户端 SDK 的 monitoring 前端栈。存储组件（一审 m4，措辞
+对齐 spike §7.1）：**Kafka/Mongo/Redis 经实证不可裁**（各有"停 X 后 send_msg/token 失败"），
+**MinIO 未证明可用本地盘替代**（媒体场景须保留），**etcd 官方拓扑默认必备**（开发档单节点）
+——四者 M13 基线均保留，仅开发档单副本。资源基线（空载 ~1.5 GiB、建议预留 2–3 GiB + 20 GiB 盘）+
 备份矩阵进 `docs/deployment.md` 与 M13 runbook。本 ADR 只锚定"独立 provider、不进主 compose
 默认路径"的边界，拓扑/版本/备份细节归 M13 RFC。
 
@@ -154,7 +205,8 @@ OpenIM 全家桶（server/chat/mongo/redis/kafka/etcd/minio）以**独立 compos
 - **前端直连 OpenIM vs 全程经 im-adapter 代理**：选前端直连（D2）。理由：IM 消息是高频实时
   双向流，全程经 im-adapter 反代 ws 会让 im-adapter 成为消息热路径瓶颈且重造 OpenIM 已有的
   ws 能力；直连 + 短 TTL token + 撤销传播（D4）在"性能/复杂度"与"安全"间取平衡。代价 = 放宽
-  一条铁律 + 撤销传播必须显式补链路（不能白嫖 phantom-token 的即时撤销）。
+  一条铁律 + 撤销传播必须显式补链路（不能白嫖 phantom-token 的即时撤销）+ **前端获得 OpenIM
+  user token 的用户级能力面（D2，非仅消息收发），平台须靠账号/组织自持消化这层放宽**。
 - **去连字符 UUID vs 映射表**（D3）：优先无状态转换，避免 im-adapter 维护一张必须与平台账号
   强一致的映射表（一致性负担 + 又一处漂移源）；仅在字符集/长度实测不通过时才落表。
 - **webhook 无签名的纵深兜底 vs 等 OpenIM 出签名**（D7）：选纵深兜底。理由：签名是 OpenIM
@@ -179,6 +231,9 @@ OpenIM 全家桶（server/chat/mongo/redis/kafka/etcd/minio）以**独立 compos
 - **`@work/im-provider` 契约扩展**：现有 `syncUser/disableUser/sendSystemMessage/handleWebhook`
   四方法需扩 token 换发、强制下线（撤销）、bot 账号 provisioning/加白摘白、回调转发——契约
   形状归 M13 RFC；本 ADR 定职责边界（这些能力都在 im-adapter 服务端，不外泄给业务模块）。
+- **spec §7（设计推演来源）**：本 ADR 是 spec §7（`2026-07-05-vnext-roadmap-design.md` §7）的
+  决策收口——其拍板（回调直连专线 §7.5、Web SDK npm 引入 §7.3、身份映射/webhook 无签名的
+  spike 修正）在此固化为 ADR。
 
 ## 对既有文档的修正
 
@@ -194,6 +249,11 @@ OpenIM 全家桶（server/chat/mongo/redis/kafka/etcd/minio）以**独立 compos
   纵深兜底（内网 ACL + 共享密钥/不可猜路径 + 幂等/重放，替代原"必须校验签名"的单点假设）；
   ④ `modules/im/web` 前端直连例外的边界。**security-baseline §16 门禁**（"变更 token/session
   存储方式 / 引入 OpenIM SDK"两项已覆盖本 ADR），随 M13 首切片"先改文档再动代码"。
+- **architecture.md §5.1（IM Provider，一审 M4）**：① 拓扑图补三条边——前端 → 反代 → OpenIM
+  ws 直连（不穿网关）、im-adapter token 换发路径、agent bot 回调专线（现图只有
+  `platform-api → im-adapter → OpenIM REST` 与 `Webhook → im-adapter`）；② §5.1 重复的铁律句
+  "业务模块不直接调用 OpenIM"加同款 D2 例外脚注——这是该铁律的**第四处副本**，前三处
+  （AGENTS.md §7 / constitution / security-baseline §10）已标注、独漏此处。随 M13 首切片改。
 - **`docs/deployment.md`**：D8 独立 provider 拓扑 + 资源基线 + 备份矩阵（引 spike），M13 落地。
 
 ## 影响
