@@ -8,6 +8,11 @@ import { FormsService } from './forms.service';
 export class FormsRecordController {
   constructor(@Inject(FormsService) private readonly formsService: FormsService) {}
 
+  @Get('by-id/:recordId')
+  getRecordById(@Param('recordId') recordId: string, @Req() request: RequestWithAuth) {
+    return this.formsService.getRecordById(toActor(request), currentUser(request), recordId);
+  }
+
   @Get(':slotKey/subjects/:subjectId')
   getRecordBySubject(
     @Param('slotKey') slotKey: string,

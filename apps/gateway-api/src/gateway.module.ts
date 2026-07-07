@@ -7,6 +7,7 @@ import { NotificationModule } from '@work/notification-api';
 import { PlatformAuthGuard, PlatformModule } from '@work/platform-api';
 import { PresenceModule } from '@work/presence-api';
 import { HealthController } from './system/health.controller';
+import { PresenceFormsLinkModule } from './forms-link/presence-forms-link.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { HealthController } from './system/health.controller';
     PlatformModule,
     FilesModule,
     FormsModule,
+    PresenceFormsLinkModule,
     NotificationModule,
     PresenceModule,
     RouterModule.register([

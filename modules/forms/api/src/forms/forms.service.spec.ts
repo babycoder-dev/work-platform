@@ -68,7 +68,14 @@ describe('FormsService', () => {
     };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
     events = eventBus();
-    service = new FormsService(formsRepository, fileStorage, employeeLookup, scopeService, audit, events);
+    service = new FormsService(
+      formsRepository,
+      fileStorage,
+      employeeLookup,
+      scopeService,
+      audit,
+      events,
+    );
   });
 
   it('updates definitions with optimistic revision checks', async () => {
@@ -118,7 +125,7 @@ describe('FormsService', () => {
       ],
     });
 
-    const record = await service.createRecord(actor(), {
+    const record = await service.createRecord(actor(), currentUser(), {
       slotKey: 'profile.employee',
       subjectType: 'employee',
       subjectId: 'employee-1',
@@ -142,7 +149,11 @@ describe('FormsService', () => {
     );
     expect(record.values).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ fieldKey: 'nickname', fieldLabelSnapshot: '昵称', value: 'Alice' }),
+        expect.objectContaining({
+          fieldKey: 'nickname',
+          fieldLabelSnapshot: '昵称',
+          value: 'Alice',
+        }),
         expect.objectContaining({
           fieldKey: 'owner',
           displaySnapshot: [expect.objectContaining({ name: 'Alice', departmentName: '研发部' })],
@@ -168,16 +179,18 @@ describe('FormsService', () => {
   it('uses singleton cardinality for profile.employee records', async () => {
     await service.updateDefinition(actor(), 'profile.employee', {
       revision: 0,
-      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+      fields: [
+        { fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 },
+      ],
     });
-    const first = await service.createRecord(actor(), {
+    const first = await service.createRecord(actor(), currentUser(), {
       slotKey: 'profile.employee',
       subjectType: 'employee',
       subjectId: 'employee-1',
       definitionRevision: 1,
       values: [{ fieldKey: 'nickname', value: 'first' }],
     });
-    const second = await service.createRecord(actor(), {
+    const second = await service.createRecord(actor(), currentUser(), {
       slotKey: 'profile.employee',
       subjectType: 'employee',
       subjectId: 'employee-1',
@@ -195,7 +208,9 @@ describe('FormsService', () => {
   it('reads and upserts profile.employee records by authorized subject with create/update semantics', async () => {
     await service.updateDefinition(actor(), 'profile.employee', {
       revision: 0,
-      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+      fields: [
+        { fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 },
+      ],
     });
     vi.mocked(events.publish).mockClear();
     vi.mocked(audit.record).mockClear();
@@ -285,7 +300,9 @@ describe('FormsService', () => {
   it('hides profile.employee subject records when scope denies access', async () => {
     await service.updateDefinition(actor(), 'profile.employee', {
       revision: 0,
-      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+      fields: [
+        { fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 },
+      ],
     });
     vi.mocked(audit.record).mockClear();
     vi.mocked(scopeService.matchesScope).mockReturnValue(false);
@@ -324,7 +341,9 @@ describe('FormsService', () => {
   it('audits rejected subject upserts without leaking values', async () => {
     await service.updateDefinition(actor(), 'profile.employee', {
       revision: 0,
-      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+      fields: [
+        { fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 },
+      ],
     });
     vi.mocked(audit.record).mockClear();
 
@@ -408,17 +427,13 @@ describe('FormsService', () => {
     const longSubjectId = 'employee-'.padEnd(180, 'x');
 
     await expect(
-      service.upsertRecordBySubject(
-        actor([formsPermissions.recordView]),
-        currentUser(),
-        {
-          slotKey: 'profile.employee',
-          subjectType: 'employee',
-          subjectId: longSubjectId,
-          definitionRevision: 1,
-          values: [{ fieldKey: 'nickname', value: 'secret' }],
-        },
-      ),
+      service.upsertRecordBySubject(actor([formsPermissions.recordView]), currentUser(), {
+        slotKey: 'profile.employee',
+        subjectType: 'employee',
+        subjectId: longSubjectId,
+        definitionRevision: 1,
+        values: [{ fieldKey: 'nickname', value: 'secret' }],
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
 
     expect(audit.record).toHaveBeenCalledWith(
@@ -441,7 +456,9 @@ describe('FormsService', () => {
   it('preserves business errors when rejected upsert failure audit fails', async () => {
     await service.updateDefinition(actor(), 'profile.employee', {
       revision: 0,
-      fields: [{ fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 }],
+      fields: [
+        { fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 },
+      ],
     });
     vi.mocked(scopeService.matchesScope).mockReturnValue(false);
     vi.mocked(audit.record).mockRejectedValueOnce(new Error('audit down'));
@@ -457,6 +474,139 @@ describe('FormsService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('authorizes append record creation by the slot data type and subject', async () => {
+    await service.updateDefinition(actor(), 'presence.status.business_trip', {
+      revision: 0,
+      fields: [
+        {
+          fieldKey: 'destination',
+          label: '目的地',
+          fieldType: 'text',
+          required: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    const created = await service.createRecord(actor(), currentUser(), {
+      slotKey: 'presence.status.business_trip',
+      subjectType: 'employee',
+      subjectId: 'employee-1',
+      definitionRevision: 1,
+      values: [{ fieldKey: 'destination', value: '上海' }],
+    });
+
+    expect(created.subjectId).toBe('employee-1');
+    expect(scopeService.resolveScope).toHaveBeenCalledWith(currentUser(), 'presence');
+
+    await expect(
+      service.createRecord(actor(), currentUser(), {
+        slotKey: 'presence.status.business_trip',
+        subjectType: 'employee',
+        subjectId: 'missing-employee',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'destination', value: '广州' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      service.createRecord(actor([formsPermissions.recordView]), currentUser(), {
+        slotKey: 'presence.status.business_trip',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'destination', value: '杭州' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      service.createRecord(actor(), currentUser(), {
+        slotKey: 'presence.status.business_trip',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 0,
+        values: [{ fieldKey: 'destination', value: '成都' }],
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    vi.mocked(scopeService.matchesScope).mockReturnValue(false);
+    await expect(
+      service.createRecord(actor(), currentUser(), {
+        slotKey: 'presence.status.business_trip',
+        subjectType: 'employee',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'destination', value: '北京' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(
+      service.createRecord(actor(), currentUser(), {
+        slotKey: 'presence.status.business_trip',
+        subjectType: 'department',
+        subjectId: 'employee-1',
+        definitionRevision: 1,
+        values: [{ fieldKey: 'destination', value: '深圳' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('uses profile scope when creating profile family records', async () => {
+    await service.updateDefinition(actor(), 'profile.employee', {
+      revision: 0,
+      fields: [],
+    });
+
+    await service.createRecord(actor(), currentUser(), {
+      slotKey: 'profile.employee',
+      subjectType: 'employee',
+      subjectId: 'employee-1',
+      definitionRevision: 1,
+      values: [],
+    });
+
+    expect(scopeService.resolveScope).toHaveBeenCalledWith(currentUser(), 'profile');
+  });
+
+  it('reads records by id through permission and slot data-scope gates', async () => {
+    await service.updateDefinition(actor(), 'presence.status.business_trip', {
+      revision: 0,
+      fields: [
+        {
+          fieldKey: 'destination',
+          label: '目的地',
+          fieldType: 'text',
+          required: true,
+          sortOrder: 1,
+        },
+      ],
+    });
+    const created = await service.createRecord(actor(), currentUser(), {
+      slotKey: 'presence.status.business_trip',
+      subjectType: 'employee',
+      subjectId: 'employee-1',
+      definitionRevision: 1,
+      values: [{ fieldKey: 'destination', value: '上海' }],
+    });
+
+    await expect(service.getRecordById(actor(), currentUser(), created.id)).resolves.toEqual(
+      expect.objectContaining({ id: created.id }),
+    );
+    expect(scopeService.resolveScope).toHaveBeenLastCalledWith(currentUser(), 'presence');
+
+    await expect(
+      service.getRecordById(actor([formsPermissions.recordSubmit]), currentUser(), created.id),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    vi.mocked(scopeService.matchesScope).mockReturnValue(false);
+    await expect(service.getRecordById(actor(), currentUser(), created.id)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(
+      service.getRecordById(actor(), currentUser(), 'missing-record'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('attaches files to the actual singleton record id on replacement submissions', async () => {
     await service.updateDefinition(actor(), 'profile.employee', {
       revision: 0,
@@ -465,7 +615,7 @@ describe('FormsService', () => {
         { fieldKey: 'resume', label: '附件', fieldType: 'file', required: false, sortOrder: 2 },
       ],
     });
-    const first = await service.createRecord(actor(), {
+    const first = await service.createRecord(actor(), currentUser(), {
       slotKey: 'profile.employee',
       subjectType: 'employee',
       subjectId: 'employee-1',
@@ -477,6 +627,7 @@ describe('FormsService', () => {
     });
     const second = await service.createRecord(
       actor(),
+      currentUser(),
       {
         slotKey: 'profile.employee',
         subjectType: 'employee',
@@ -518,12 +669,18 @@ describe('FormsService', () => {
       revision: 0,
       fields: [
         { fieldKey: 'nickname', label: '昵称', fieldType: 'text', required: true, sortOrder: 1 },
-        { fieldKey: 'owner', label: '负责人', fieldType: 'employee', required: false, sortOrder: 2 },
+        {
+          fieldKey: 'owner',
+          label: '负责人',
+          fieldType: 'employee',
+          required: false,
+          sortOrder: 2,
+        },
       ],
     });
 
     await expect(
-      service.createRecord(actor(), {
+      service.createRecord(actor(), currentUser(), {
         slotKey: 'profile.employee',
         subjectType: 'employee',
         subjectId: 'employee-1',
@@ -532,7 +689,7 @@ describe('FormsService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      service.createRecord(actor(), {
+      service.createRecord(actor(), currentUser(), {
         slotKey: 'profile.employee',
         subjectType: 'employee',
         subjectId: 'employee-1',
@@ -549,13 +706,16 @@ describe('FormsService', () => {
     await expect(
       service.updateDefinition(actor(), 'profile.employee', {
         revision: 0,
-        fields: Array.from({ length: FORM_FIELD_LIMITS.maxFieldsPerDefinition + 1 }, (_, index) => ({
-          fieldKey: `field_${index}`,
-          label: `字段 ${index}`,
-          fieldType: 'text',
-          required: false,
-          sortOrder: index,
-        })),
+        fields: Array.from(
+          { length: FORM_FIELD_LIMITS.maxFieldsPerDefinition + 1 },
+          (_, index) => ({
+            fieldKey: `field_${index}`,
+            label: `字段 ${index}`,
+            fieldType: 'text',
+            required: false,
+            sortOrder: index,
+          }),
+        ),
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -569,10 +729,13 @@ describe('FormsService', () => {
             fieldType: 'single_select',
             required: false,
             sortOrder: 1,
-            options: Array.from({ length: FORM_FIELD_LIMITS.maxOptionsPerField + 1 }, (_, index) => ({
-              key: `option_${index}`,
-              label: `选项 ${index}`,
-            })),
+            options: Array.from(
+              { length: FORM_FIELD_LIMITS.maxOptionsPerField + 1 },
+              (_, index) => ({
+                key: `option_${index}`,
+                label: `选项 ${index}`,
+              }),
+            ),
           },
         ],
       }),
@@ -582,7 +745,13 @@ describe('FormsService', () => {
       revision: 0,
       fields: [
         { fieldKey: 'text', label: '短文本', fieldType: 'text', required: false, sortOrder: 1 },
-        { fieldKey: 'textarea', label: '长文本', fieldType: 'textarea', required: false, sortOrder: 2 },
+        {
+          fieldKey: 'textarea',
+          label: '长文本',
+          fieldType: 'textarea',
+          required: false,
+          sortOrder: 2,
+        },
         { fieldKey: 'date', label: '日期', fieldType: 'date', required: false, sortOrder: 3 },
         {
           fieldKey: 'multi',
@@ -597,7 +766,13 @@ describe('FormsService', () => {
         },
         { fieldKey: 'file', label: '文件', fieldType: 'file', required: false, sortOrder: 5 },
         { fieldKey: 'image', label: '图片', fieldType: 'image', required: false, sortOrder: 6 },
-        { fieldKey: 'employee', label: '人员', fieldType: 'employee', required: false, sortOrder: 7 },
+        {
+          fieldKey: 'employee',
+          label: '人员',
+          fieldType: 'employee',
+          required: false,
+          sortOrder: 7,
+        },
       ],
     });
 
@@ -606,15 +781,24 @@ describe('FormsService', () => {
       { fieldKey: 'textarea', value: 'x'.repeat(FORM_FIELD_LIMITS.textareaMaxLength + 1) },
       {
         fieldKey: 'multi',
-        value: Array.from({ length: FORM_FIELD_LIMITS.maxMultiSelectValues + 1 }, (_, index) => `option_${index}`),
+        value: Array.from(
+          { length: FORM_FIELD_LIMITS.maxMultiSelectValues + 1 },
+          (_, index) => `option_${index}`,
+        ),
       },
       {
         fieldKey: 'file',
-        value: Array.from({ length: FORM_FIELD_LIMITS.maxFilesPerFileField + 1 }, (_, index) => `file_${index}`),
+        value: Array.from(
+          { length: FORM_FIELD_LIMITS.maxFilesPerFileField + 1 },
+          (_, index) => `file_${index}`,
+        ),
       },
       {
         fieldKey: 'image',
-        value: Array.from({ length: FORM_FIELD_LIMITS.maxFilesPerFileField + 1 }, (_, index) => `image_${index}`),
+        value: Array.from(
+          { length: FORM_FIELD_LIMITS.maxFilesPerFileField + 1 },
+          (_, index) => `image_${index}`,
+        ),
       },
       {
         fieldKey: 'employee',
@@ -627,7 +811,7 @@ describe('FormsService', () => {
 
     for (const item of oversizedCases) {
       await expect(
-        service.createRecord(actor(), {
+        service.createRecord(actor(), currentUser(), {
           slotKey: 'profile.employee',
           subjectType: 'employee',
           subjectId: 'employee-1',
@@ -638,7 +822,7 @@ describe('FormsService', () => {
     }
 
     await expect(
-      service.createRecord(actor(), {
+      service.createRecord(actor(), currentUser(), {
         slotKey: 'profile.employee',
         subjectType: 'employee',
         subjectId: 'employee-1',
@@ -647,7 +831,7 @@ describe('FormsService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      service.createRecord(actor(), {
+      service.createRecord(actor(), currentUser(), {
         slotKey: 'profile.employee',
         subjectType: 'employee',
         subjectId: 'employee-1',
@@ -657,12 +841,14 @@ describe('FormsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     await expect(
-      service.createRecord(actor(), {
+      service.createRecord(actor(), currentUser(), {
         slotKey: 'profile.employee',
         subjectType: 'employee',
         subjectId: 'employee-1',
         definitionRevision: 1,
-        values: [{ fieldKey: 'text', value: 'x'.repeat(FORM_FIELD_LIMITS.maxRecordValuesJsonBytes) }],
+        values: [
+          { fieldKey: 'text', value: 'x'.repeat(FORM_FIELD_LIMITS.maxRecordValuesJsonBytes) },
+        ],
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });

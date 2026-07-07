@@ -50,6 +50,7 @@ export interface PresenceRepository {
   createRecord(
     input: CreatePresenceStatusRecordInput,
     actor: PresenceRepositoryActorContext,
+    options?: { formRecordId?: string },
   ): Promise<PresenceStatusRecordDto>;
   cancelRecord(input: PresenceRepositoryCancelInput): Promise<PresenceStatusRecordDto | undefined>;
   findOverlappingRecord(

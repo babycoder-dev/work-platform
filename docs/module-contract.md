@@ -87,6 +87,8 @@ presence:board:view
 presence:status:create
 presence:status:manage
 presence:status-type:manage
+forms:presence-definition:view
+forms:presence-definition:manage
 approval:instance:create
 approval:task:approve
 report:weekly:view
@@ -126,10 +128,27 @@ PATCH  /api/presence/status-types/:id
 POST   /api/presence/status-types/:id/default
 POST   /api/presence/status-types/:id/archive
 POST   /api/presence/status-types/:id/restore
+GET    /api/forms/records/by-id/:recordId
 POST   /api/approval/instances
 POST   /api/approval/tasks/:id/approve
 POST   /api/report/weekly-reports
 ```
+
+M9-2 起，自助登记可在 `POST /api/presence/status-records` 请求体携带服务端校验的可选
+`form: { definitionRevision, values }`；客户端不得传入可信 `formRecordId`。presence 以字典命中的
+规范 key 拼出 `presence.status.<key>`，经自己的出站端口由 gateway 宿主适配器调用 forms append
+创建，返回 id 随 presence 记录一次写入。
+
+普通员工使用该链路的角色配置为：
+
+```text
+presence:status:create
+forms:record:submit
+forms:presence-definition:view
+```
+
+数据范围无需额外显式配置即可安全回退为 `self`；读取他人的 by-id forms 记录仍按该 slot 的
+`dataType` 范围授权。
 
 ## 6. 前端接入 Shell
 

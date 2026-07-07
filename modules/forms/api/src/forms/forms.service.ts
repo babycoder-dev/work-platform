@@ -1,12 +1,24 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { EVENT_BUS, type EventBus } from '@work/event-bus';
-import { FILE_STORAGE_SERVICE, type FileActorContext, type FileStoragePort } from '@work/files-contract';
+import {
+  FILE_STORAGE_SERVICE,
+  type FileActorContext,
+  type FileStoragePort,
+} from '@work/files-contract';
 import {
   FORM_FIELD_LIMITS,
   formsEvents,
   formsPermissions,
   resolveActiveFormSlot,
+  resolveFormSlot,
   type CreateFormRecordInput,
   type FormActorContext,
   type FormAuditContext,
@@ -32,7 +44,11 @@ import {
   type ScopeSubject,
 } from '@work/platform-contract';
 import { FORMS_REPOSITORY } from '../db/forms-repository.token';
-import type { FormsRepository, ReplaceDefinitionFieldsInput, SaveRecordInput } from '../db/forms.repository';
+import type {
+  FormsRepository,
+  ReplaceDefinitionFieldsInput,
+  SaveRecordInput,
+} from '../db/forms.repository';
 import type { FormFieldInputDto, UpdateFormDefinitionDto } from './forms.dto';
 
 const PROFILE_EMPLOYEE_SLOT_KEY = 'profile.employee';
@@ -55,7 +71,10 @@ export class FormsService {
 
   async getDefinition(actor: FormActorContext, slotKey: FormSlotKey): Promise<FormDefinitionDto> {
     const slot = assertActiveSlot(slotKey);
-    const definition = await this.repository.findDefinitionWithFields(actor.enterpriseId, slot.slotKey);
+    const definition = await this.repository.findDefinitionWithFields(
+      actor.enterpriseId,
+      slot.slotKey,
+    );
     if (!definition) {
       const now = new Date().toISOString();
       return {
@@ -138,12 +157,20 @@ export class FormsService {
 
   async createRecord(
     actor: FormActorContext,
+    currentUser: CurrentUserDto,
     input: CreateFormRecordInput,
     auditContext: FormAuditContext = {},
   ): Promise<FormRecordDto> {
     requirePermission(actor, formsPermissions.recordSubmit);
     const slot = assertActiveSlot(input.slotKey);
-    const definition = await this.repository.findDefinitionWithFields(actor.enterpriseId, slot.slotKey);
+    if (input.subjectType !== slot.subjectType) {
+      throw new NotFoundException('表单记录不存在');
+    }
+    await this.loadAuthorizedSubject(currentUser, input.subjectId, slot.dataType);
+    const definition = await this.repository.findDefinitionWithFields(
+      actor.enterpriseId,
+      slot.slotKey,
+    );
     if (!definition || definition.status !== 'active') {
       throw new NotFoundException('表单定义不存在');
     }
@@ -192,7 +219,7 @@ export class FormsService {
   ): Promise<FormRecordDto> {
     requirePermission(actor, formsPermissions.recordView);
     const slot = assertProfileEmployeeSlot(input.slotKey, input.subjectType);
-    await this.loadAuthorizedProfileSubject(currentUser, input.subjectId);
+    await this.loadAuthorizedSubject(currentUser, input.subjectId, 'profile');
     const record = await this.repository.findRecordBySubject(
       actor.enterpriseId,
       slot.slotKey,
@@ -224,8 +251,11 @@ export class FormsService {
         throw new UpsertPermissionDeniedException();
       }
       const slot = assertProfileEmployeeSlot(input.slotKey, input.subjectType);
-      await this.loadAuthorizedProfileSubject(currentUser, input.subjectId);
-      const definition = await this.repository.findDefinitionWithFields(actor.enterpriseId, slot.slotKey);
+      await this.loadAuthorizedSubject(currentUser, input.subjectId, 'profile');
+      const definition = await this.repository.findDefinitionWithFields(
+        actor.enterpriseId,
+        slot.slotKey,
+      );
       if (!definition || definition.status !== 'active') {
         throw new NotFoundException('表单定义不存在');
       }
@@ -337,6 +367,24 @@ export class FormsService {
     return record;
   }
 
+  async getRecordById(
+    actor: FormActorContext,
+    currentUser: CurrentUserDto,
+    recordId: string,
+  ): Promise<FormRecordDto> {
+    requirePermission(actor, formsPermissions.recordView);
+    const record = await this.repository.findRecordWithValues(actor.enterpriseId, recordId);
+    if (!record) {
+      throw new NotFoundException('表单记录不存在');
+    }
+    const slot = resolveFormSlot(record.slotKey);
+    if (!slot) {
+      throw new NotFoundException('表单记录不存在');
+    }
+    await this.loadAuthorizedSubject(currentUser, record.subjectId, slot.dataType);
+    return record;
+  }
+
   private async saveRecord(
     actor: FormActorContext,
     slot: FormSlotDefinition,
@@ -389,13 +437,14 @@ export class FormsService {
     );
   }
 
-  private async loadAuthorizedProfileSubject(
+  private async loadAuthorizedSubject(
     currentUser: CurrentUserDto,
     subjectId: string,
+    dataType: FormSlotDefinition['dataType'],
   ): Promise<ScopeSubject> {
     const [employees, scope] = await Promise.all([
       this.employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [subjectId]),
-      this.scopeService.resolveScope(currentUser, 'profile'),
+      this.scopeService.resolveScope(currentUser, dataType),
     ]);
     const [employee] = employees;
     if (!employee) {
@@ -451,7 +500,10 @@ export class FormsService {
       }
       const value = valueByKey.get(field.fieldKey);
       const normalized = await normalizeFieldValue(actor, field, value, this.employeeLookup);
-      if ((field.fieldType === 'file' || field.fieldType === 'image') && normalized.fileIds.length > 0) {
+      if (
+        (field.fieldType === 'file' || field.fieldType === 'image') &&
+        normalized.fileIds.length > 0
+      ) {
         attachments.push({ fieldKey: field.fieldKey, fileIds: normalized.fileIds });
       }
       normalizedValues.push({
@@ -600,7 +652,9 @@ async function normalizeEmployees(
   const byId = new Map(employees.map((employee) => [employee.id, employee]));
   return {
     value: employeeIds,
-    displaySnapshot: employeeIds.map((id) => byId.get(id)).filter((item): item is EmployeeLookupDto => Boolean(item)),
+    displaySnapshot: employeeIds
+      .map((id) => byId.get(id))
+      .filter((item): item is EmployeeLookupDto => Boolean(item)),
     fileIds: [],
   };
 }

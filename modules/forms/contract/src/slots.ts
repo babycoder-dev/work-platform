@@ -16,6 +16,8 @@ export interface FormSlotDefinition {
   status: FormSlotStatus;
   cardinality: FormRecordCardinality;
   permissions: Record<FormDefinitionPermissionAction, string>;
+  dataType: 'profile' | 'presence' | 'report';
+  subjectType: 'employee';
 }
 
 export const formSlotRegistry: FormSlotDefinition[] = [
@@ -24,6 +26,8 @@ export const formSlotRegistry: FormSlotDefinition[] = [
     ownerModule: 'profile',
     status: 'active',
     cardinality: 'singleton',
+    dataType: 'profile',
+    subjectType: 'employee',
     permissions: {
       view: formsPermissions.profileDefinitionView,
       manage: formsPermissions.profileDefinitionManage,
@@ -34,6 +38,8 @@ export const formSlotRegistry: FormSlotDefinition[] = [
     ownerModule: 'report',
     status: 'active',
     cardinality: 'append',
+    dataType: 'report',
+    subjectType: 'employee',
     permissions: {
       view: formsPermissions.reportDefinitionView,
       manage: formsPermissions.reportDefinitionManage,
@@ -44,6 +50,8 @@ export const formSlotRegistry: FormSlotDefinition[] = [
     ownerModule: 'report',
     status: 'reserved',
     cardinality: 'append',
+    dataType: 'report',
+    subjectType: 'employee',
     permissions: {
       view: formsPermissions.reportDefinitionView,
       manage: formsPermissions.reportDefinitionManage,
@@ -60,11 +68,13 @@ export function resolveFormSlot(slotKey: string): FormSlotDefinition | undefined
     return {
       slotKey: slotKey as `presence.status.${string}`,
       ownerModule: 'presence',
-      status: 'reserved',
+      status: 'active',
       cardinality: 'append',
+      dataType: 'presence',
+      subjectType: 'employee',
       permissions: {
-        view: 'forms:presence-definition:view',
-        manage: 'forms:presence-definition:manage',
+        view: formsPermissions.presenceDefinitionView,
+        manage: formsPermissions.presenceDefinitionManage,
       },
     };
   }

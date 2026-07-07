@@ -3,6 +3,8 @@ import type { PermissionDefinition } from '@work/platform-sdk';
 export const formsPermissions = {
   profileDefinitionView: 'forms:profile-definition:view',
   profileDefinitionManage: 'forms:profile-definition:manage',
+  presenceDefinitionView: 'forms:presence-definition:view',
+  presenceDefinitionManage: 'forms:presence-definition:manage',
   reportDefinitionView: 'forms:report-definition:view',
   reportDefinitionManage: 'forms:report-definition:manage',
   recordSubmit: 'forms:record:submit',
@@ -17,6 +19,14 @@ export const formsPermissionDefinitions: PermissionDefinition[] = [
   {
     code: formsPermissions.profileDefinitionManage,
     name: '管理档案表单定义',
+  },
+  {
+    code: formsPermissions.presenceDefinitionView,
+    name: '查看在位表单定义',
+  },
+  {
+    code: formsPermissions.presenceDefinitionManage,
+    name: '管理在位表单定义',
   },
   {
     code: formsPermissions.reportDefinitionView,

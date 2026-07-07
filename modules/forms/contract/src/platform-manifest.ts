@@ -17,6 +17,16 @@ export const formsPlatformManifest: ModuleManifestDto = {
       name: '管理档案表单定义',
       moduleName: 'forms',
     },
+    {
+      code: formsPermissions.presenceDefinitionView,
+      name: '查看在位表单定义',
+      moduleName: 'forms',
+    },
+    {
+      code: formsPermissions.presenceDefinitionManage,
+      name: '管理在位表单定义',
+      moduleName: 'forms',
+    },
     { code: formsPermissions.reportDefinitionView, name: '查看汇报表单定义', moduleName: 'forms' },
     {
       code: formsPermissions.reportDefinitionManage,

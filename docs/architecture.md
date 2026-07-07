@@ -234,6 +234,10 @@ M9-1 已落地 `presence.status_types`：状态 key 企业内唯一、archive-on
 partial unique index 保证企业内至多一个 active 缺省态；预置状态由 repository 运行时幂等
 ensure，避免迁移跨 schema 枚举企业。
 
+M9-2 激活 forms 的 `presence.status.<key>` 槽位家族。`FormSlotDefinition` 以
+`dataType` / `subjectType` 作为记录 subject 授权单源：profile → `profile`、presence → `presence`、
+report → `report`；presence 定义权限为 `forms:presence-definition:{view,manage}`。
+
 模块只读写自己的 schema。需要组织、人员、权限时，通过 `platform-api` 或平台只读快照获取。
 
 ## 5. 通信机制
@@ -259,6 +263,16 @@ files / forms / notification 共享同一进程内 `MemoryEventBus`。M7-2 已�
 `presence.status.changed` → notification 订阅器证明跨模块事件可达；M9-1 起事件携带开放
 `status` key 与 `statusLabel`，订阅器只消费 label 展示自定义状态；未来服务拆分时保留事件契约并替换为
 Redis Stream / outbox / 消息队列。
+
+M9-2 的同步登记编排采用依赖反转，不引入跨模块源码依赖：
+
+```text
+presence service -> PresenceFormsLinkPort -> gateway host adapter -> FormsService
+```
+
+gateway 适配器只从真实 `CurrentUserDto` 构造 actor、把 subject 固定为本人并转发参数；slot、权限、
+subject 数据范围、revision 与字段校验仍由 forms service 执行。服务拆分后可替换为 HTTP 适配器，
+presence 业务代码保持不变。
 
 notification 的接收人解析只通过 `@work/platform-contract` 暴露的进程内只读 `PLATFORM_ORG_PORT`
 获取平台数据：`resolveDepartmentManager(enterpriseId,userId)` 与

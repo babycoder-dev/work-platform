@@ -71,6 +71,8 @@ describe('platform seed data', () => {
         'files:object:view-own',
         'forms:profile-definition:view',
         'forms:profile-definition:manage',
+        'forms:presence-definition:view',
+        'forms:presence-definition:manage',
         'forms:report-definition:view',
         'forms:report-definition:manage',
         'forms:record:submit',
@@ -81,10 +83,10 @@ describe('platform seed data', () => {
         'presence:status:manage',
       ]),
     );
-    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
+    expect(platformSeedPermissions.map((permission) => permission.code)).toContain(
       'forms:presence-definition:view',
     );
-    expect(platformSeedPermissions.map((permission) => permission.code)).not.toContain(
+    expect(platformSeedPermissions.map((permission) => permission.code)).toContain(
       'forms:presence-definition:manage',
     );
     expect(platformSeedMenus.map((menu) => menu.path)).toEqual(

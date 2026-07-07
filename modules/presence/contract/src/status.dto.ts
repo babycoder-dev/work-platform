@@ -23,6 +23,12 @@ export interface CreatePresenceStatusRecordInput {
   startAt: string;
   endAt?: string;
   remark?: string;
+  form?: CreatePresenceStatusRecordFormInput;
+}
+
+export interface CreatePresenceStatusRecordFormInput {
+  definitionRevision: number;
+  values: Array<{ fieldKey: string; value: unknown }>;
 }
 
 export interface PresenceBoardQuery {

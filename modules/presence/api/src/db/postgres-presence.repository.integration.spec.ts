@@ -326,6 +326,22 @@ describe.skipIf(!runPostgresIntegration)('PostgresPresenceRepository integration
     }
   });
 
+  it('stores and reads the server-created forms record link while preserving null without a form', async () => {
+    const formRecordId = randomUUID();
+    const withForm = await repository.createRecord(
+      { status: 'business_trip', startAt: '2026-09-03T08:00:00.000Z' },
+      actor({ userId: randomUUID(), employeeNo: 'FORM01', userName: '带表单' }),
+      { formRecordId },
+    );
+    const withoutForm = await repository.createRecord(
+      { status: 'leave', startAt: '2026-09-04T08:00:00.000Z' },
+      actor({ userId: randomUUID(), employeeNo: 'FORM02', userName: '无表单' }),
+    );
+
+    expect(withForm.formRecordId).toBe(formRecordId);
+    expect(withoutForm.formRecordId).toBeUndefined();
+  });
+
   it('ensures presets idempotently and moves the unique active default in one transaction', async () => {
     await repository.ensurePresetStatusTypes(enterpriseId);
     await repository.ensurePresetStatusTypes(enterpriseId);

@@ -129,6 +129,7 @@ export class PostgresPresenceRepository implements PresenceRepository {
   async createRecord(
     input: CreatePresenceStatusRecordInput,
     actor: PresenceRepositoryActorContext,
+    options?: { formRecordId?: string },
   ): Promise<PresenceStatusRecordDto> {
     try {
       const result = await this.pool.query<StatusRecordRow>(
@@ -144,9 +145,10 @@ export class PostgresPresenceRepository implements PresenceRepository {
             start_at,
             end_at,
             remark,
-            created_by
+            created_by,
+            form_record_id
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $2)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $2, $11)
           RETURNING ${STATUS_RECORD_COLUMNS}
         `,
         [
@@ -160,6 +162,7 @@ export class PostgresPresenceRepository implements PresenceRepository {
           input.startAt,
           input.endAt ?? null,
           input.remark ?? null,
+          options?.formRecordId ?? null,
         ],
       );
 

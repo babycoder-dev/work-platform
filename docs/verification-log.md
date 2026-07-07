@@ -1,5 +1,76 @@
 # Verification Log
 
+## 2026-07-07
+
+### M9-2 Self-Registration v2 + Forms Generalization
+
+**Change set**
+
+- Activated `presence.status.<key>` forms slots with `dataType='presence'`,
+  `subjectType='employee'`, manifest/seed permissions
+  `forms:presence-definition:{view,manage}`, and constant-backed definition guards.
+- Generalized `FormsService.createRecord` with slot-family subject authorization and added
+  `getRecordById` plus `GET /api/forms/records/by-id/:recordId`; missing permission, missing
+  subject/record, cross-scope access, and subject type mismatch all remain 404-hide.
+- Added the presence-owned `PRESENCE_FORMS_LINK` port and gateway `@Global()` host adapter.
+  The adapter derives actor permissions from the authenticated user, fixes subject to that user,
+  and delegates without catching or rewriting forms errors.
+- Added optional registration `form` input, server-derived slot keys, dual repository
+  `form_record_id` writes, and the full preset/custom-key append chain. Client-supplied
+  `formRecordId` is ignored.
+
+**Validation**
+
+- `NODE_ENV=test NODE_OPTIONS=--localstorage-file=E:/Work/work-platform-m9-2/.ls-test pnpm verify`: pass.
+  - lint: pass; existing repository warnings only.
+  - typecheck: pass for all 27 participating projects.
+  - unit: 47 files / 248 tests passed; 5 PostgreSQL files / 39 tests skipped as expected in the
+    fast path.
+  - web: 37 files / 122 tests passed.
+  - e2e: 10 files / 59 tests passed; the new
+    `presence-registration-forms.e2e-spec.ts` was explicitly enumerated and contributed 4 tests
+    (baseline 9 files -> 10).
+  - build: pass; existing Vite chunk-size warning only.
+- `NODE_ENV=test ... pnpm verify:full`: pass using the fresh PostgreSQL database below; this
+  reran verify plus PostgreSQL integration and PostgreSQL e2e successfully.
+- Fresh PostgreSQL database `work_platform_m9_2_verify`:
+  - `pnpm db:setup`: pass through platform -> presence -> files -> forms -> notification -> seed;
+    seed `permissionCount=25`.
+  - `RUN_POSTGRES_INTEGRATION=true pnpm test:db`: 5 files / 39 tests passed; presence repository
+    10/10 includes linked and null `form_record_id` write/read.
+  - `RUN_POSTGRES_E2E=true pnpm test:e2e:postgres`: 3 files / 15 tests passed.
+- Primed Nx graph lint: `@work/forms-api`, `@work/presence-api`, and `@work/gateway-api` all had
+  zero boundary errors. `@work/presence-api` reported only two existing non-null assertion warnings
+  in specs. No forms import was added to presence.
+- Environment false-green/false-red check: this host uses Node 24.15.0. The root `test:e2e`
+  command explicitly enumerated the new e2e file and collected 10 files / 59 tests. An existing
+  local `work_platform` database had an old applied M9-1 migration state, so the first `test:db`
+  surfaced `status varchar(32)` there; the actual empty-database migration path was verified by
+  creating `work_platform_m9_2_verify`, where `0001_m9_status_dictionary.sql` applied from scratch
+  and the 33+ character status key regression passed.
+
+**Assertion matrix**
+
+- [x] Presence slot activation, constant-backed permissions, manifest/seed guard flip, and
+      unknown/reserved slot behavior.
+- [x] Forms create subject gates: self success; other/missing/mismatched subject and missing
+      permission return 404; revision returns 409; profile/presence dataType mapping verified.
+- [x] Forms by-id gates: own record success; missing permission, missing record, and out-of-scope
+      access return 404.
+- [x] Presence orchestration order: forms append first, presence write second; forms 404/409 and
+      missing host wiring never call the presence repository; malformed form returns 400.
+- [x] Legacy registration without `form` keeps its exact repository call shape.
+- [x] Gateway whole-chain e2e covers preset and runtime-created status keys, append non-overwrite,
+      by-id roundtrip, cross-user 404, missing submit 404, stale revision 409 with no presence row,
+      and client `formRecordId` injection resistance.
+- [x] No migration, no lockfile change, no web/API surface outside the task package.
+
+Security gate: M9-2 changes the forms record authorization surface and requires the task-package
+security-reviewer pass before merge. Implementation-side checks cover the nine §0 focus points;
+independent reviewer conclusion is pending on the PR and must be recorded before merge.
+
+Follow-up: M9-3a presence board roster inversion and realtime department scope.
+
 ## 2026-07-03
 
 ### M9-1 Status Dictionary Backend

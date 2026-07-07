@@ -14,8 +14,14 @@ export interface FormsPort {
   getDefinition(actor: FormActorContext, slotKey: FormSlotKey): Promise<FormDefinitionDto>;
   createRecord(
     actor: FormActorContext,
+    currentUser: CurrentUserDto,
     input: CreateFormRecordInput,
     auditContext?: FormAuditContext,
+  ): Promise<FormRecordDto>;
+  getRecordById(
+    actor: FormActorContext,
+    currentUser: CurrentUserDto,
+    recordId: string,
   ): Promise<FormRecordDto>;
   getRecordBySubject(
     actor: FormActorContext,
