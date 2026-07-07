@@ -228,7 +228,9 @@ spike 实证输入（`agent-runtime-evaluation.md`）：Agent Sandbox CRD v0.5.0
 ### D8 写操作确认信任锚 = 平台锚定（spec 拍板记录为决策）
 
 变更类工具的确认卡片只承载**平台深链**，用户携平台会话在平台侧完成确认——OpenIM 不进
-写授权 TCB（回调签名只能证明消息来自 OpenIM Server，证明不了用户本人点了确认）。**防重放
+写授权 TCB（即便有回调签名也只能证明消息来自 OpenIM Server，证明不了用户本人点了确认；
+且 2026-07-07 spike 实证 OpenIM v3.8.3 **连回调签名头都没有**，更不足以入 TCB，见
+`docs/research/openim-deployment-evaluation.md` §2.4）。**防重放
 语义定死（一审 m4，细节下沉 M15 RFC）**：服务端存储待确认操作的**规范化快照**（工具名 +
 规范化参数 + 目标资源 id + 派生委托令牌 jti），确认深链只带不可猜的 confirm id；用户回传
 时**服务端**比对快照一致 + 标记消费（单次有效），杜绝"参数被替换后重放"与"同一确认重复

@@ -214,7 +214,10 @@ constitution §4 / AGENTS.md §7"业务模块不得直接调用 OpenIM"铁律的
 登记（措辞更新见 §13.8）。服务端姿态沿 ADR-0001；**Web SDK 接入与 agent 消息通道是对
 ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）。
 
-1. **身份映射零账号 + 撤销传播**：OpenIM userID = 平台 user id；昵称/头像从档案同步；不设
+1. **身份映射零账号 + 撤销传播**：OpenIM userID = 平台 user id ~~直接透传~~（**2026-07-07
+   spike 实证修正**：OpenIM v3.8.3 的 userID 规则比平台 UUID 窄，含连字符的 UUID 被拒
+   `userID is legal`——须去连字符或建 `im_user_id` 映射，见 `docs/research/openim-deployment-evaluation.md`
+   §2.3/§5，M13 RFC 定映射策略）；昵称/头像从档案同步；不设
    OpenIM 密码，Web 端 IM token 仅经 `im-adapter-api` token 换发端点（平台会话 → OpenIM
    admin API 签发，**短 TTL**）。**撤销传播是硬要求**：平台禁用用户/登出/会话失效 →
    im-adapter 消费平台事件后经 admin API 强制下线该用户的 OpenIM 会话并吊销 token——OpenIM
@@ -236,8 +239,13 @@ ADR-0001 的两处显式修正，由 IM 子 ADR 承载**（§3.2、本节 5）�
    - 常规聊天内容不回流平台库（不进审计/搜索）；webhook 默认只回流账号/群组生命周期事件；
      内容级合规审计留预留接口位；
    - **例外通道（M13 交付物）**：平台注册专用 **agent bot 账号**；仅"发给 bot / @bot"的消息
-     经消息回调白名单回流。**传输形态拍板 = 回调直连专线**：OpenIM 回调 → im-adapter 校验
-     （签名 + 发送者 userID 绑定）→ 按**转发契约**直连推给 agent 消费端；**显式不是领域事件、
+     经消息回调白名单回流（**2026-07-07 spike 实证**：`callbackAfterSendSingleMsgCommand` /
+     `callbackAfterSendGroupMsgCommand` 回调可行、关键字段齐全，回调专线设计成立、不翻案）。
+     **传输形态拍板 = 回调直连专线**：OpenIM 回调 → im-adapter 校验（~~签名~~ + 发送者 userID
+     绑定）→ 按**转发契约**直连推给 agent 消费端。**⚠️ spike 实证修正**：OpenIM v3.8.3 的
+     webhook **未见签名头**，"签名校验"前提在当前版本不成立——im-adapter 必须自建内网 ACL +
+     共享密钥/不可猜路径 + 幂等/重放防护兜底（签名待 OpenIM 后续版本提供再启用），归 M13 RFC
+     × ADR-0008 落地。**显式不是领域事件、
      不走 outbox/总线**——若走总线，critical 级事件行落 PG 即违反"内容不落平台业务库"的
      本节承诺；可靠性由回调重试 + 会话级对账兜底。M13 交付物界定为：bot 账号 + 回调白名单 +
      签名校验 + im-adapter 侧转发契约（M15 前以 echo 探针验收，agent-gateway 到位后接管）；
