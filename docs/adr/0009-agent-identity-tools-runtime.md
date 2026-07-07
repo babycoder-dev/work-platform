@@ -7,7 +7,7 @@ Proposed（待两轮独立评审 + 拍板）｜ 起草 2026-07-07 ｜ 依据 `do
 `docs/research/agent-runtime-evaluation.md`（2026-07-06 spike）；设计推演
 `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md` §8。
 
-> 编号说明：ADR-0007 已由 M12 RFC 钦定给"事件传输选型"（随 M12-1 入库）；ADR-0008 按
+> 编号说明：ADR-0007 已由 M12 RFC 钦定给"事件传输选型"（将随 M12-1 入库）；ADR-0008 按
 > ADR-0006 §4 顺位保留给"IM 集成边界"（等 OpenIM spike 回流）。本 ADR 提前于 0008 起草
 > 是刻意的：其全部输入已齐（agent-runtime spike + 2026-07-07 LLM 通道拍板），而 0008 还在
 > 等 spike；两者的唯一交叠（agent 的 IM 账号 provisioning）以联合决策位切分（§D10）。
@@ -24,6 +24,15 @@ Proposed（待两轮独立评审 + 拍板）｜ 起草 2026-07-07 ｜ 依据 `do
 > 矛盾（精确化为"每消息单枚、覆盖整个 loop 窗口、不可跨消息复用"，§D3）、**M4** 进程内
 > 内存态跨用户串未处置（补内存隔离口径 + 升级判据，§D5）。minor（审计物理列名 vs 语义、
 > 自主会话 `user_id` 取值、认证路径风险提示、确认防重放成文、drain 回指）一并落修。
+
+> 二审（换视角独立 sub-agent：安全实施负责人 + 修订验证者，2026-07-07）验证一审 6 命门
+> 修复"全部扎实落地、无新矛盾"，结论可交拍板；发现 4 个"补文字不改决策"的完备性/一致性
+> 缺口并已修订：**M-1** 令牌窗口×级联吊销×introspection 缓存 TTL 链路未闭环——补"吊销
+> 即时性 = 两窗口取长边"的诚实声明（§D3，这是作为 0004 扩展最该补的一笔）、**M-2**
+> `audit_logs` 三列可空性/回填未交代——补对齐 D3 sessions 详尽度的列定义（§D9）、**M-3**
+> §影响风险例子没跟上 C1（补"通知收件人"非 UI 面到最前，§影响）、**M-4** security-baseline
+> §16 门禁清单不覆盖 D6/D2 新维度——补"§16 须新增两项门禁"（§与其它决策）。minor（白名单
+> 表补日程/会议占位、行号精度、编号时态、introspection 缓存物理位置澄清）一并落修。
 
 ## 背景
 
@@ -74,7 +83,7 @@ spike 实证输入（`agent-runtime-evaluation.md`）：Agent Sandbox CRD v0.5.0
   agent 默认会出现在**一切消费 `employees` 主键并产生对人可见/可投递效果**的解析点上，
   必须配**默认排除机制**——执行面**不止**"员工查询面"（名册/看板/日报需报/组织树/统计/
   导出），**必须显式含非 UI 的解析路径**，已知至少三处（一审 C1 证实的破面）：
-  - `PlatformOrgPort.resolveDepartmentManager`（`platform-org-lookup.service.ts:33-38`，
+  - `PlatformOrgPort.resolveDepartmentManager`（`platform-org-lookup.service.ts:9-38`，
     今仅校验 `status='active'`、无 kind 过滤）——agent 若挂部门负责人（D1 自主模式明说可
     挂部门配角色），该部门成员的 subject 事件会把 agent 解析成**通知收件人**（M7
     `RecipientResolver` 的 `department_manager` 分支，`recipient-resolver.ts:23-30`）；
@@ -113,6 +122,12 @@ spike 实证输入（`agent-runtime-evaluation.md`）：Agent Sandbox CRD v0.5.0
   故委托令牌级联吊销实为**两件事**：先补齐用户侧会话吊销 + 禁用联动（禁用用户 → 批量
   吊销其 session），再叠子级 `parent_session_id` 级联——两者均随 M15 首切片建，不是对既有
   能力的纯扩展。
+- **吊销即时性的折扣（二审 M-1，须显式接受）**：ADR-0004 的"即时撤销"承诺在委托令牌上
+  **打折**——吊销生效最坏时延 = **两窗口取长边** `max(introspection 缓存剩余 TTL≤60s, 消息
+  级令牌的 loop 窗口剩余·分钟级)`。即用户被禁用/吊销后，最坏情况在该时延内派生委托令牌
+  仍可对平台发起授权调用。此为 opaque + introspection + 分钟级令牌窗口三者的组合残余，
+  **显式接受**（缩短窗口的代价——每调用换新令牌 / 缓存 TTL 归零——不划算）；零容忍的高敏
+  工具走 D5 升级档（按用户实例化 + 更短令牌窗口）另计。
 - **逐消息下发、不落卷**（spike 实证采纳）：委托令牌经 agent-gateway 的**内存控制通道**
   随单条消息下发进沙箱；**令牌粒度 = 每消息单枚**（jti 绑定该消息），**TTL 覆盖该消息的
   整个 agent-loop 处理窗口（含 3–10 轮工具调用，spike §2.1 实测单会话 5 次调用、窗口可达
@@ -152,10 +167,11 @@ spike 实证输入（`agent-runtime-evaluation.md`）：Agent Sandbox CRD v0.5.0
 - **数据隔离轴**：常规数字员工 = 单 Agent 实例 + **用户会话/记忆强分区**——会话目录根由
   宿主钉死为 `/workspace/users/<user-id>/sessions`，路径不受模型控制（pi 库本身无 tenant
   边界，spike 实证）；记忆不跨用户。**落盘分区不等于隔离闭环（一审 M4）**：单实例是一个
-  常驻进程，进程内内存态（pi 进程内对话上下文对象、任何缓存、introspection 缓存）在多用户
-  消息复用同一实例时同样是跨用户面（spike §7.2 把"缓存/记忆串用户"列为本档主要坑）。口径
-  = 每消息处理后清理进程内对话上下文、introspection 缓存以令牌主体为隔离键不跨用户复用；
-  **进程内内存隔离难以证明时并入下方"升级为按用户实例化"的触发判据**。
+  常驻进程，进程内内存态（pi 进程内对话上下文对象、任何缓存）在多用户消息复用同一实例时
+  同样是跨用户面（spike §7.2 把"缓存/记忆串用户"列为本档主要坑）。口径分**两处物理位置**
+  （二审 m-4）：**沙箱 pi 进程内** = 每消息处理后清理进程内对话上下文；**gateway 的
+  introspection 缓存**（ADR-0004 §4.4，物理位置在 gateway、非沙箱内）= 按令牌主体分键、
+  不跨主体复用。**进程内内存隔离难以证明时并入下方"升级为按用户实例化"的触发判据**。
 - **授权轴**：逐消息委托令牌（D3）解决授权与撤销——它不解决记忆隔离，两轴缺一不可。
 - **升级档**：高敏工具、"跨用户记忆隔离难以证明"、或"进程内内存隔离难以证明"的场景 ⇒
   按用户实例化。触发判据 = **工具风险级别**（非全体 Agent 一刀切）；初始敏感工具清单归
@@ -192,6 +208,9 @@ spike 实证输入（`agent-runtime-evaluation.md`）：Agent Sandbox CRD v0.5.0
 | 表单/审批正文、文件内容 | ❌ 默认不发 | M15 无场景；M19 重议 |
 | 凭据/密钥/审计日志 | ❌ 永不 | 硬编码禁止，不入白名单机制 |
 
+> 日程/会议/参与者类 M16 引入 calendar 时按本机制增行（默认 ❌，同联系方式姿态）；本表
+> 只覆盖 M15 已有数据面，非完整全集。
+
 ### D7 平台能力供给 = 单源三投影（manifest `agentTools` 唯一定义源）
 
 - 模块 manifest 声明 `agentTools`，每个工具绑定：`permissionCode`、`dataType`（数据范围
@@ -220,11 +239,19 @@ ADR 论证把 OpenIM 纳入确认 TCB 的前提（端到端签名可验 + 用户
 - `agent.*` schema（实例定义/状态机/会话元数据/工具调用用量/出网记录）由
   `apps/agent-gateway` 拥有，独立迁移入口 `db:migrate:agent`——与 platform-api 拥有
   `platform.*` 同构；schema-per-module 纪律不破。
-- **审计分层**：平台侧敏感写仍走 `platform.audit_logs`（增**物理列** `on_behalf_of_user_id`
-  + `actor_kind`，对应 §D1 表的审计语义 `onBehalfOf` / `actor=agent:<id>`——物理列名 vs
-  展示语义勿混；platform schema 变更，随 D2 同批过文档审查）；agent 的**全量**工具调用
-  流水（高频、含查询类）进 `agent.tool_invocations`，保留期短（用量与治理用途），不灌爆
-  平台审计表。增长预算数字归 M15 RFC。
+- **审计分层**：平台侧敏感写仍走 `platform.audit_logs`，增两物理列（对齐 D3 sessions 的
+  可起草粒度——二审 M-2）：
+  - `actor_kind varchar(16) NOT NULL DEFAULT 'human'`（CHECK `IN ('human','agent')`，存量
+    行回填 `'human'`）；
+  - `on_behalf_of_user_id uuid NULL REFERENCES employees(id)`（仅委托模式有值；D2(a) 让
+    agent 也是 employees 行 ⇒ 外键自洽）；
+  - 既有 `actor_user_id` **当前已可空**（`platform.schema.ts:193` 无 `.notNull()`）——agent
+    行填 **agent 自身 employees id**、靠 `actor_kind='agent'` 辨识主体（映射 §D1 展示语义
+    `actor=agent:<id>`）；委托行 `actor_user_id=agent id` + `on_behalf_of_user_id=委托人 id`。
+  - 迁移方向 = 一次加两列 + 回填 `actor_kind='human'`，对存量无约束冲突、零停机。
+  物理列名 vs §D1 展示语义勿混。此为 platform schema 变更，随 D2 同批过文档审查。agent 的
+  **全量**工具调用流水（高频、含查询类）进 `agent.tool_invocations`，保留期短（用量与治理
+  用途），不灌爆平台审计表。增长预算数字归 M15 RFC。
 - pi 会话文件与记忆留沙箱持久卷（不进库）；卷的保留/删除/owner 离职处置见 D11。
 
 ### D10 IM provisioning 联合决策位的切分（与 ADR-0008 的接口）
@@ -273,8 +300,11 @@ ADR 论证把 OpenIM 纳入确认 TCB 的前提（端到端签名可验 + 用户
   承接。
 - **ADR-0008（IM 集成边界，待产）**：D10 定义了接口切分。
 - **security-baseline**：§4（委托/自主令牌、级联吊销、撤销窗口）、§5（agent 主体授权
-  口径 + 默认排除原则）、§11（云 LLM API key、沙箱令牌注入姿态、控制通道凭据）三处增量
-  随 M15 首切片**同批改文档**（§16 门禁）；§8 不涉及（agent 不碰业务 schema）。
+  口径 + 默认排除原则）、§11（云 LLM API key、沙箱令牌注入姿态、控制通道凭据）三处正文
+  增量随 M15 首切片**同批改文档**；**§16 变更门禁清单本身须新增两项**（二审 M-4：现 §16
+  八项无一覆盖 D6/D2 的新维度）——『变更云 LLM prompt 可发送数据类别白名单』『引入/调整
+  非人类主体（agent）在授权与审计基线的口径』，与 ADR-0006 已预告的 §5/§11 增量方向一致；
+  §8 不涉及（agent 不碰业务 schema）。
 - **M12（事件基建）**：agent bot 消息 = 回调直连专线，**不走 outbox/总线**（spec §7.5
   拍板，隐私边界）；agent 域内领域事件（实例状态变更等）若需要，按 M12 规范接入。
 - **module-contract**：`agentTools` manifest 扩展 + work-cli/Skills 交付标准随 M15 增补。
@@ -286,10 +316,12 @@ ADR 论证把 OpenIM 纳入确认 TCB 的前提（端到端签名可验 + 用户
 级"粗粒度（用户自带面靠纵深防御，D6）。
 
 **代价与风险**：platform.employees/sessions/audit_logs 三处 schema 变更（一次文档审查
-门禁打包过）；默认排除机制漏一面 = agent 出现在日报需报/名册（守护测试 + 逐面清单
-缓解）；agent-gateway 成为新的安全关键组件（控制通道持令牌流转，进 security-baseline
-审查面）；CRD 项目年轻（准入门槛 + 三档保底）；云 LLM 依赖（可用性/成本/边界，已登记
-ADR-0006 风险表）。
+门禁打包过）；默认排除机制漏一面 = agent 被解析为**通知收件人**（部门负责人/角色两条
+非 UI 路径，C1 命门）或出现在日报需报/名册等查询面（守护测试含"agent 挂负责人/持角色
+不得被解析为收件人"一条 + 逐面清单缓解）；委托令牌吊销有两窗口叠加残余（D3，显式接受）；
+agent-gateway 成为新的安全关键组件（控制通道持令牌流转，进 security-baseline 审查面）；
+CRD 项目年轻（准入门槛 + 三档保底）；云 LLM 依赖（可用性/成本/边界，已登记 ADR-0006
+风险表）。
 
 ## 实装时点
 
