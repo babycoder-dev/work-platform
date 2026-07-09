@@ -236,7 +236,9 @@ ensure，避免迁移跨 schema 枚举企业。
 
 M9-2 激活 forms 的 `presence.status.<key>` 槽位家族。`FormSlotDefinition` 以
 `dataType` / `subjectType` 作为记录 subject 授权单源：profile → `profile`、presence → `presence`、
-report → `report`；presence 定义权限为 `forms:presence-definition:{view,manage}`。
+report → `report`；presence 定义权限为 `forms:presence-definition:{view,manage}`。该动态槽位家族在
+forms 侧不跨 schema 校验 key 是否存在于 `presence.status_types`，因此 typo key 会存成无效定义；
+M9-3b 定义管理 UI 必须从状态字典下拉选择 key，而不是让管理员自由输入 slotKey。
 
 模块只读写自己的 schema。需要组织、人员、权限时，通过 `platform-api` 或平台只读快照获取。
 

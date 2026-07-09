@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import type { EventBus } from '@work/event-bus';
@@ -217,6 +218,24 @@ describe('PresenceStatusService', () => {
     );
   });
 
+  it('rejects invalid time ranges before creating a forms record', async () => {
+    await expect(
+      service.createRecord(
+        currentUser(),
+        {
+          ...createInput(),
+          endAt: createInput().startAt,
+          form: { definitionRevision: 1, values: [{ fieldKey: 'destination', value: '上海' }] },
+        },
+        {},
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(formsLink.createStatusFormRecord).not.toHaveBeenCalled();
+    expect(repository.ensurePresetStatusTypes).not.toHaveBeenCalled();
+    expect(repository.createRecord).not.toHaveBeenCalled();
+  });
+
   it('does not persist presence when forms rejects and preserves the original error', async () => {
     const conflict = new ConflictException('表单定义版本已变化');
     vi.mocked(formsLink.createStatusFormRecord).mockRejectedValue(conflict);
@@ -263,7 +282,7 @@ describe('PresenceStatusService', () => {
         },
         {},
       ),
-    ).rejects.toThrow('presence forms link 未接线');
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
     expect(repository.createRecord).not.toHaveBeenCalled();
   });
 

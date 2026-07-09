@@ -19,12 +19,36 @@
   `form_record_id` writes, and the full preset/custom-key append chain. Client-supplied
   `formRecordId` is ignored.
 
+**Review follow-up fixes**
+
+- Added service-level time-range validation before any forms append call: `endAt <= startAt`
+  now returns 400 (`结束时间必须晚于开始时间`) without creating an orphan forms record. The
+  database CHECK and PostgreSQL error mapper remain as defensive backstops.
+- Replaced the missing `PRESENCE_FORMS_LINK` raw `Error` with a Nest
+  `InternalServerErrorException('在位登记填报服务未就绪')` so the unified error envelope is
+  preserved.
+- Documented the dynamic `presence.status.<key>` slot-family footgun: forms intentionally does
+  not cross schema to verify `status_types`, so typo slot keys can be stored but remain unused.
+  M9-3b must mitigate this by choosing keys from status types rather than free-form slot input.
+- Documented the role bundle requirement for self-registration v2:
+  `presence:status:create` + `forms:record:submit` + `forms:presence-definition:view`. Missing
+  `forms:record:submit` returns the forms module's intentional anti-enumeration 404, not 403, and
+  creates no presence record.
+- Post-fix local verification: focused `presence-status.service.spec.ts` pass, 1 file / 23 tests;
+  full `NODE_ENV=test ... pnpm verify` pass with unit 47 files / 249 tests, web 37 files / 122
+  tests, e2e 10 files / 59 tests, and build pass. A first full verify attempt hit a transient
+  Vitest worker `ERR_IPC_CHANNEL_CLOSED` during e2e; rerunning `pnpm test:e2e` alone passed 10/59
+  and the subsequent full verify passed. Local Docker Desktop was not available for a post-fix
+  `verify:full` rerun (engine pipe missing / later CLI timeout); the pre-fix fresh-DB
+  PostgreSQL run below remains the latest local PG evidence and CI must re-run the gated suite for
+  the review-fix commit.
+
 **Validation**
 
 - `NODE_ENV=test NODE_OPTIONS=--localstorage-file=E:/Work/work-platform-m9-2/.ls-test pnpm verify`: pass.
   - lint: pass; existing repository warnings only.
   - typecheck: pass for all 27 participating projects.
-  - unit: 47 files / 248 tests passed; 5 PostgreSQL files / 39 tests skipped as expected in the
+  - unit: 47 files / 249 tests passed; 5 PostgreSQL files / 39 tests skipped as expected in the
     fast path.
   - web: 37 files / 122 tests passed.
   - e2e: 10 files / 59 tests passed; the new

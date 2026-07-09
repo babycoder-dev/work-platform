@@ -65,6 +65,9 @@ export function resolveFormSlot(slotKey: string): FormSlotDefinition | undefined
     return exact;
   }
   if (slotKey.startsWith('presence.status.') && slotKey.length > 'presence.status.'.length) {
+    // Forms owns only the definition slot family and deliberately does not read presence.status_types.
+    // A typo such as presence.status.busines_trip is therefore accepted as an active slot here but
+    // will never be used by presence registration. M9-3b UI must choose keys from status_types.
     return {
       slotKey: slotKey as `presence.status.${string}`,
       ownerModule: 'presence',

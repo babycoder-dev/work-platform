@@ -147,6 +147,9 @@ forms:record:submit
 forms:presence-definition:view
 ```
 
+三项缺一不可。尤其是带 `form` 的自助登记若缺 `forms:record:submit`，forms 会按反枚举语义返回
+404（不是 403），presence 记录也不会创建；这是预期语义，属于管理员角色配置责任。
+
 数据范围无需额外显式配置即可安全回退为 `self`；读取他人的 by-id forms 记录仍按该 slot 的
 `dataType` 范围授权。
 

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
@@ -118,6 +119,12 @@ export class PresenceStatusService {
     if (currentUser.departmentId === undefined || currentUser.departmentName === undefined) {
       throw new ForbiddenException('当前用户缺少部门信息，无法登记在位状态');
     }
+    if (
+      input.endAt !== undefined &&
+      new Date(input.endAt).getTime() <= new Date(input.startAt).getTime()
+    ) {
+      throw new BadRequestException('结束时间必须晚于开始时间');
+    }
 
     await this.repository.ensurePresetStatusTypes(currentUser.enterpriseId);
     const statusType = await this.repository.findStatusTypeByKey(
@@ -171,7 +178,7 @@ export class PresenceStatusService {
         throw new BadRequestException('表单填报参数格式错误');
       }
       if (this.formsLink === undefined) {
-        throw new Error('presence forms link 未接线：宿主必须提供 PRESENCE_FORMS_LINK');
+        throw new InternalServerErrorException('在位登记填报服务未就绪');
       }
       ({ recordId: formRecordId } = await this.formsLink.createStatusFormRecord(
         currentUser,
