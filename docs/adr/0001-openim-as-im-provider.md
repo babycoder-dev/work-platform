@@ -2,7 +2,9 @@
 
 ## 状态
 
-Accepted
+Accepted（**部分被 `docs/adr/0008-im-integration-boundary.md` 修正**，2026-07-07：Web SDK
+依赖引用接入、agent bot 消息通道、身份映射不可直接透传三处——账号自持/Provider 可替换/服务端
+经 im-adapter 三条不变；Phase D 部分激活，Phase E 仍预留。结论未废，见 ADR-0008 D1）
 
 ## 背景
 

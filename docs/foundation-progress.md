@@ -27,7 +27,7 @@
 | M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | In Progress | M9-1 状态字典后端已合并；M9-2 自助登记 v2 + forms 泛化已交付，下一步 M9-3a 看板实时化后端                                                                                   |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                                                                                                    |
 | M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending     | 简单串签流 + 节点通知 + 联动在位                                                                                                                                              |
-| vNext                       | 多维表格+自动化、周报、桌面端、外部 IM、内网交付强化                                                    | Pending     | 远期愿景，含老 M8 交付内容                                                                                                                                                    |
+| vNext（M12–M19）            | 事件基建 → IM → Agent 基座 → 任务/日历/会议室 → 多维表格 → 自动化+Agent v2（双轨序列）                  | Pending     | 2026-07 由 ADR-0006 重定义并激活规划；周报/桌面端/内网交付强化进 M20+ 预留桶                                                                                                  |
 
 > M5 起为 2026-05 重规划后的里程碑，详见 `docs/adr/0005-product-replan-roadmap.md` 与
 > `docs/product-requirements.md`。老 M5–M8（审批优先/日报/通知-实时-IM/客户端交付）已作废。
@@ -228,6 +228,19 @@ data_type `presence`）、看板名册反转收口 §7.5（扩 `PlatformEmployee
 `85ea16d`，security-reviewer 独立二审通过）。**M9-2 自助登记 v2 + forms 泛化已交付**：
 presence 状态槽位已激活，记录 create/by-id 具备 slot dataType 范围门，登记经宿主适配器关联 append
 forms 记录。下一步 M9-3a 看板实时化后端。
+
+**vNext 路线图已定（2026-07-06）**：`docs/adr/0006-vnext-roadmap.md` 把 vNext 重定义为
+M12–M19 双轨序列（可靠事件基建 → IM 基座/体验 → Agent 基座 → 任务/日历/会议室 → bitable
+数据引擎/UI → 自动化+Agent v2），设计规格见
+`docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md`（两轮独立评审已落修）。vNext
+文档与 spike 工作和 M10/M11 并行，互不阻塞；首个 spike 任务包见
+`docs/tasks/vnext-spike-openim-deployment.md`。**M12-0 RFC 已 Accepted**（2026-07-07，
+`docs/rfc/m12-reliable-events-multiprocess.md`，两轮独立评审 + delta 校验 + 三项拍板：
+① realtime-gateway 退役、② Redis AOF everysec + 残余路径显式接受 + 分层兜底、③ 日志聚合
+本期轻档 Loki 推 M13 前）：事务性 outbox（SQL 模板表工厂 + `publishInTx`）+ 按模块中继 +
+Redis Streams + 消费三件套 + SSE fan-out + `@work/scheduling` 抽壳 + 可观测性基线 + CI
+矩阵扩展，切片 M12-1~M12-5；配套 ADR-0007（事件传输选型）随 M12-1 入库。M12 实施与 M9
+收尾的排序约束：M12-1 排在 M9-2 合并后开工（RFC §18）。
 
 上一切片任务包：`docs/tasks/m5-4-delivery-verification.md`。
 

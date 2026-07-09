@@ -486,13 +486,127 @@ Windows 7 只保证 Web UI 核心功能可用。
 
 - 审批模块不直接写 presence 表，通过事件或公开 API 协作。
 
-### vNext：平台愿景与交付强化
+### vNext（M12–M19，2026-07 重定义）
 
-- 多维表格 + 自动化流程（统一收敛表单/通知/审批的可配置化）。
-- 周报、Excel 导入、看板高级筛选、日报 git-diff。
-- 桌面 Qt 客户端业务界面。
-- 外部 IM（如 OpenIM）人对人聊天。
-- 内网交付强化：Docker 镜像裁剪与导出、迁移执行、安装/升级/回滚、部署演练（承接老 M8 交付内容与“服务镜像裁剪”风险）。
+> vNext 已由 `docs/adr/0006-vnext-roadmap.md` 从"愿景清单"重定义为双轨里程碑序列
+> （🔧 横切基建与 📦 纵向组件交替）。设计推演见
+> `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md`；每个里程碑启动时按既有
+> 流程产出 RFC（两轮独立评审），大组件 RFC 前置开源深评 spike（报告进 `docs/research/`）。
+
+#### M12：可靠事件与多进程基建（🔧）
+
+目标：进程内尽力而为事件升级为跨进程 at-least-once；IM webhook、Agent worker、SSE 多副本、
+gateway 拆分的共同前置。
+
+交付：事务性 outbox（按 schema 分治 + `@work/event-bus` 表工厂 + `publishInTx`）、按模块
+实例化的中继（advisory lock 互斥、聚合分区键）、Redis Streams 驱动、消费三件套规范（幂等/
+重试/死信，含无 schema 宿主的状态存储约定）、事件两级可靠性（critical / notify-only）、
+SSE 多副本 fan-out、调度基建抽壳 `@work/scheduling`、**最小可观测性基线**（告警带外通道
+拍板 + 指标/日志最小栈进部署基线 + 死信告警落地）、**CI 矩阵扩展**（Redis service + 多
+进程 e2e 形态）与 `docs/testing-strategy.md` 补齐（统一 PG/Redis/OpenIM/k8s 各类 env-gate
+的防假绿规约）、两个收口决策位（`apps/realtime-gateway` 处置三选一；Redis 持久化/备份
+语义——在途事件丢失依 outbox 重发补齐的论证）。
+
+退出标准：`presence.status.changed` 与 `profile.updated` 两条既有链路在"发布方进程 ≠
+消费方进程"的部署形态下 e2e 跑通（该形态进 CI）；notification 调度迁移到
+`@work/scheduling` 自证；一条死信经带外通道告警送达。
+
+#### M13：IM 基座（📦）
+
+目标：OpenIM Server 进入部署基线，平台身份/组织单向同步，IM 成为平台的可替换卫星服务。
+
+交付：OpenIM 部署基线 + **备份/监控 runbook 与离线导入路径**（前置 spike 评估组件裁剪；
+借此立项欠账的 `docs/offline-deployment-runbook.md`）、账号 provisioning（OpenIM userID =
+平台 user id）、部门群同步（事件驱动 + 夜间对账）、token 换发（短 TTL）与撤销传播（禁用/
+登出 → admin API 强制下线）、webhook 回流（默认仅账号/群组生命周期）、agent bot 消息回调
+专线（签名校验 + 转发契约，echo 探针验收）；IM 消息留存/归档策略随 IM 子 ADR 拍板。
+
+退出标准：平台建人/调部门后 OpenIM 侧自动一致；平台禁用用户后其 IM 会话失效；echo 探针
+经回调专线往返成功。
+
+#### M14：IM 体验（📦）
+
+目标：员工在 Shell 内完成日常沟通。
+
+交付：`modules/im/web` 聊天 UI（OpenIM JS SDK 以 npm 依赖引用；唯一获准直连 OpenIM 的
+SDK 宿主）、会话/单聊/群聊/未读、站内通知可选 IM 投递（点亮 M7 预留接口位）；RFC 检查项：
+**Chrome 109（Win7）× OpenIM JS SDK 实测**（wasm/SharedArrayBuffer/跨源隔离头 + 企业
+反代），跑不通则显式豁免并同步 constitution §7 / architecture §3.3 清单；用户侧通知偏好/
+免打扰在此一并拍板（做或显式后置）。
+
+退出标准：一个真实部门可用 IM 日常沟通；通知触发点可配置投递到 IM；Win7 口径已拍板落档。
+
+#### M15：Agent 基座 v1（🔧+📦）
+
+目标：**数字员工**模型与运行时就位——常驻实例、k8s 全生命周期、平台能力三层供给；首个
+数字员工（内置助手）在 IM 里帮员工干活。
+
+交付：数字员工实例模型（`agent.*` schema：定义/实例/状态机 registered→provisioning→
+running/idle→upgrading→suspended→archived）、**Agent Sandbox CRD 编排**（持久工作区 +
+空闲缩零 + 快速恢复；`apps/agent-gateway` = 生命周期管理器 + 会话路由；SandboxDriver
+三档：CRD / 裸 Pod / Docker）+ 沙箱 egress 白名单、pi harness（pi-ai + pi-agent-core，
+版本锁定）、**能力供给单源三投影**（manifest `agentTools` → 平台 MCP server + `work-cli`
+预装沙箱镜像 + AgentSkills 包，权限/审计继承既有管道）、Agent 双模式身份（委托令牌 +
+审计双主体 + 平台锚定写确认；自主任职 `kind=agent` 账号只建模型）、首个数字员工（查在位/
+查待办/代登记/代发审批，写操作带确认，全走委托模式）。**部署前置**：内网 LLM 推理端点
+（专项 spike 产出的 GPU/模型/推理服务基线）与 k3s 基线 runbook（含 agent 持久卷备份）
+先行到位。
+
+退出标准：内置助手在 IM 中完成一次带确认的写操作，全链路审计含双主体；实例空闲缩零后被
+@ 可秒级唤醒续聊（记忆在卷）；沙箱 Pod 无法触达白名单外网络；`work-cli` 在沙箱内以委托
+令牌完成一次平台查询；以上验收在**内网缺省通道**上跑通。
+
+#### M16：任务 + 日历 + 会议室（📦）
+
+目标：自建日程/任务/会议室资源模块，补齐传统协作面。
+
+交付：`modules/calendar`（RRULE 真源 + occurrence 物化窗口 + 会议室=资源日历 + `tstzrange`
+排他约束冲突检测）、`modules/tasks`（指派/截止/我的待办聚合）、参与者制可见性与组织范围制
+并存口径、提醒（M7 通知 + `@work/scheduling`）、邀约 IM 投递、`agentTools` 随模块出生。
+
+退出标准：循环会议可预订会议室且冲突被拒；Agent 可完成"订一间明天下午的会议室"。
+
+#### M17：数据引擎（🔧）
+
+目标：bitable 动态物理表内核替换 forms 引擎（扩展不是重写的兑现）。
+
+交付：`modules/bitable` contract + api（独立 `bitable.*` schema）、DDL 管理层（单一入口、
+运行账号权限限定本 schema、配额/命名/审计）、字段类型系统与公式/视图（Teable 解剖 spike
+产出搬运清单）、平台数据范围权限桥、员工档案槽位迁移（含 files 引用迁移，既有 UI 无感）。
+
+退出标准：员工档案自定义字段在 bitable 引擎上读写，既有 UI 与 API 契约不破。
+
+#### M18：多维表格 UI（📦）
+
+目标：多维表格成为用户可直接使用的通用能力。
+
+交付：网格视图（canvas + 虚拟滚动）、Kanban/表单视图、`modules/bitable/web` 挂 shell、
+forms 填报页全部切换新引擎（日报/在位登记迁移，迁毕 forms 退役）、实时协同方案定型；
+RFC 检查项：canvas 网格对 Win7/Chrome 109 引用 architecture §3.3 既有降级豁免并定义降级
+形态（如表单视图兜底）。
+
+退出标准：HR 可自建一张业务表并配视图；forms 模块退役且历史数据可读。
+
+#### M19：自动化 + Agent v2（📦）
+
+目标：表单、通知、审批在自动化收敛；数字员工全量开放为"组织按需配置的自动化工人"。
+
+交付：when-trigger-then-action 引擎（bitable 子域；触发器=领域事件/记录变更/定时，动作=
+通知/IM/创建记录/发起审批/调用 Agent）、数字员工自助注册/启用/停用 UI（指令 + 工具白名单 +
+触发方式 IM @/定时/自动化动作）、**自主任职模式全量开放**（挂部门/配角色/接任务/出现在 IM
+联系人，按自身角色权限行事）、Skills 覆盖面扩展到全模块、治理面板（实例清单/用量/审计/
+配额）；RAG 知识库【预留：数字员工出现组织知识问答场景时触发，语料库定位（非用户文档
+产品，见 product-requirements §5.6）】。
+
+退出标准：一条"记录变更 → 通知 + 发起审批"自动化跑通；一名用户自助注册的数字员工以自主
+模式完成一项定时任务，审计 `actor=agent` 可查。
+
+#### M20+：持续项（🔧/📦 预留桶）
+
+gateway 真拆分（ADR-0003）、桌面 Qt 客户端、多层部门完整展示、周报、Excel 批量导入、
+看板高级筛选、日报 git-diff、内网交付强化（镜像裁剪/安装升级回滚演练，承接老 M8 交付
+内容）。完整清单、用途与逐项触发条件以 `docs/adr/0006-vnext-roadmap.md` 的 M20+ 定义为
+单一事实源；本节仅作路线投影，不阻塞主线。
 
 ## 11. 当前推荐下一步
 
