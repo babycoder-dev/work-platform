@@ -38,10 +38,10 @@
   full `NODE_ENV=test ... pnpm verify` pass with unit 47 files / 249 tests, web 37 files / 122
   tests, e2e 10 files / 59 tests, and build pass. A first full verify attempt hit a transient
   Vitest worker `ERR_IPC_CHANNEL_CLOSED` during e2e; rerunning `pnpm test:e2e` alone passed 10/59
-  and the subsequent full verify passed. Local Docker Desktop was not available for a post-fix
-  `verify:full` rerun (engine pipe missing / later CLI timeout); the pre-fix fresh-DB
-  PostgreSQL run below remains the latest local PG evidence and CI must re-run the gated suite for
-  the review-fix commit.
+  and the subsequent full verify passed. After Docker Desktop restarted,
+  `work_platform_m9_2_review` was created as a fresh PostgreSQL database; `pnpm db:setup` applied
+  all migrations and seeded `permissionCount=25`, and the post-fix `pnpm verify:full` passed with
+  PostgreSQL integration 5 files / 39 tests and PostgreSQL e2e 3 files / 15 tests.
 
 **Validation**
 
