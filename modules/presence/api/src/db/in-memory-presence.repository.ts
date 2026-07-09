@@ -54,6 +54,7 @@ export class InMemoryPresenceRepository implements PresenceRepository {
   async createRecord(
     input: CreatePresenceStatusRecordInput,
     actor: PresenceRepositoryActorContext,
+    options?: { formRecordId?: string },
   ): Promise<PresenceStatusRecordDto> {
     const now = new Date().toISOString();
     const record: PresenceStatusRecordDto = {
@@ -70,6 +71,7 @@ export class InMemoryPresenceRepository implements PresenceRepository {
       remark: input.remark,
       createdBy: actor.userId,
       createdAt: now,
+      formRecordId: options?.formRecordId,
     };
 
     this.records.push(record);

@@ -4,7 +4,9 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { EVENT_BUS, type EventBus } from '@work/event-bus';
 import type {
@@ -29,6 +31,10 @@ import {
 } from '@work/presence-contract';
 import { PRESENCE_REPOSITORY } from '../db/presence-repository.token';
 import type { PresenceRepository, PresenceRepositoryActorContext } from '../db/presence.repository';
+import {
+  PRESENCE_FORMS_LINK,
+  type PresenceFormsLinkPort,
+} from '../forms-link/presence-forms-link.port';
 
 export interface PresenceAuditContext {
   traceId?: string;
@@ -45,6 +51,9 @@ export class PresenceStatusService {
     private readonly employeeLookup: PlatformEmployeeLookupPort,
     @Inject(PLATFORM_AUDIT_SERVICE) private readonly auditService: PlatformAuditPort,
     @Inject(EVENT_BUS) private readonly eventBus: EventBus,
+    @Optional()
+    @Inject(PRESENCE_FORMS_LINK)
+    private readonly formsLink?: PresenceFormsLinkPort,
   ) {}
 
   async getBoard(currentUser: CurrentUserDto): Promise<{ items: PresenceStatusRecordDto[] }> {
@@ -110,6 +119,12 @@ export class PresenceStatusService {
     if (currentUser.departmentId === undefined || currentUser.departmentName === undefined) {
       throw new ForbiddenException('当前用户缺少部门信息，无法登记在位状态');
     }
+    if (
+      input.endAt !== undefined &&
+      new Date(input.endAt).getTime() <= new Date(input.startAt).getTime()
+    ) {
+      throw new BadRequestException('结束时间必须晚于开始时间');
+    }
 
     await this.repository.ensurePresetStatusTypes(currentUser.enterpriseId);
     const statusType = await this.repository.findStatusTypeByKey(
@@ -151,7 +166,39 @@ export class PresenceStatusService {
       departmentName: currentUser.departmentName,
     };
 
-    const record = await this.repository.createRecord(input, actor);
+    let formRecordId: string | undefined;
+    if (input.form !== undefined) {
+      if (
+        typeof input.form !== 'object' ||
+        input.form === null ||
+        typeof input.form.definitionRevision !== 'number' ||
+        !Number.isFinite(input.form.definitionRevision) ||
+        !Array.isArray(input.form.values)
+      ) {
+        throw new BadRequestException('表单填报参数格式错误');
+      }
+      if (this.formsLink === undefined) {
+        throw new InternalServerErrorException('在位登记填报服务未就绪');
+      }
+      ({ recordId: formRecordId } = await this.formsLink.createStatusFormRecord(
+        currentUser,
+        {
+          slotKey: `presence.status.${statusType.key}`,
+          definitionRevision: input.form.definitionRevision,
+          values: input.form.values,
+        },
+        {
+          traceId: auditContext.traceId,
+          ip: auditContext.ip,
+          userAgent: auditContext.userAgent,
+        },
+      ));
+    }
+
+    const record =
+      formRecordId === undefined
+        ? await this.repository.createRecord(input, actor)
+        : await this.repository.createRecord(input, actor, { formRecordId });
 
     await this.auditService.record({
       actorUserId: currentUser.id,
@@ -168,6 +215,7 @@ export class PresenceStatusService {
         status: record.status,
         startAt: record.startAt,
         endAt: record.endAt,
+        formRecordId,
       },
     });
 

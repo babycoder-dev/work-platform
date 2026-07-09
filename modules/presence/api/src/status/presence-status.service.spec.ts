@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import type { EventBus } from '@work/event-bus';
@@ -15,6 +16,7 @@ import type { PresenceStatusRecordDto } from '@work/presence-contract';
 import { presenceEvents, presencePermissions } from '@work/presence-contract';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PresenceRepository } from '../db/presence.repository';
+import type { PresenceFormsLinkPort } from '../forms-link/presence-forms-link.port';
 import { PresenceStatusService } from './presence-status.service';
 
 describe('PresenceStatusService', () => {
@@ -23,6 +25,7 @@ describe('PresenceStatusService', () => {
   let employeeLookup: MockPlatformEmployeeLookupPort;
   let auditService: MockPlatformAuditPort;
   let eventBus: MockEventBus;
+  let formsLink: PresenceFormsLinkPort;
   let service: PresenceStatusService;
 
   beforeEach(() => {
@@ -53,12 +56,16 @@ describe('PresenceStatusService', () => {
       })),
       subscribe: vi.fn(),
     };
+    formsLink = {
+      createStatusFormRecord: vi.fn().mockResolvedValue({ recordId: 'form-record-001' }),
+    };
     service = new PresenceStatusService(
       repository,
       scopeService,
       employeeLookup,
       auditService,
       eventBus,
+      formsLink,
     );
   });
 
@@ -174,6 +181,109 @@ describe('PresenceStatusService', () => {
     expect(repository.createRecord).not.toHaveBeenCalled();
     expect(auditService.record).not.toHaveBeenCalled();
     expect(eventBus.publish).not.toHaveBeenCalled();
+  });
+
+  it('creates a forms append record before persisting presence and links its record id', async () => {
+    repository.createRecord.mockImplementation(async (_input, _actor, options) =>
+      createRecord({ formRecordId: options?.formRecordId }),
+    );
+    const input = {
+      ...createInput(),
+      form: {
+        definitionRevision: 2,
+        values: [{ fieldKey: 'destination', value: '上海' }],
+      },
+    };
+
+    await expect(
+      service.createRecord(currentUser(), input, { traceId: 'trace-form' }),
+    ).resolves.toEqual(expect.objectContaining({ formRecordId: 'form-record-001' }));
+
+    expect(formsLink.createStatusFormRecord).toHaveBeenCalledWith(
+      currentUser(),
+      {
+        slotKey: 'presence.status.business_trip',
+        definitionRevision: 2,
+        values: [{ fieldKey: 'destination', value: '上海' }],
+      },
+      { traceId: 'trace-form', ip: undefined, userAgent: undefined },
+    );
+    expect(repository.createRecord).toHaveBeenCalledWith(input, expect.any(Object), {
+      formRecordId: 'form-record-001',
+    });
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ formRecordId: 'form-record-001' }),
+      }),
+    );
+  });
+
+  it('rejects invalid time ranges before creating a forms record', async () => {
+    await expect(
+      service.createRecord(
+        currentUser(),
+        {
+          ...createInput(),
+          endAt: createInput().startAt,
+          form: { definitionRevision: 1, values: [{ fieldKey: 'destination', value: '上海' }] },
+        },
+        {},
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(formsLink.createStatusFormRecord).not.toHaveBeenCalled();
+    expect(repository.ensurePresetStatusTypes).not.toHaveBeenCalled();
+    expect(repository.createRecord).not.toHaveBeenCalled();
+  });
+
+  it('does not persist presence when forms rejects and preserves the original error', async () => {
+    const conflict = new ConflictException('表单定义版本已变化');
+    vi.mocked(formsLink.createStatusFormRecord).mockRejectedValue(conflict);
+
+    await expect(
+      service.createRecord(
+        currentUser(),
+        {
+          ...createInput(),
+          form: { definitionRevision: 1, values: [] },
+        },
+        {},
+      ),
+    ).rejects.toBe(conflict);
+    expect(repository.createRecord).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed forms input and missing host wiring before persistence', async () => {
+    await expect(
+      service.createRecord(
+        currentUser(),
+        {
+          ...createInput(),
+          form: { definitionRevision: Number.NaN, values: [] },
+        },
+        {},
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    service = new PresenceStatusService(
+      repository,
+      scopeService,
+      employeeLookup,
+      auditService,
+      eventBus,
+      undefined,
+    );
+    await expect(
+      service.createRecord(
+        currentUser(),
+        {
+          ...createInput(),
+          form: { definitionRevision: 1, values: [] },
+        },
+        {},
+      ),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
+    expect(repository.createRecord).not.toHaveBeenCalled();
   });
 
   it('rejects create when current user has no department', async () => {

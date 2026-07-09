@@ -1,5 +1,100 @@
 # Verification Log
 
+## 2026-07-07
+
+### M9-2 Self-Registration v2 + Forms Generalization
+
+**Change set**
+
+- Activated `presence.status.<key>` forms slots with `dataType='presence'`,
+  `subjectType='employee'`, manifest/seed permissions
+  `forms:presence-definition:{view,manage}`, and constant-backed definition guards.
+- Generalized `FormsService.createRecord` with slot-family subject authorization and added
+  `getRecordById` plus `GET /api/forms/records/by-id/:recordId`; missing permission, missing
+  subject/record, cross-scope access, and subject type mismatch all remain 404-hide.
+- Added the presence-owned `PRESENCE_FORMS_LINK` port and gateway `@Global()` host adapter.
+  The adapter derives actor permissions from the authenticated user, fixes subject to that user,
+  and delegates without catching or rewriting forms errors.
+- Added optional registration `form` input, server-derived slot keys, dual repository
+  `form_record_id` writes, and the full preset/custom-key append chain. Client-supplied
+  `formRecordId` is ignored.
+
+**Review follow-up fixes**
+
+- Added service-level time-range validation before any forms append call: `endAt <= startAt`
+  now returns 400 (`结束时间必须晚于开始时间`) without creating an orphan forms record. The
+  database CHECK and PostgreSQL error mapper remain as defensive backstops.
+- Replaced the missing `PRESENCE_FORMS_LINK` raw `Error` with a Nest
+  `InternalServerErrorException('在位登记填报服务未就绪')` so the unified error envelope is
+  preserved.
+- Documented the dynamic `presence.status.<key>` slot-family footgun: forms intentionally does
+  not cross schema to verify `status_types`, so typo slot keys can be stored but remain unused.
+  M9-3b must mitigate this by choosing keys from status types rather than free-form slot input.
+- Documented the role bundle requirement for self-registration v2:
+  `presence:status:create` + `forms:record:submit` + `forms:presence-definition:view`. Missing
+  `forms:record:submit` returns the forms module's intentional anti-enumeration 404, not 403, and
+  creates no presence record.
+- Post-fix local verification: focused `presence-status.service.spec.ts` pass, 1 file / 23 tests;
+  full `NODE_ENV=test ... pnpm verify` pass with unit 47 files / 249 tests, web 37 files / 122
+  tests, e2e 10 files / 59 tests, and build pass. A first full verify attempt hit a transient
+  Vitest worker `ERR_IPC_CHANNEL_CLOSED` during e2e; rerunning `pnpm test:e2e` alone passed 10/59
+  and the subsequent full verify passed. After Docker Desktop restarted,
+  `work_platform_m9_2_review` was created as a fresh PostgreSQL database; `pnpm db:setup` applied
+  all migrations and seeded `permissionCount=25`, and the post-fix `pnpm verify:full` passed with
+  PostgreSQL integration 5 files / 39 tests and PostgreSQL e2e 3 files / 15 tests.
+
+**Validation**
+
+- `NODE_ENV=test NODE_OPTIONS=--localstorage-file=E:/Work/work-platform-m9-2/.ls-test pnpm verify`: pass.
+  - lint: pass; existing repository warnings only.
+  - typecheck: pass for all 27 participating projects.
+  - unit: 47 files / 249 tests passed; 5 PostgreSQL files / 39 tests skipped as expected in the
+    fast path.
+  - web: 37 files / 122 tests passed.
+  - e2e: 10 files / 59 tests passed; the new
+    `presence-registration-forms.e2e-spec.ts` was explicitly enumerated and contributed 4 tests
+    (baseline 9 files -> 10).
+  - build: pass; existing Vite chunk-size warning only.
+- `NODE_ENV=test ... pnpm verify:full`: pass using the fresh PostgreSQL database below; this
+  reran verify plus PostgreSQL integration and PostgreSQL e2e successfully.
+- Fresh PostgreSQL database `work_platform_m9_2_verify`:
+  - `pnpm db:setup`: pass through platform -> presence -> files -> forms -> notification -> seed;
+    seed `permissionCount=25`.
+  - `RUN_POSTGRES_INTEGRATION=true pnpm test:db`: 5 files / 39 tests passed; presence repository
+    10/10 includes linked and null `form_record_id` write/read.
+  - `RUN_POSTGRES_E2E=true pnpm test:e2e:postgres`: 3 files / 15 tests passed.
+- Primed Nx graph lint: `@work/forms-api`, `@work/presence-api`, and `@work/gateway-api` all had
+  zero boundary errors. `@work/presence-api` reported only two existing non-null assertion warnings
+  in specs. No forms import was added to presence.
+- Environment false-green/false-red check: this host uses Node 24.15.0. The root `test:e2e`
+  command explicitly enumerated the new e2e file and collected 10 files / 59 tests. An existing
+  local `work_platform` database had an old applied M9-1 migration state, so the first `test:db`
+  surfaced `status varchar(32)` there; the actual empty-database migration path was verified by
+  creating `work_platform_m9_2_verify`, where `0001_m9_status_dictionary.sql` applied from scratch
+  and the 33+ character status key regression passed.
+
+**Assertion matrix**
+
+- [x] Presence slot activation, constant-backed permissions, manifest/seed guard flip, and
+      unknown/reserved slot behavior.
+- [x] Forms create subject gates: self success; other/missing/mismatched subject and missing
+      permission return 404; revision returns 409; profile/presence dataType mapping verified.
+- [x] Forms by-id gates: own record success; missing permission, missing record, and out-of-scope
+      access return 404.
+- [x] Presence orchestration order: forms append first, presence write second; forms 404/409 and
+      missing host wiring never call the presence repository; malformed form returns 400.
+- [x] Legacy registration without `form` keeps its exact repository call shape.
+- [x] Gateway whole-chain e2e covers preset and runtime-created status keys, append non-overwrite,
+      by-id roundtrip, cross-user 404, missing submit 404, stale revision 409 with no presence row,
+      and client `formRecordId` injection resistance.
+- [x] No migration, no lockfile change, no web/API surface outside the task package.
+
+Security gate: M9-2 changes the forms record authorization surface and requires the task-package
+security-reviewer pass before merge. Implementation-side checks cover the nine §0 focus points;
+independent reviewer conclusion is pending on the PR and must be recorded before merge.
+
+Follow-up: M9-3a presence board roster inversion and realtime department scope.
+
 ## 2026-07-03
 
 ### M9-1 Status Dictionary Backend

@@ -14,6 +14,7 @@ describe('forms definition API', () => {
   let adminToken: string;
   let limitedToken: string;
   let reportManagerToken: string;
+  let presenceViewerToken: string;
   let suffix: string;
   const previousEnv: Record<string, string | undefined> = {};
 
@@ -52,6 +53,10 @@ describe('forms definition API', () => {
     reportManagerToken = await createAndLoginUser(
       ['forms:report-definition:view', 'forms:report-definition:manage'],
       `forms-report-${suffix}`,
+    );
+    presenceViewerToken = await createAndLoginUser(
+      ['forms:presence-definition:view'],
+      `forms-presence-${suffix}`,
     );
   });
 
@@ -97,12 +102,34 @@ describe('forms definition API', () => {
   });
 
   it('returns 404 for unknown and reserved slots before permission checks', async () => {
-    for (const slotKey of ['missing.slot', 'report.weekly', 'presence.status.business_trip']) {
+    for (const slotKey of ['missing.slot', 'report.weekly']) {
       await request(app.getHttpServer())
         .get(`/api/forms/definitions/${encodeURIComponent(slotKey)}`)
         .set('Authorization', `Bearer ${limitedToken}`)
         .expect(404);
     }
+  });
+
+  it('activates presence status definitions behind their definition view permission', async () => {
+    await request(app.getHttpServer())
+      .get('/api/forms/definitions/presence.status.business_trip')
+      .set('Authorization', `Bearer ${limitedToken}`)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .get('/api/forms/definitions/presence.status.business_trip')
+      .set('Authorization', `Bearer ${presenceViewerToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(
+          expect.objectContaining({
+            slotKey: 'presence.status.business_trip',
+            ownerModule: 'presence',
+            revision: 0,
+            fields: [],
+          }),
+        );
+      });
   });
 
   it('updates active definitions with server-derived owner module and optimistic revision', async () => {

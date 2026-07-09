@@ -157,6 +157,20 @@ describe('InMemoryPresenceRepository', () => {
     expect(unknown).toBeUndefined();
   });
 
+  it('stores a server-created forms record link when provided', async () => {
+    const repo = new InMemoryPresenceRepository();
+    const created = await repo.createRecord(
+      { status: 'business_trip', startAt: '2026-05-25T08:00:00.000Z' },
+      ACTOR,
+      { formRecordId: 'form-record-001' },
+    );
+
+    expect(created.formRecordId).toBe('form-record-001');
+    await expect(repo.listUserRecords(ACTOR.enterpriseId, ACTOR.userId)).resolves.toEqual([
+      expect.objectContaining({ formRecordId: 'form-record-001' }),
+    ]);
+  });
+
   it('findOverlappingRecord ignores working and cancelled records, returns latest overlap', async () => {
     const repo = new InMemoryPresenceRepository();
     await repo.createRecord(
