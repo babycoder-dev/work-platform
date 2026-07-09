@@ -91,7 +91,44 @@
 
 Security gate: M9-2 changes the forms record authorization surface and requires the task-package
 security-reviewer pass before merge. Implementation-side checks cover the nine §0 focus points;
-independent reviewer conclusion is pending on the PR and must be recorded before merge.
+the independent reviewer conclusion is now recorded below.
+
+**PR #32 review + merge (2026-07-09)**
+
+- Independent `security-reviewer` second pass (diff `3830776..eec1c53`): **LGTM**, no
+  Blocker/High/Medium. All nine §0 security gates verified held — subject authorization is reachable
+  on every path into `createRecord` (there is no HTTP route to it, so the gateway adapter cannot skip
+  the gate); the host adapter builds the actor from the caller's own `currentUser`/permissions with
+  `subjectId` pinned to self (no privilege escalation); the `formRecordId` confused-deputy write is
+  closed (both repositories read it only from the server-side `options`, and the e2e asserts an
+  injected id is ignored); and `resolveScope`'s self-fallback still 404s cross-user by-id reads. One
+  informational Low (record endpoints use the pre-existing anti-enumeration `requirePermission`→404
+  rather than a `@RequirePermissions` decorator, consistent with the by-subject routes) — no change
+  requested.
+- Workflow code-review (high, two passes to work around a mid-run session limit; the second pass
+  completed all finders/verifiers) surfaced four groups after dedup:
+  1. **Orphan forms record with a deterministic trigger.** `createRecord` committed the forms record
+     (③a) before the presence insert (③b) with no compensation, and had no `start_at < end_at`
+     pre-validation, so a user submitting `endAt <= startAt` with a form left an orphan forms row on
+     the retained `status_records_time_range_check` failure, one more per append retry. This was a
+     blind spot in the task package §0 non-atomicity clause, which only accounted for rare DB-fault
+     orphans. `forms.record.created` has no subscribers, so there is no event-side amplification.
+  2. **Raw `Error` broke the unified error envelope** when `PRESENCE_FORMS_LINK` is unwired.
+  3. **Typo status key silently stores an unused definition** — inherent to the dynamic slot family
+     (forms cannot cross-schema-verify the key against `presence.status_types`); documented, and
+     mitigated by the M9-3b definition UI choosing keys from status types.
+  4. **Missing `forms:record:submit` yields a misleading anti-enumeration 404** — the intentional
+     forms 404 semantics; documented as the self-registration role-bundle requirement.
+- Fix round (commits `1407f74` + `75ad271`): added the `endAt <= startAt` service-level 400 before
+  any write (new unit test asserts `formsLink.createStatusFormRecord`, `ensurePresetStatusTypes`, and
+  `createRecord` are all uncalled), replaced the raw `Error` with `InternalServerErrorException`, and
+  documented groups 3–4 in `slots.ts` / `architecture.md` / `module-contract.md`. Post-fix
+  `verify:full` on a fresh `work_platform_m9_2_review` database ran the PG gates for real: `test:db`
+  5 files / 39 tests, `test:e2e:postgres` 3 files / 15 tests, seed `permissionCount=25`.
+- Merge: `origin/main` (the vNext documentation batch) was merged into the branch to resolve a
+  `docs/doc-index.md` conflict (kept both the M9-2 entry and the vNext index entries;
+  `foundation-progress.md` auto-merged; no code files touched). CI `verify` + `docker-build` passed on
+  the merge commit, and PR #32 was squash-merged to `main` as `9409bb0`; the remote branch was deleted.
 
 Follow-up: M9-3a presence board roster inversion and realtime department scope.
 
