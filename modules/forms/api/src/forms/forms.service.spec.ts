@@ -55,6 +55,7 @@ describe('FormsService', () => {
             departmentName: '研发部',
           })),
       ),
+      listEmployeesByScope: vi.fn().mockResolvedValue([]),
     };
     scopeService = {
       resolveScope: vi.fn(async (user) => ({

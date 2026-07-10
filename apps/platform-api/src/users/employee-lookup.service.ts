@@ -31,4 +31,30 @@ export class EmployeeLookupService implements PlatformEmployeeLookupPort {
         departmentName: employee.departmentId ? departments.get(employee.departmentId) : undefined,
       }));
   }
+
+  async listEmployeesByScope(
+    enterpriseId: string,
+    departmentIds?: string[],
+  ): Promise<EmployeeLookupDto[]> {
+    const departments = new Map(
+      (await this.repository.listDepartments(enterpriseId))
+        .filter((department) => department.status === 'active')
+        .map((department) => [department.id, department.name]),
+    );
+    return (await this.repository.listEmployees())
+      .filter(
+        (employee) =>
+          employee.enterpriseId === enterpriseId &&
+          employee.status === 'active' &&
+          (departmentIds === undefined ||
+            (employee.departmentId !== undefined && departmentIds.includes(employee.departmentId))),
+      )
+      .map((employee) => ({
+        id: employee.id,
+        employeeNo: employee.employeeNo,
+        name: employee.name,
+        departmentId: employee.departmentId,
+        departmentName: employee.departmentId ? departments.get(employee.departmentId) : undefined,
+      }));
+  }
 }

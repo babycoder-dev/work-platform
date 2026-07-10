@@ -13,6 +13,14 @@ import { GatewayModule } from './gateway.module';
 
 const runPostgresE2E = process.env.RUN_POSTGRES_E2E === 'true';
 const execFileAsync = promisify(execFile);
+const dbSetupCommand = [
+  'corepack pnpm db:migrate',
+  'corepack pnpm db:migrate:presence',
+  'corepack pnpm db:migrate:files',
+  'corepack pnpm db:migrate:forms',
+  'corepack pnpm db:migrate:notification',
+  'corepack pnpm db:seed',
+].join(' && ');
 
 describe.skipIf(!runPostgresE2E)('files upload API postgres', () => {
   let app: INestApplication;
@@ -40,8 +48,8 @@ describe.skipIf(!runPostgresE2E)('files upload API postgres', () => {
     process.env.PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD = 'true';
 
     await execFileAsync(
-      process.platform === 'win32' ? 'cmd.exe' : 'pnpm',
-      process.platform === 'win32' ? ['/d', '/s', '/c', 'pnpm db:setup'] : ['db:setup'],
+      process.platform === 'win32' ? 'cmd.exe' : 'sh',
+      process.platform === 'win32' ? ['/d', '/s', '/c', dbSetupCommand] : ['-c', dbSetupCommand],
       {
         cwd: process.cwd(),
         env: process.env,

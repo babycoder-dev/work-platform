@@ -9,11 +9,26 @@ describe('EmployeeLookupService', () => {
       listDepartments: vi.fn(async () => [
         department({ id: 'dept-1', enterpriseId: 'ent-default', name: '研发部' }),
         department({ id: 'dept-other', enterpriseId: 'ent-other', name: '外部部门' }),
-        department({ id: 'dept-disabled', enterpriseId: 'ent-default', name: '停用部门', status: 'disabled' }),
+        department({
+          id: 'dept-disabled',
+          enterpriseId: 'ent-default',
+          name: '停用部门',
+          status: 'disabled',
+        }),
       ]),
       listEmployees: vi.fn(async () => [
-        employee({ id: 'employee-1', enterpriseId: 'ent-default', departmentId: 'dept-1', status: 'active' }),
-        employee({ id: 'employee-2', enterpriseId: 'ent-default', departmentId: 'dept-disabled', status: 'active' }),
+        employee({
+          id: 'employee-1',
+          enterpriseId: 'ent-default',
+          departmentId: 'dept-1',
+          status: 'active',
+        }),
+        employee({
+          id: 'employee-2',
+          enterpriseId: 'ent-default',
+          departmentId: 'dept-disabled',
+          status: 'active',
+        }),
         employee({ id: 'employee-disabled', enterpriseId: 'ent-default', status: 'disabled' }),
         employee({ id: 'employee-other', enterpriseId: 'ent-other', departmentId: 'dept-other' }),
       ]),
@@ -51,13 +66,84 @@ describe('EmployeeLookupService', () => {
       listEmployees: vi.fn(),
     } as Pick<PlatformRepository, 'listDepartments' | 'listEmployees'> as PlatformRepository;
 
-    await expect(new EmployeeLookupService(repository).listEmployeesByIds('ent-default', [])).resolves.toEqual([]);
+    await expect(
+      new EmployeeLookupService(repository).listEmployeesByIds('ent-default', []),
+    ).resolves.toEqual([]);
     expect(repository.listDepartments).not.toHaveBeenCalled();
     expect(repository.listEmployees).not.toHaveBeenCalled();
   });
+
+  it('lists scoped active employee rosters without crossing tenant or status boundaries', async () => {
+    const repository = {
+      listDepartments: vi.fn(async () => [
+        department({ id: 'dept-a', enterpriseId: 'ent-default', name: '研发部' }),
+        department({ id: 'dept-b', enterpriseId: 'ent-default', name: '市场部' }),
+        department({ id: 'dept-other', enterpriseId: 'ent-other', name: '外部部门' }),
+      ]),
+      listEmployees: vi.fn(async () => [
+        employee({
+          id: 'employee-a',
+          enterpriseId: 'ent-default',
+          employeeNo: 'E-A',
+          departmentId: 'dept-a',
+        }),
+        employee({
+          id: 'employee-b',
+          enterpriseId: 'ent-default',
+          employeeNo: 'E-B',
+          departmentId: 'dept-b',
+        }),
+        employee({ id: 'employee-none', enterpriseId: 'ent-default', employeeNo: 'E-N' }),
+        employee({
+          id: 'employee-disabled',
+          enterpriseId: 'ent-default',
+          status: 'disabled',
+          departmentId: 'dept-a',
+        }),
+        employee({ id: 'employee-other', enterpriseId: 'ent-other', departmentId: 'dept-other' }),
+      ]),
+    } as Pick<PlatformRepository, 'listDepartments' | 'listEmployees'> as PlatformRepository;
+    const service = new EmployeeLookupService(repository);
+
+    await expect(service.listEmployeesByScope('ent-default')).resolves.toEqual([
+      {
+        id: 'employee-a',
+        employeeNo: 'E-A',
+        name: 'employee-a',
+        departmentId: 'dept-a',
+        departmentName: '研发部',
+      },
+      {
+        id: 'employee-b',
+        employeeNo: 'E-B',
+        name: 'employee-b',
+        departmentId: 'dept-b',
+        departmentName: '市场部',
+      },
+      {
+        id: 'employee-none',
+        employeeNo: 'E-N',
+        name: 'employee-none',
+        departmentId: undefined,
+        departmentName: undefined,
+      },
+    ]);
+    await expect(service.listEmployeesByScope('ent-default', ['dept-a'])).resolves.toEqual([
+      {
+        id: 'employee-a',
+        employeeNo: 'E-A',
+        name: 'employee-a',
+        departmentId: 'dept-a',
+        departmentName: '研发部',
+      },
+    ]);
+    await expect(service.listEmployeesByScope('ent-default', [])).resolves.toEqual([]);
+  });
 });
 
-function department(input: Partial<DepartmentDto> & Pick<DepartmentDto, 'id' | 'enterpriseId' | 'name'>): DepartmentDto {
+function department(
+  input: Partial<DepartmentDto> & Pick<DepartmentDto, 'id' | 'enterpriseId' | 'name'>,
+): DepartmentDto {
   return {
     code: input.id,
     parentId: undefined,
@@ -68,7 +154,9 @@ function department(input: Partial<DepartmentDto> & Pick<DepartmentDto, 'id' | '
   };
 }
 
-function employee(input: Partial<EmployeeDto> & Pick<EmployeeDto, 'id' | 'enterpriseId'>): EmployeeDto {
+function employee(
+  input: Partial<EmployeeDto> & Pick<EmployeeDto, 'id' | 'enterpriseId'>,
+): EmployeeDto {
   return {
     employeeNo: 'E001',
     name: input.id,

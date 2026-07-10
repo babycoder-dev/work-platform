@@ -1,5 +1,91 @@
 # Verification Log
 
+## 2026-07-10
+
+### M9-3a Board Realtime Backend
+
+**Change set**
+
+- Expanded `PlatformEmployeeLookupPort` with `listEmployeesByScope(enterpriseId, departmentIds?)`
+  and implemented a platform-owned active employee roster lookup that always filters by
+  `enterpriseId` before optional department filtering.
+- Reversed `PresenceStatusService.getBoard` to resolve server-side presence scope, load the scoped
+  roster, batch active records for roster users only, then return `PresenceBoardEntryDto` rows with
+  realtime department fields, status labels from `presence.status_types`, and default working rows
+  for employees without active records.
+- Kept `GET /api/presence/board` controller and `presence:board:view` permission unchanged. No
+  migrations, no new permissions, and no forms reads were added; board rows expose only the opaque
+  `formRecordId`.
+- Added the default in-memory `presence-board-realtime.e2e-spec.ts` safety suite to the root
+  `test:e2e` explicit file list, and enhanced the PostgreSQL presence self-scope e2e so a viewer
+  with no active record still receives their own `isDefault: true` row.
+- Marked the stale presence web board client/page specs as skipped with the M9-3b unskip comment.
+  M9-3a changes the backend response shape and must not be released alone; M9-3b must migrate the
+  web board client before production/release merge.
+- Fixed the two Postgres gateway e2e setup helpers to execute the existing migration/seed chain via
+  `corepack pnpm` subcommands. This avoids invoking a host PATH `pnpm` version that can corrupt
+  `node_modules` on Windows, without changing database setup semantics.
+
+**Validation**
+
+- `corepack pnpm install --frozen-lockfile`: pass; lockfile unchanged.
+- Focused unit:
+  - `employee-lookup.service.spec.ts`: 1 file / 3 tests passed.
+  - `presence-status.service.spec.ts`: 1 file / 29 tests passed.
+- Focused default e2e:
+  - `presence-board-realtime.e2e-spec.ts`: 1 file / 4 tests passed.
+- Full fast-path equivalent of `pnpm verify` was run with `corepack pnpm` subcommands because this
+  host has PATH `pnpm` 11.7.0 while the repo requires pnpm 10.0.0:
+  - lint: pass; only existing warnings.
+  - typecheck: pass for 27/28 participating projects.
+  - unit: 46 files / 252 tests passed, 6 files / 43 tests skipped.
+  - web: 36 files / 118 tests passed, 1 file / 4 tests skipped.
+  - default e2e: 11 files / 63 tests passed; `presence-board-realtime.e2e-spec.ts` was collected
+    and executed.
+  - build: pass.
+- PostgreSQL verification used a fresh temporary Docker PostgreSQL container on `localhost:55432`.
+  The existing compose database on `localhost:5432` had an old applied migration marker with
+  `presence.status_records.status varchar(32)`, so it was not used for final evidence.
+  - migration + seed chain: pass; platform, presence, files, forms, notification migrations applied;
+    seed `permissionCount=25`.
+  - `RUN_POSTGRES_INTEGRATION=true` DB tests: 5 files / 39 tests passed.
+  - `RUN_POSTGRES_E2E=true` Postgres e2e: 3 files / 15 tests passed; `presence.e2e-spec.ts`
+    actually executed 7 tests with no skip.
+
+**Assertion matrix**
+
+- [x] `listEmployeesByScope(undefined)` returns active company roster within the enterprise only.
+- [x] `listEmployeesByScope(departmentIds)` returns active employees in the server-resolved
+      departments only; empty department arrays return no roster.
+- [x] Board scope is resolved from `currentUser`; no client parameter participates in roster
+      lookup.
+- [x] Self, company, department, and department_tree dispatch paths call the expected platform
+      roster method.
+- [x] Roster-first board join returns active-record rows plus default rows for scoped employees with
+      no active record.
+- [x] If legacy data contains overlapping active records for one user, the newest-first repository
+      result is retained for the board row.
+- [x] Out-of-scope active records do not appear because active record queries are limited to roster
+      `userIds`.
+- [x] Realtime employee department fields override stale record department snapshots.
+- [x] Status labels come from `presence.status_types`, with raw-key fallback for missing labels.
+- [x] New enterprises call `ensurePresetStatusTypes` only when no active default exists; normal board
+      reads do not write presets.
+- [x] Board DTO contains no forms values and exposes only opaque `formRecordId`.
+- [x] Default e2e covers department leakage, department_tree inclusion/exclusion, department moves,
+      dictionary labels, and forms value non-leakage.
+- [x] PostgreSQL presence self-scope e2e covers the no-record `isDefault: true` row.
+- [x] `docs/security-baseline.md` §8.2 documents the narrow platform employee lookup contract, and
+      §16 lists process-local read-port expansion as a security-review trigger.
+
+**Security review**
+
+- Independent `security-reviewer` review: no findings. It confirmed server-resolved scope, platform
+  enterprise/active filtering, narrow DTO/form-value exclusion, unchanged board permission guard,
+  e2e coverage, and the §8.2 / §16 baseline updates.
+- Production/release merge must wait for M9-3b or be paired with it because the current presence web
+  board client is intentionally skipped until it consumes `PresenceBoardEntryDto`.
+
 ## 2026-07-07
 
 ### M9-2 Self-Registration v2 + Forms Generalization

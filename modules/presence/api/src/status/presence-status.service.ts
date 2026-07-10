@@ -11,6 +11,7 @@ import {
 import { EVENT_BUS, type EventBus } from '@work/event-bus';
 import type {
   CurrentUserDto,
+  EmployeeLookupDto,
   PlatformEmployeeLookupPort,
   PlatformAuditPort,
   PlatformScopePort,
@@ -22,6 +23,7 @@ import {
 } from '@work/platform-contract';
 import type {
   CreatePresenceStatusRecordInput,
+  PresenceBoardEntryDto,
   PresenceStatusRecordDto,
 } from '@work/presence-contract';
 import {
@@ -56,20 +58,84 @@ export class PresenceStatusService {
     private readonly formsLink?: PresenceFormsLinkPort,
   ) {}
 
-  async getBoard(currentUser: CurrentUserDto): Promise<{ items: PresenceStatusRecordDto[] }> {
+  async getBoard(currentUser: CurrentUserDto): Promise<{ items: PresenceBoardEntryDto[] }> {
     const scope = await this.scopeService.resolveScope(currentUser, 'presence');
     const at = new Date().toISOString();
 
-    let query;
+    let statusTypes = await this.repository.listStatusTypes(currentUser.enterpriseId, {
+      includeArchived: false,
+    });
+    let defaultType = statusTypes.find((type) => type.isDefault);
+    if (defaultType === undefined) {
+      await this.repository.ensurePresetStatusTypes(currentUser.enterpriseId);
+      statusTypes = await this.repository.listStatusTypes(currentUser.enterpriseId, {
+        includeArchived: false,
+      });
+      defaultType = statusTypes.find((type) => type.isDefault);
+    }
+    if (defaultType === undefined) {
+      throw new BadRequestException('企业缺少有效的缺省状态类型');
+    }
+    const labelByKey = new Map(statusTypes.map((type) => [type.key, type.label]));
+
+    let roster: EmployeeLookupDto[];
     if (scope.kind === 'self') {
-      query = { enterpriseId: scope.enterpriseId, at, userIds: [scope.userId] };
+      roster = await this.employeeLookup.listEmployeesByIds(scope.enterpriseId, [scope.userId]);
     } else if (scope.kind === 'company') {
-      query = { enterpriseId: scope.enterpriseId, at };
+      roster = await this.employeeLookup.listEmployeesByScope(scope.enterpriseId);
     } else {
-      query = { enterpriseId: scope.enterpriseId, at, departmentIds: scope.departmentIds };
+      roster = await this.employeeLookup.listEmployeesByScope(
+        scope.enterpriseId,
+        scope.departmentIds,
+      );
     }
 
-    const items = await this.repository.listActiveRecords(query);
+    if (roster.length === 0) {
+      return { items: [] };
+    }
+
+    const records = await this.repository.listActiveRecords({
+      enterpriseId: scope.enterpriseId,
+      at,
+      userIds: roster.map((employee) => employee.id),
+    });
+    // listActiveRecords is newest-first; keep the first row if legacy data overlaps.
+    const recordByUser = new Map<string, PresenceStatusRecordDto>();
+    for (const record of records) {
+      if (!recordByUser.has(record.userId)) {
+        recordByUser.set(record.userId, record);
+      }
+    }
+    const items = roster.map((employee): PresenceBoardEntryDto => {
+      const record = recordByUser.get(employee.id);
+      if (record === undefined) {
+        return {
+          userId: employee.id,
+          employeeNo: employee.employeeNo,
+          userName: employee.name,
+          departmentId: employee.departmentId,
+          departmentName: employee.departmentName,
+          status: defaultType.key,
+          statusLabel: defaultType.label,
+          isDefault: true,
+        };
+      }
+      return {
+        userId: employee.id,
+        employeeNo: employee.employeeNo,
+        userName: employee.name,
+        departmentId: employee.departmentId,
+        departmentName: employee.departmentName,
+        status: record.status,
+        statusLabel: labelByKey.get(record.status) ?? record.status,
+        isDefault: false,
+        startAt: record.startAt,
+        endAt: record.endAt,
+        remark: record.remark,
+        recordId: record.id,
+        formRecordId: record.formRecordId,
+      };
+    });
     return { items };
   }
 
