@@ -25,20 +25,24 @@
 - Fixed the two Postgres gateway e2e setup helpers to execute the existing migration/seed chain via
   `corepack pnpm` subcommands. This avoids invoking a host PATH `pnpm` version that can corrupt
   `node_modules` on Windows, without changing database setup semantics.
+- Review follow-up: added zero-write assertions for the default-present seed path, made PostgreSQL
+  self-scope board coverage assert both default and active-record rows, short-circuited empty
+  department scopes before repository reads, and strengthened the forms non-leakage assertion to
+  cover the complete board response.
 
 **Validation**
 
 - `corepack pnpm install --frozen-lockfile`: pass; lockfile unchanged.
 - Focused unit:
-  - `employee-lookup.service.spec.ts`: 1 file / 3 tests passed.
+  - `employee-lookup.service.spec.ts`: 1 file / 4 tests passed.
   - `presence-status.service.spec.ts`: 1 file / 29 tests passed.
 - Focused default e2e:
   - `presence-board-realtime.e2e-spec.ts`: 1 file / 4 tests passed.
 - Full fast-path equivalent of `pnpm verify` was run with `corepack pnpm` subcommands because this
   host has PATH `pnpm` 11.7.0 while the repo requires pnpm 10.0.0:
   - lint: pass; only existing warnings.
-  - typecheck: pass for 27/28 participating projects.
-  - unit: 46 files / 252 tests passed, 6 files / 43 tests skipped.
+  - typecheck: pass for all 27 participating projects.
+  - unit: 46 files / 253 tests passed, 6 files / 43 tests skipped.
   - web: 36 files / 118 tests passed, 1 file / 4 tests skipped.
   - default e2e: 11 files / 63 tests passed; `presence-board-realtime.e2e-spec.ts` was collected
     and executed.
@@ -69,8 +73,8 @@
       `userIds`.
 - [x] Realtime employee department fields override stale record department snapshots.
 - [x] Status labels come from `presence.status_types`, with raw-key fallback for missing labels.
-- [x] New enterprises call `ensurePresetStatusTypes` only when no active default exists; normal board
-      reads do not write presets.
+- [x] Empty-dictionary board reads call `ensurePresetStatusTypes` exactly once, while the
+      default-present board test asserts that normal reads do not call it.
 - [x] Board DTO contains no forms values and exposes only opaque `formRecordId`.
 - [x] Default e2e covers department leakage, department_tree inclusion/exclusion, department moves,
       dictionary labels, and forms value non-leakage.

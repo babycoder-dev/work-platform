@@ -451,6 +451,7 @@ describe('PresenceStatusService', () => {
       }),
     );
     expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
+    expect(repository.ensurePresetStatusTypes).not.toHaveBeenCalled();
   });
 
   it('uses realtime roster department instead of record snapshot department', async () => {
@@ -693,6 +694,7 @@ describe('PresenceStatusService', () => {
     });
 
     expect(repository.ensurePresetStatusTypes).toHaveBeenCalledWith('enterprise-001');
+    expect(repository.ensurePresetStatusTypes).toHaveBeenCalledTimes(1);
     expect(repository.listStatusTypes).toHaveBeenCalledTimes(2);
   });
 

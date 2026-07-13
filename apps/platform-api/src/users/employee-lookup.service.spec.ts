@@ -73,6 +73,19 @@ describe('EmployeeLookupService', () => {
     expect(repository.listEmployees).not.toHaveBeenCalled();
   });
 
+  it('does not hit repository for an empty department scope', async () => {
+    const repository = {
+      listDepartments: vi.fn(),
+      listEmployees: vi.fn(),
+    } as Pick<PlatformRepository, 'listDepartments' | 'listEmployees'> as PlatformRepository;
+
+    await expect(
+      new EmployeeLookupService(repository).listEmployeesByScope('ent-default', []),
+    ).resolves.toEqual([]);
+    expect(repository.listDepartments).not.toHaveBeenCalled();
+    expect(repository.listEmployees).not.toHaveBeenCalled();
+  });
+
   it('lists scoped active employee rosters without crossing tenant or status boundaries', async () => {
     const repository = {
       listDepartments: vi.fn(async () => [

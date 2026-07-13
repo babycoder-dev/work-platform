@@ -243,7 +243,7 @@ describe('presence board realtime roster', () => {
         formRecordId: expect.any(String),
       }),
     );
-    expect(JSON.stringify(row)).not.toContain('SECRET_DESTINATION');
+    expect(JSON.stringify(response.body)).not.toContain('SECRET_DESTINATION');
     expect(
       response.body.items
         .filter((item: { isDefault: boolean }) => item.isDefault)

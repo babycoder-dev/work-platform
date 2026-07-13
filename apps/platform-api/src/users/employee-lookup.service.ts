@@ -36,6 +36,9 @@ export class EmployeeLookupService implements PlatformEmployeeLookupPort {
     enterpriseId: string,
     departmentIds?: string[],
   ): Promise<EmployeeLookupDto[]> {
+    if (departmentIds !== undefined && departmentIds.length === 0) {
+      return [];
+    }
     const departments = new Map(
       (await this.repository.listDepartments(enterpriseId))
         .filter((department) => department.status === 'active')

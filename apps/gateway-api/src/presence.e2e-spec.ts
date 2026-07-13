@@ -178,22 +178,33 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
       .set('Authorization', `Bearer ${selfToken}`)
       .expect(200);
 
-    expect(response.body.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          employeeNo: `PS${suffix}`,
-          isDefault: true,
-          status: 'working',
-        }),
-      ]),
-    );
-    expect(response.body.items).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          employeeNo: `PC${suffix}`,
-        }),
-      ]),
-    );
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        employeeNo: `PS${suffix}`,
+        isDefault: true,
+        status: 'working',
+      }),
+    ]);
+
+    await request(app.getHttpServer())
+      .post('/api/presence/status-records')
+      .set('Authorization', `Bearer ${selfToken}`)
+      .send(createPayload(new Date(Date.now() - 60_000).toISOString(), null))
+      .expect(201);
+
+    const boardWithActiveRecord = await request(app.getHttpServer())
+      .get('/api/presence/board')
+      .set('Authorization', `Bearer ${selfToken}`)
+      .expect(200);
+
+    expect(boardWithActiveRecord.body.items).toEqual([
+      expect.objectContaining({
+        employeeNo: `PS${suffix}`,
+        isDefault: false,
+        status: 'business_trip',
+        recordId: expect.any(String),
+      }),
+    ]);
   });
 
   async function createUserWithRole(input: {
