@@ -248,12 +248,15 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
 - M9-1 状态字典后端任务包：`docs/tasks/m9-1-status-dictionary-backend.md`（`presence.status_types` 建表 + `is_default` partial unique index + archive-only 管理 API 七端点(无硬删) + `presence:status-type:manage` + 记录 `status` 放宽(DROP `status_records_status_check`，服务层三类拒登) + 重叠豁免改键 `is_default` + `form_record_id` 增列 + 事件加 `statusLabel` + 改 M7 订阅器消费；预置种子走运行时幂等 ensure(非迁移 SQL)；独立 sub-agent 二审已过，合并前强制 security-reviewer）
 - M9-2 自助登记 v2 + forms 泛化任务包：`docs/tasks/m9-2-self-registration-forms-generalization.md`（已实施；激活 `presence.status.<key>` 槽位 + 注册 `forms:presence-definition:*` 并翻转 seed 守护测试 + forms 记录服务泛化(createRecord subject 授权从无到有、slot 家族 dataType 单源) + `GET /forms/records/by-id/:recordId`(收口 §7.5 getRecord follow-up) + presence 出站端口 `PresenceFormsLinkPort` 经 gateway `@Global()` 宿主适配器建 forms append 记录、`form_record_id` 随 presence 记录一次落库；编排拍板 = 出站端口+宿主适配器(对 RFC §5.2 的实现方式声明)，通用 POST /forms/records HTTP 面预留不做；独立 sub-agent 二审已过(4 Major 全落修)，合并前强制 security-reviewer）
 - M9-3a 看板实时化后端任务包：`docs/tasks/m9-3a-board-realtime-backend.md`（收口 §7.5：getBoard **数据来源反转**为名册 LEFT JOIN 活跃离岗记录(无记录=在岗缺省) + 扩 `PlatformEmployeeLookupPort.listEmployeesByScope`(平台只读端口面) + 实时部门过滤(弃记录快照) + 看板响应新 `PresenceBoardEntryDto` 随行下发 statusLabel；**安全敏感**(读端口扩面 + 过滤依据变更，合并前强制 security-reviewer)；⚠️ 改看板响应形态有 M9-3a→M9-3b web 回归窗口(须成对/紧接交付，M9-3a 内 skip 过期 web spec 让假绿可见)；两轮独立审查(初审 2M/4m/2N + 二审 2B/3C/3T)全落修）
+- M9-3b 在位 web v2 任务包：`docs/tasks/m9-3b-web-v2.md`（关闭 M9-3a 回归窗口：看板 v2 消费 `PresenceBoardEntryDto`(label 驱动、在岗缺省行) + 自助登记 v2(字典驱动状态 + 动态轻字段表单 + 本人信息块取 currentUser 零 HTTP) + 状态字典管理页(新路由/菜单 uuid 106) + platform web `PresenceSection` 语义迁移(record:null→在岗缺省、hidden 分支不迁移) + 解除两个 skip web spec；唯一后端增点 = `getEmployeeStatus` 响应附 `statusLabel?`；状态展示统一 @work/ui Tag(删 StatusBadge)；还原度门禁三页 L2(无专稿)；独立评审 1M/10m/7n 全落修）
 - vNext 技术路线图 ADR：`docs/adr/0006-vnext-roadmap.md`（M12–M19 双轨序列、开源接入三姿态、
   子 ADR 立项、constitution §1 前提修正；2026-07-07 增补拍板 = LLM 改线上 API 为主通道；
   设计规格 `docs/superpowers/specs/2026-07-05-vnext-roadmap-design.md`，两轮独立评审已落修）
 - M12 可靠事件与多进程基建 RFC：`docs/rfc/m12-reliable-events-multiprocess.md`（事务性
   outbox + 按模块中继 + Redis Streams；两轮独立评审 + delta 校验 + 三项拍板，Accepted；
   配套 ADR-0007 事件传输选型随 M12-1 入库）
+- 事件传输选型 ADR：`docs/adr/0007-event-transport-outbox-redis-streams.md`（Accepted 2026-07-10；事务性 outbox + 按模块中继 + Redis Streams 的决策记录：D1 选型与 Kafka 落选、D2 按 schema 分治表工厂、D3 publishInTx 唯一入口 + 宿主注册 fail fast、拍板① realtime-gateway 退役(M12-3 执行)、拍板② Redis AOF everysec+RDB + 残余丢失显式接受分层兜底、三处对 spec/blueprint 的有意修正登记；随 M12-1 切片入库）
+- M12-1 outbox 写入侧任务包：`docs/tasks/m12-1-outbox-write-side.md`（`@work/event-bus` 契约扩展 publishInTx/EventDefinition/表工厂 + EventBusModule.forRoot 两档路由(拆双宿主炸弹、platform-api 新增 App 壳) + 四个 contract 事件分级 + platform 表改造/presence·forms·files 建表四迁移 + **七个发布点**同事务接线(repository 姿态(b)、同步工厂回调)+ 两类行为反转(platform 吞错删除、审计次序×四发布方)；投递仍内存直投过渡态(堆积=设计内行为)；安全敏感(platform repo 子树 + 审计次序反转，合并前强制 security-reviewer)；独立评审 1M/9m/5N + ADR 3m 全落修）
 - Agent 身份、工具面与运行时编排 ADR：`docs/adr/0009-agent-identity-tools-runtime.md`
   （M15；对 ADR-0004 的显式扩展；双模式身份 + 组合隔离 + SandboxDriver 三档 + 云 LLM 数据
   类别硬边界 + 单源三投影；两轮独立评审 + 两项拍板，Accepted）
