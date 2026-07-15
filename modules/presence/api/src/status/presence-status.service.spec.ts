@@ -701,6 +701,7 @@ describe('PresenceStatusService', () => {
   it('returns current employee status for company scope', async () => {
     const record = createRecord({ userId: 'user-002' });
     repository.listActiveRecords.mockResolvedValue([record]);
+    repository.listStatusTypes.mockResolvedValue(statusTypes());
     scopeService.matchesScope.mockReturnValue(true);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'company',
@@ -710,7 +711,10 @@ describe('PresenceStatusService', () => {
       degradedFromCustom: false,
     });
 
-    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record });
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({
+      record,
+      statusLabel: '出差',
+    });
 
     expect(employeeLookup.listEmployeesByIds).toHaveBeenCalledWith('enterprise-001', ['user-002']);
     expect(scopeService.matchesScope).toHaveBeenCalledWith(
@@ -724,6 +728,71 @@ describe('PresenceStatusService', () => {
       }),
     );
     expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
+    expect(repository.listStatusTypes).toHaveBeenCalledWith('enterprise-001', {
+      includeArchived: true,
+    });
+  });
+
+  it('uses an archived status type label for an active employee record', async () => {
+    const record = createRecord({ userId: 'user-002', status: 'leave' });
+    repository.listActiveRecords.mockResolvedValue([record]);
+    repository.listStatusTypes.mockResolvedValue([
+      { ...statusTypes()[1], key: 'leave', label: '已归档休假', status: 'archived' },
+    ]);
+    scopeService.matchesScope.mockReturnValue(true);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({
+      record,
+      statusLabel: '已归档休假',
+    });
+
+    expect(repository.listStatusTypes).toHaveBeenCalledWith('enterprise-001', {
+      includeArchived: true,
+    });
+  });
+
+  it('falls back to the status key when the dictionary no longer contains an active record status', async () => {
+    const record = createRecord({ userId: 'user-002', status: 'client_visit' });
+    repository.listActiveRecords.mockResolvedValue([record]);
+    repository.listStatusTypes.mockResolvedValue([]);
+    scopeService.matchesScope.mockReturnValue(true);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({
+      record,
+      statusLabel: 'client_visit',
+    });
+  });
+
+  it('omits statusLabel and avoids dictionary reads when an in-scope employee has no active record', async () => {
+    repository.listActiveRecords.mockResolvedValue([]);
+    scopeService.matchesScope.mockReturnValue(true);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({
+      record: null,
+    });
+
+    expect(repository.listStatusTypes).not.toHaveBeenCalled();
   });
 
   it('returns null for other employees under self scope without querying repository', async () => {
@@ -743,6 +812,7 @@ describe('PresenceStatusService', () => {
     expect(employeeLookup.listEmployeesByIds).toHaveBeenCalledWith('enterprise-001', ['user-002']);
     expect(scopeService.matchesScope).toHaveBeenCalled();
     expect(repository.listActiveRecords).not.toHaveBeenCalled();
+    expect(repository.listStatusTypes).not.toHaveBeenCalled();
   });
 
   it('returns null when the realtime subject department is outside department scope', async () => {
@@ -789,7 +859,10 @@ describe('PresenceStatusService', () => {
       degradedFromCustom: false,
     });
 
-    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({ record });
+    await expect(service.getEmployeeStatus(currentUser(), 'user-002')).resolves.toEqual({
+      record,
+      statusLabel: 'business_trip',
+    });
 
     expect(repository.listActiveRecords).toHaveBeenCalledWith(
       expect.objectContaining({

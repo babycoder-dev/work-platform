@@ -1,7 +1,10 @@
 import { Body, Controller, Delete, Get, Inject, Param, Post, Req } from '@nestjs/common';
 import { buildAuthAuditContext, RequirePermissions, type RequestWithAuth } from '@work/nest-common';
 import type { CurrentUserDto } from '@work/platform-contract';
-import type { CreatePresenceStatusRecordInput } from '@work/presence-contract';
+import type {
+  CreatePresenceStatusRecordInput,
+  PresenceEmployeeStatusDto,
+} from '@work/presence-contract';
 import { presencePermissions } from '@work/presence-contract';
 import { PresenceStatusService } from './presence-status.service';
 
@@ -17,7 +20,10 @@ export class PresenceStatusController {
 
   @Get('by-employee/:employeeId')
   @RequirePermissions(presencePermissions.boardView)
-  getEmployeeStatus(@Req() request: RequestWithAuth, @Param('employeeId') employeeId: string) {
+  getEmployeeStatus(
+    @Req() request: RequestWithAuth,
+    @Param('employeeId') employeeId: string,
+  ): Promise<PresenceEmployeeStatusDto> {
     return this.presenceStatusService.getEmployeeStatus(
       request.currentUser as CurrentUserDto,
       employeeId,
