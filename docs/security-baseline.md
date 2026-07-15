@@ -373,12 +373,24 @@ M6 Files 本地磁盘 provider 属安全敏感面，必须满足：
 ### 8.2 进程内平台只读端口基线
 
 通知等内嵌共享模块如需解析组织或角色接收人，只能通过 `@work/platform-contract` 暴露的进程内只读端口调用
-platform-api。M7-2 当前端口为 `PLATFORM_ORG_PORT`：
+platform-api。已登记端口如下。
+
+`PLATFORM_ORG_PORT`：
 
 - 调用方必须传入来自认证上下文或可信领域事件 payload 的 `enterpriseId`，platform 实现每次查询都校验企业边界。
 - 端口只返回 user id 等最小标识，不返回姓名、手机号、邮箱、账号、角色详情等档案或敏感字段。
 - 端口不得开放公开 HTTP 路由；业务模块不得直接读 `platform.*` schema 或跨 schema join。
 - 跨企业、不存在、禁用员工 / 部门 / 角色等情况按空结果处理，避免接收人解析泄露对象存在性。
+
+`PLATFORM_EMPLOYEE_LOOKUP_SERVICE`（`PlatformEmployeeLookupPort`）：
+
+- `listEmployeesByIds` / `listEmployeesByScope` 仅返回 `EmployeeLookupDto`：id / employeeNo / name /
+  departmentId / departmentName。该端口为名册展示与员工字段快照用途，**有意**包含姓名、工号、部门名，
+  区别于 `PLATFORM_ORG_PORT` 的“仅 id”接收人解析口径。
+- 端口不返回 account / mobile / email / password / roles 等账号、联系方式、凭据或角色详情。
+- 调用方传入的 scope / departmentIds 必须由服务端基于认证上下文 resolve，不能接受客户端参数直接放大范围。
+- platform 实现每次查询都按 enterprise 边界圈定并过滤 active 员工；跨企业、停用、不存在、部门范围外均按
+  空结果处理，不泄露存在性。
 
 ### 8.3 通知 SSE 推送基线
 
@@ -529,3 +541,4 @@ M1 之后新增：
 - 变更 token/session 存储方式。
 - 引入 OpenIM SDK 到客户端。
 - 新增敏感数据字段。
+- 扩 platform 进程内只读端口面（`@work/platform-contract` 暴露的进程内只读端口新增方法或返回字段）。

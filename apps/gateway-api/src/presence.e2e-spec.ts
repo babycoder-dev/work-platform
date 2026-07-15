@@ -12,6 +12,14 @@ import { GatewayModule } from './gateway.module';
 const runE2E = process.env.RUN_POSTGRES_E2E === 'true';
 const adminPassword = process.env.PLATFORM_BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123';
 const execFileAsync = promisify(execFile);
+const dbSetupCommand = [
+  'corepack pnpm db:migrate',
+  'corepack pnpm db:migrate:presence',
+  'corepack pnpm db:migrate:files',
+  'corepack pnpm db:migrate:forms',
+  'corepack pnpm db:migrate:notification',
+  'corepack pnpm db:seed',
+].join(' && ');
 
 describe.skipIf(!runE2E)('Presence API e2e', () => {
   let app: INestApplication;
@@ -28,8 +36,8 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
     process.env.PLATFORM_BOOTSTRAP_RESET_ADMIN_PASSWORD = 'true';
 
     await execFileAsync(
-      process.platform === 'win32' ? 'cmd.exe' : 'pnpm',
-      process.platform === 'win32' ? ['/d', '/s', '/c', 'pnpm db:setup'] : ['db:setup'],
+      process.platform === 'win32' ? 'cmd.exe' : 'sh',
+      process.platform === 'win32' ? ['/d', '/s', '/c', dbSetupCommand] : ['-c', dbSetupCommand],
       {
         cwd: process.cwd(),
         env: process.env,
@@ -165,31 +173,38 @@ describe.skipIf(!runE2E)('Presence API e2e', () => {
   });
 
   it('filters board records by self scope', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/presence/board')
+      .set('Authorization', `Bearer ${selfToken}`)
+      .expect(200);
+
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        employeeNo: `PS${suffix}`,
+        isDefault: true,
+        status: 'working',
+      }),
+    ]);
+
     await request(app.getHttpServer())
       .post('/api/presence/status-records')
       .set('Authorization', `Bearer ${selfToken}`)
       .send(createPayload(new Date(Date.now() - 60_000).toISOString(), null))
       .expect(201);
 
-    const response = await request(app.getHttpServer())
+    const boardWithActiveRecord = await request(app.getHttpServer())
       .get('/api/presence/board')
       .set('Authorization', `Bearer ${selfToken}`)
       .expect(200);
 
-    expect(response.body.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          employeeNo: `PS${suffix}`,
-        }),
-      ]),
-    );
-    expect(response.body.items).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          employeeNo: `PC${suffix}`,
-        }),
-      ]),
-    );
+    expect(boardWithActiveRecord.body.items).toEqual([
+      expect.objectContaining({
+        employeeNo: `PS${suffix}`,
+        isDefault: false,
+        status: 'business_trip',
+        recordId: expect.any(String),
+      }),
+    ]);
   });
 
   async function createUserWithRole(input: {

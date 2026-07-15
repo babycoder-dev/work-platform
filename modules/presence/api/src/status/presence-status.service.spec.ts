@@ -9,6 +9,7 @@ import type { EventBus } from '@work/event-bus';
 import type {
   CurrentUserDto,
   PlatformAuditPort,
+  EmployeeLookupDto,
   PlatformEmployeeLookupPort,
   PlatformScopePort,
 } from '@work/platform-contract';
@@ -44,6 +45,7 @@ describe('PresenceStatusService', () => {
           departmentName: 'Product',
         })),
       ),
+      listEmployeesByScope: vi.fn().mockResolvedValue([]),
     };
     auditService = {
       record: vi.fn(),
@@ -384,8 +386,170 @@ describe('PresenceStatusService', () => {
     );
   });
 
-  it('maps self scope to userIds query', async () => {
-    repository.listActiveRecords.mockResolvedValue([createRecord()]);
+  it('returns roster rows with default status when employees have no active records', async () => {
+    const roster = [
+      employee({ id: 'user-001', employeeNo: 'E001', name: 'Alice' }),
+      employee({ id: 'user-002', employeeNo: 'E002', name: 'Bob' }),
+      employee({ id: 'user-003', employeeNo: 'E003', name: 'Carol' }),
+    ];
+    employeeLookup.listEmployeesByScope.mockResolvedValue(roster);
+    repository.listStatusTypes.mockResolvedValue(statusTypes());
+    repository.listActiveRecords.mockResolvedValue([
+      createRecord({ userId: 'user-002', employeeNo: 'E002', userName: 'Bob' }),
+    ]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getBoard(currentUser())).resolves.toEqual({
+      items: [
+        {
+          userId: 'user-001',
+          employeeNo: 'E001',
+          userName: 'Alice',
+          departmentId: 'department-001',
+          departmentName: 'Operations',
+          status: 'working',
+          statusLabel: '在岗',
+          isDefault: true,
+        },
+        {
+          userId: 'user-002',
+          employeeNo: 'E002',
+          userName: 'Bob',
+          departmentId: 'department-001',
+          departmentName: 'Operations',
+          status: 'business_trip',
+          statusLabel: '出差',
+          isDefault: false,
+          startAt: '2026-05-25T01:00:00.000Z',
+          endAt: '2026-05-25T09:00:00.000Z',
+          remark: 'client visit',
+          recordId: 'record-001',
+        },
+        {
+          userId: 'user-003',
+          employeeNo: 'E003',
+          userName: 'Carol',
+          departmentId: 'department-001',
+          departmentName: 'Operations',
+          status: 'working',
+          statusLabel: '在岗',
+          isDefault: true,
+        },
+      ],
+    });
+
+    expect(repository.listActiveRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enterpriseId: 'enterprise-001',
+        userIds: ['user-001', 'user-002', 'user-003'],
+      }),
+    );
+    expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
+    expect(repository.ensurePresetStatusTypes).not.toHaveBeenCalled();
+  });
+
+  it('uses realtime roster department instead of record snapshot department', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([
+      employee({
+        id: 'user-002',
+        employeeNo: 'E002',
+        name: 'Bob',
+        departmentId: 'department-live',
+        departmentName: 'Live Department',
+      }),
+    ]);
+    repository.listStatusTypes.mockResolvedValue(statusTypes());
+    repository.listActiveRecords.mockResolvedValue([
+      createRecord({
+        userId: 'user-002',
+        departmentId: 'department-snapshot',
+        departmentName: 'Snapshot Department',
+      }),
+    ]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'department',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentId: 'department-live',
+      departmentIds: ['department-live'],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getBoard(currentUser())).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          userId: 'user-002',
+          departmentId: 'department-live',
+          departmentName: 'Live Department',
+          isDefault: false,
+        }),
+      ],
+    });
+  });
+
+  it('falls back to raw status key when an active record key has no dictionary label', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([employee({ id: 'user-002' })]);
+    repository.listStatusTypes.mockResolvedValue(statusTypes());
+    repository.listActiveRecords.mockResolvedValue([
+      createRecord({ userId: 'user-002', status: 'unknown_key' }),
+    ]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getBoard(currentUser())).resolves.toEqual({
+      items: [expect.objectContaining({ status: 'unknown_key', statusLabel: 'unknown_key' })],
+    });
+  });
+
+  it('keeps the newest active record when legacy data contains overlapping records', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([employee({ id: 'user-002' })]);
+    repository.listStatusTypes.mockResolvedValue(statusTypes());
+    repository.listActiveRecords.mockResolvedValue([
+      createRecord({
+        id: 'record-newest',
+        userId: 'user-002',
+        status: 'business_trip',
+      }),
+      createRecord({
+        id: 'record-older',
+        userId: 'user-002',
+        status: 'leave',
+      }),
+    ]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getBoard(currentUser())).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          userId: 'user-002',
+          recordId: 'record-newest',
+          status: 'business_trip',
+          statusLabel: '出差',
+        }),
+      ],
+    });
+  });
+
+  it('maps self scope to listEmployeesByIds without using listEmployeesByScope', async () => {
+    employeeLookup.listEmployeesByIds.mockResolvedValue([employee({ id: 'user-001' })]);
+    repository.listActiveRecords.mockResolvedValue([]);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'self',
       userId: 'user-001',
@@ -397,6 +561,8 @@ describe('PresenceStatusService', () => {
     await service.getBoard(currentUser());
 
     expect(scopeService.resolveScope).toHaveBeenCalledWith(currentUser(), 'presence');
+    expect(employeeLookup.listEmployeesByIds).toHaveBeenCalledWith('enterprise-001', ['user-001']);
+    expect(employeeLookup.listEmployeesByScope).not.toHaveBeenCalled();
     expect(repository.listActiveRecords).toHaveBeenCalledWith(
       expect.objectContaining({
         enterpriseId: 'enterprise-001',
@@ -406,7 +572,8 @@ describe('PresenceStatusService', () => {
     expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
   });
 
-  it('maps company scope without userIds or departmentIds', async () => {
+  it('maps company scope to listEmployeesByScope with undefined departmentIds', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([employee({ id: 'user-001' })]);
     repository.listActiveRecords.mockResolvedValue([]);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'company',
@@ -418,16 +585,15 @@ describe('PresenceStatusService', () => {
 
     await service.getBoard(currentUser());
 
-    expect(repository.listActiveRecords).toHaveBeenCalledWith(
-      expect.objectContaining({
-        enterpriseId: 'enterprise-001',
-      }),
+    expect(employeeLookup.listEmployeesByScope).toHaveBeenCalledWith('enterprise-001');
+    expect(repository.listActiveRecords.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ userIds: ['user-001'] }),
     );
-    expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('userIds');
     expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
   });
 
-  it('maps department scope to departmentIds query', async () => {
+  it('maps department scope to listEmployeesByScope and queries active records by roster userIds', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([employee({ id: 'user-002' })]);
     repository.listActiveRecords.mockResolvedValue([]);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'department',
@@ -440,14 +606,22 @@ describe('PresenceStatusService', () => {
 
     await service.getBoard(currentUser());
 
+    expect(employeeLookup.listEmployeesByScope).toHaveBeenCalledWith('enterprise-001', [
+      'department-001',
+    ]);
     expect(repository.listActiveRecords).toHaveBeenCalledWith(
       expect.objectContaining({
-        departmentIds: ['department-001'],
+        userIds: ['user-002'],
       }),
     );
+    expect(repository.listActiveRecords.mock.calls[0][0]).not.toHaveProperty('departmentIds');
   });
 
-  it('maps department_tree scope to resolved departmentIds query', async () => {
+  it('maps department_tree scope to listEmployeesByScope with resolved departmentIds', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([
+      employee({ id: 'user-002' }),
+      employee({ id: 'user-003' }),
+    ]);
     repository.listActiveRecords.mockResolvedValue([]);
     scopeService.resolveScope.mockResolvedValue({
       kind: 'department_tree',
@@ -460,30 +634,68 @@ describe('PresenceStatusService', () => {
 
     await service.getBoard(currentUser());
 
-    expect(repository.listActiveRecords).toHaveBeenCalledWith(
-      expect.objectContaining({
-        departmentIds: ['department-001', 'department-002'],
-      }),
+    expect(employeeLookup.listEmployeesByScope).toHaveBeenCalledWith('enterprise-001', [
+      'department-001',
+      'department-002',
+    ]);
+    expect(repository.listActiveRecords.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ userIds: ['user-002', 'user-003'] }),
     );
   });
 
-  it('maps degraded custom scope after resolver turns it into self', async () => {
-    repository.listActiveRecords.mockResolvedValue([]);
+  it('short-circuits empty rosters without querying active records', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([]);
     scopeService.resolveScope.mockResolvedValue({
-      kind: 'self',
+      kind: 'department',
       userId: 'user-001',
       enterpriseId: 'enterprise-001',
       departmentIds: [],
-      degradedFromCustom: true,
+      degradedFromCustom: false,
     });
 
-    await service.getBoard(currentUser());
+    await expect(service.getBoard(currentUser())).resolves.toEqual({ items: [] });
 
-    expect(repository.listActiveRecords).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userIds: ['user-001'],
-      }),
-    );
+    expect(repository.listActiveRecords).not.toHaveBeenCalled();
+  });
+
+  it('rejects board rendering when the enterprise has no active default status type', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([employee({ id: 'user-001' })]);
+    repository.listStatusTypes.mockResolvedValue([
+      {
+        ...statusTypes()[1],
+        isDefault: false,
+      },
+    ]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getBoard(currentUser())).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('ensures preset status types only when no active default exists before reading labels again', async () => {
+    employeeLookup.listEmployeesByScope.mockResolvedValue([employee({ id: 'user-001' })]);
+    repository.listStatusTypes.mockResolvedValueOnce([]).mockResolvedValueOnce(statusTypes());
+    repository.listActiveRecords.mockResolvedValue([]);
+    scopeService.resolveScope.mockResolvedValue({
+      kind: 'company',
+      userId: 'user-001',
+      enterpriseId: 'enterprise-001',
+      departmentIds: [],
+      degradedFromCustom: false,
+    });
+
+    await expect(service.getBoard(currentUser())).resolves.toEqual({
+      items: [expect.objectContaining({ isDefault: true, status: 'working' })],
+    });
+
+    expect(repository.ensurePresetStatusTypes).toHaveBeenCalledWith('enterprise-001');
+    expect(repository.ensurePresetStatusTypes).toHaveBeenCalledTimes(1);
+    expect(repository.listStatusTypes).toHaveBeenCalledTimes(2);
   });
 
   it('returns current employee status for company scope', async () => {
@@ -617,6 +829,7 @@ interface MockPlatformScopePort extends PlatformScopePort {
 
 interface MockPlatformEmployeeLookupPort extends PlatformEmployeeLookupPort {
   listEmployeesByIds: ReturnType<typeof vi.fn>;
+  listEmployeesByScope: ReturnType<typeof vi.fn>;
 }
 
 interface MockPlatformAuditPort extends PlatformAuditPort {
@@ -718,4 +931,44 @@ function createRecord(overrides: Partial<PresenceStatusRecordDto> = {}): Presenc
     createdAt: '2026-05-25T00:00:00.000Z',
     ...overrides,
   };
+}
+
+function employee(overrides: Partial<EmployeeLookupDto> = {}): EmployeeLookupDto {
+  return {
+    id: 'user-001',
+    employeeNo: 'E001',
+    name: 'Alice',
+    departmentId: 'department-001',
+    departmentName: 'Operations',
+    ...overrides,
+  };
+}
+
+function statusTypes() {
+  return [
+    {
+      id: 'status-working',
+      enterpriseId: 'enterprise-001',
+      key: 'working',
+      label: '在岗',
+      isPreset: true,
+      isDefault: true,
+      status: 'active' as const,
+      sortOrder: 10,
+      createdAt: '2026-05-25T00:00:00.000Z',
+      updatedAt: '2026-05-25T00:00:00.000Z',
+    },
+    {
+      id: 'status-business-trip',
+      enterpriseId: 'enterprise-001',
+      key: 'business_trip',
+      label: '出差',
+      isPreset: true,
+      isDefault: false,
+      status: 'active' as const,
+      sortOrder: 20,
+      createdAt: '2026-05-25T00:00:00.000Z',
+      updatedAt: '2026-05-25T00:00:00.000Z',
+    },
+  ];
 }

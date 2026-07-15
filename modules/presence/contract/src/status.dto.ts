@@ -18,6 +18,22 @@ export interface PresenceStatusRecordDto {
   formRecordId?: string;
 }
 
+export interface PresenceBoardEntryDto {
+  userId: string;
+  employeeNo: string;
+  userName: string;
+  departmentId?: string;
+  departmentName?: string;
+  status: PresenceStatus;
+  statusLabel: string;
+  isDefault: boolean;
+  startAt?: string;
+  endAt?: string;
+  remark?: string;
+  recordId?: string;
+  formRecordId?: string;
+}
+
 export interface CreatePresenceStatusRecordInput {
   status: PresenceStatus;
   startAt: string;

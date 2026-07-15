@@ -139,6 +139,14 @@ M9-2 起，自助登记可在 `POST /api/presence/status-records` 请求体携�
 规范 key 拼出 `presence.status.<key>`，经自己的出站端口由 gateway 宿主适配器调用 forms append
 创建，返回 id 随 presence 记录一次写入。
 
+M9-3a 起，`GET /api/presence/board` 返回 `{ items: PresenceBoardEntryDto[] }`。每行表示一个实时名册成员的
+当前在位状态，字段为 userId / employeeNo / userName / departmentId / departmentName / status /
+statusLabel / isDefault，并在存在活跃离岗记录时附 startAt / endAt / remark / recordId / formRecordId。
+无活跃记录者 `isDefault:true`，使用 presence 状态字典的 active default key/label；有记录者 `isDefault:false`，
+`statusLabel` 来自 presence 自有 `status_types` 字典。看板不下发 forms 填报值，`formRecordId` 只是 opaque id。
+该响应形态替换旧 `PresenceStatusRecordDto[]` 看板形态；presence web board 客户端迁移属于 M9-3b，M9-3a
+禁止单独合入生产/发布分支，须与 M9-3b 成对或紧接交付。
+
 普通员工使用该链路的角色配置为：
 
 ```text
@@ -253,7 +261,7 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 | 场景                                                | 通道                                    | 模板                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 按当前用户数据范围过滤自己模块的列表                | 通道 1（注入 `PLATFORM_SCOPE_SERVICE`） | `scopeService.resolveScope(currentUser, dataType)` → 在 service 层按 `kind` / `userId` / `enterpriseId` / `departmentIds` in-memory 过滤业务 repository 返回的本 schema 行。M5-1 起 `resolveScope` **必须传数据类型**（`dataType ∈ 'profile' \| 'presence' \| 'report'`，如 presence 模块传 `'presence'`）。`PLATFORM_SCOPE_SERVICE` 自 M4-2 起已通过 `packages/platform-contract` 暴露 |
-| 需要平台员工 / 部门基础信息（姓名、状态、所属部门） | 通道 1（注入对应平台 lookup service）   | service 层调用 platform lookup service 拿到 ID 集合或快照对象 → 在自己 schema 内按 ID 检索 → 在 service 层拼装结果。M6-3 起 `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` 已支持按 ID 列表查询同租户 active 员工最小快照；其他 lookup 能力按 §7.1.6 扩出流程新增                                                                                                                                            |
+| 需要平台员工 / 部门基础信息（姓名、状态、所属部门） | 通道 1（注入对应平台 lookup service）   | service 层调用 platform lookup service 拿到 ID 集合或快照对象 → 在自己 schema 内按 ID 检索 → 在 service 层拼装结果。M6-3 起 `PLATFORM_EMPLOYEE_LOOKUP_SERVICE` 已支持按 ID 列表查询同租户 active 员工最小快照；其他 lookup 能力按 §7.1.6 扩出流程新增                                                                                                                                   |
 | 业务写操作记录审计                                  | 通道 1（注入 `PLATFORM_AUDIT_SERVICE`） | service 层调用 `PlatformAuditPort.record({...})` 写入 `platform.audit_logs`；业务模块不得 `import` `platform.audit_logs` 的 schema 定义，也不得在自己的 repository 里写死该表名。`PLATFORM_AUDIT_SERVICE` 自 M4-2 起已通过 `packages/platform-contract` 暴露                                                                                                                            |
 | 响应平台状态变化（员工禁用、角色变更）              | 通道 3（订阅 `platform.*` 事件）        | 在业务模块自己的 event handler 中处理 `platform.employee.status.updated` 等事件 → 写入自己 schema 的投影 / 清理本模块缓存；不允许轮询 `platform.*` 表                                                                                                                                                                                                                                   |
 | 跨进程调用平台 API                                  | 通道 2（HTTP）                          | vNext 拆分阶段通过 `@work/platform-sdk` 客户端调用 `/api/platform/...`；内嵌阶段不使用本通道                                                                                                                                                                                                                                                                                            |
@@ -264,7 +272,7 @@ Shell 负责收集模块、过滤权限、渲染菜单、注册路由。
 
 - `PLATFORM_SCOPE_SERVICE`（接口 `PlatformScopePort`）：解析当前用户数据范围。详见 `docs/platform-core.md §5`。来源：`packages/platform-contract/src/scope.ts` 暴露 token 与接口；`apps/platform-api/src/scope/platform-scope.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M4-2 起）。业务模块 `imports: [PlatformModule]` + `@Inject(PLATFORM_SCOPE_SERVICE) port: PlatformScopePort`。vNext 拆分后 PlatformModule 提供的实现切换为基于 HTTP introspection 的 client，业务模块代码无需改写。
 - `PLATFORM_AUDIT_SERVICE`（接口 `PlatformAuditPort`）：业务模块写审计的统一入口，封装 `PlatformRepository.recordAuditLog`。来源：`packages/platform-contract/src/audit.ts` 暴露 token 与接口；`apps/platform-api/src/audit/platform-audit.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M4-2 起）。业务模块 `imports: [PlatformModule]` + `@Inject(PLATFORM_AUDIT_SERVICE) port: PlatformAuditPort`。
-- `PLATFORM_EMPLOYEE_LOOKUP_SERVICE`（接口 `PlatformEmployeeLookupPort`）：按 ID 列表返回同租户 active 员工最小快照（员工号、姓名、部门 id / 名称），用于 Forms `employee` 字段校验与快照。来源：`packages/platform-contract/src/users.ts` 暴露 token 与接口；`apps/platform-api/src/users/employee-lookup.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M6-3 起）。业务 service 只依赖 `@work/platform-contract` token，不直接 import platform 内部 service。
+- `PLATFORM_EMPLOYEE_LOOKUP_SERVICE`（接口 `PlatformEmployeeLookupPort`）：按 ID 列表或服务端 resolve 后的数据范围返回同租户 active 员工名册窄字段（id、员工号、姓名、部门 id / 名称）。`listEmployeesByIds(enterpriseId, ids)` 用于 Forms `employee` 字段校验与快照、presence 按人查询；`listEmployeesByScope(enterpriseId, departmentIds?)` 用于 presence 看板实时名册，`undefined` 表示全企业 active 名册，数组表示限定部门 active 名册，空数组返回空名册。来源：`packages/platform-contract/src/users.ts` 暴露 token 与接口；`apps/platform-api/src/users/employee-lookup.service.ts` 提供实现并由 `PlatformModule` 通过 `useExisting` 绑定到 token（M6-3 起，M9-3a 扩 `listEmployeesByScope`）。业务 service 只依赖 `@work/platform-contract` token，不直接 import platform 内部 service。
 
 按 M4 之后业务需求待补的 platform 出口（**不在 M3.5-G 范围**，由后续业务切片按真实需求驱动新增）：
 

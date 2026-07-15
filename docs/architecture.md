@@ -240,6 +240,12 @@ report → `report`；presence 定义权限为 `forms:presence-definition:{view,
 forms 侧不跨 schema 校验 key 是否存在于 `presence.status_types`，因此 typo key 会存成无效定义；
 M9-3b 定义管理 UI 必须从状态字典下拉选择 key，而不是让管理员自由输入 slotKey。
 
+M9-3a 已将 presence 看板数据来源反转为“实时员工名册 LEFT JOIN 活跃离岗记录”。`GET /presence/board`
+先按 viewer 的 `presence` 数据范围从 platform 名册取范围内 active 员工，再按这些 userId 批量读取
+presence 活跃记录并在 service 层内存 join；无活跃记录者以下发的缺省态显示为在岗。看板授权和部门展示
+以名册实时部门为准，不再使用 `presence.status_records.department_id` 快照过滤。该路径通过
+`PlatformEmployeeLookupPort.listEmployeesByScope(enterpriseId, departmentIds?)` 扩出的进程内只读端口取名册。
+
 模块只读写自己的 schema。需要组织、人员、权限时，通过 `platform-api` 或平台只读快照获取。
 
 ## 5. 通信机制

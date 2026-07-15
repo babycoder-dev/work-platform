@@ -56,6 +56,18 @@ export interface EmployeeLookupDto {
 
 export interface PlatformEmployeeLookupPort {
   listEmployeesByIds(enterpriseId: string, ids: string[]): Promise<EmployeeLookupDto[]>;
+  /**
+   * Lists active employees for a server-resolved roster scope.
+   *
+   * departmentIds:
+   * - undefined: all active employees in the enterprise
+   * - non-empty array: active employees in those departments
+   * - empty array: no employees
+   */
+  listEmployeesByScope(
+    enterpriseId: string,
+    departmentIds?: string[],
+  ): Promise<EmployeeLookupDto[]>;
 }
 
 export const PLATFORM_EMPLOYEE_LOOKUP_SERVICE = Symbol.for('PLATFORM_EMPLOYEE_LOOKUP_SERVICE');
