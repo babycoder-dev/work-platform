@@ -400,7 +400,7 @@ platform.domain_events_unpublished_idx;` + 重建为部分索引
    其中 `:238` 把 `domain_events_unpublished_idx` 建模为**普通索引**）——同步补 `source`/`trace_id`
    两列，并把 unpublishedIdx 改为部分索引（`.where(sql\`published_at IS NULL\`)`）；否则迁移改完后
    drizzle 模型漂移，后续 `db:generate` 会吐伪 diff（schema spec 只断言表名，拦不住）。
-2. **presence `0002_m12_outbox.sql`** / **forms、files 各取下一序号**：内容 =
+2. **presence `0003_m12_outbox.sql`**（`0002` 已被 status 列宽 hotfix 占用）/ **forms、files 各取下一序号**：内容 =
    `createDomainEventsTableSql('<schema>')` 的输出**字面粘贴**（模板是结构权威；加一条 event-bus
    单测断言模板输出含九列与部分索引，防模板与迁移漂移后无人发现）。
 3. 不动 `db:setup` 链顺序；`db:generate` 仅当 drizzle schema 被改时才有 diff。
