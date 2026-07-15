@@ -307,6 +307,10 @@ Follow-up: M9-3a presence board roster inversion and realtime department scope.
 - Post-fix `pnpm verify:full`: `test:db` 5 files / 38 tests (presence 9/9, +1 for the new long-key
   regression), `test:e2e:postgres` 3 files / 15 tests, plain `test:e2e` 9 files / 54 tests — all green.
 - Merged via squash to `main` as `85ea16d` (PR #31); remote branch `feat/m9-1-status-dictionary` deleted.
+- Migration hotfix: the later edit to already-applied `0001_m9_status_dictionary.sql` left historical
+  databases at `status_records.status varchar(32)` (`test:db` 38/39) while fresh databases reached 64;
+  `0002_widen_status_records_status.sql` converges both worlds forward, and the migration immutability
+  lesson is now recorded in `development-workflow.md`.
 
 Follow-up: M9-2 self-registration v2 and forms append API generalization.
 

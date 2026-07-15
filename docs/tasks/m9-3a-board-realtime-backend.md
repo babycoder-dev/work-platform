@@ -217,8 +217,12 @@ export interface PresenceBoardEntryDto {
 ```
 async getBoard(currentUser): Promise<{ items: PresenceBoardEntryDto[] }> {
   const scope = await this.scopeService.resolveScope(currentUser, 'presence');
-  await this.repository.ensurePresetStatusTypes(currentUser.enterpriseId);   // 新企业保证有缺省态（⚠️ GET 读路径产生写入，幂等，见「要点」末条）
-  const types = await this.repository.listStatusTypes(currentUser.enterpriseId, { includeArchived: false });
+  // 条件化 seed（门禁判定 7）：先读字典，仅新企业（无 active default）才 ensure —— GET 常态零写
+  let types = await this.repository.listStatusTypes(currentUser.enterpriseId, { includeArchived: false });
+  if (!types.some(t => t.isDefault)) {
+    await this.repository.ensurePresetStatusTypes(currentUser.enterpriseId);   // ⚠️ 唯一写路径，幂等，见「要点」末条
+    types = await this.repository.listStatusTypes(currentUser.enterpriseId, { includeArchived: false });
+  }
   const defaultType = types.find(t => t.isDefault);
   if (!defaultType) throw new BadRequestException('企业缺少有效的缺省状态类型');   // 同 createRecord 守卫
   const labelByKey = new Map(types.map(t => [t.key, t.label]));
@@ -268,10 +272,12 @@ async getBoard(currentUser): Promise<{ items: PresenceBoardEntryDto[] }> {
 - 同一成员同一时刻只应有一条活跃记录（区间不重叠，重叠 409 防）；`recordByUser` 取首条即可，`listActiveRecords`
   已 `ORDER BY start_at DESC`。
 - 名册为空（self 无本人异常 / department 空 departmentIds）→ items 空，不查记录（省一次查询）。
-- **⚠️ GET 读路径产生写入（副作用，须在 PR 描述与 security-reviewer 显式说明）**：`getBoard` 复用
-  `createRecord` 的 `ensurePresetStatusTypes`（`INSERT ... ON CONFLICT DO NOTHING`，M9-1）保证新企业有缺省态
-  → 只读看板端点每次请求**可能落库**。幂等且安全（并发无害、无越权面），但打破"GET 无写"直觉。可接受
-  （替代方案"企业开通时种子化"依赖 platform 侧接线，超出本切片）；须在 PR 描述与安全评审中点明此副作用。
+- **⚠️ GET 读路径的条件化写入（副作用，须在 PR 描述与 security-reviewer 显式说明，门禁判定 7）**：getBoard
+  **不无条件** ensure——先 `listStatusTypes`，仅当无 active default（新企业首次看板）才调
+  `ensurePresetStatusTypes`（`INSERT ... ON CONFLICT DO NOTHING`，M9-1，幂等、并发无害）再重读一次。常态路径
+  （字典已 seed）**零写入**，高频看板无写压力；只有新企业的第一次看板请求触发一次 seed。仍属"GET 触发写"
+  语义（替代方案"企业开通时种子化"依赖 platform 侧接线，超出本切片），须在 PR 描述与安全评审中点明。单测
+  断言两侧：字典已有 default → `ensurePresetStatusTypes` **不被调用**；空字典 → 被调用一次且重读后正常出板。
 
 ### 2.4 controller / 装配
 
@@ -385,7 +391,9 @@ PG 门确认：`presence.e2e-spec.ts` 在 `test:e2e:postgres` 内，**env-gated 
   `listEmployeesByScope(undefined)`；department/tree → 调 `listEmployeesByScope(scope.departmentIds)`（三分支
   分别断言，防调用错端口）。
 - **名册空**：department 且 `departmentIds` 空 → items 空且**不调** `listActiveRecords`。
-- **无缺省态守卫**：字典无 active default → `BadRequestException`（同 createRecord）。
+- **无缺省态守卫**：字典（ensure 后仍）无 active default → `BadRequestException`（同 createRecord）。
+- **条件化 seed 两侧**（门禁判定 7）：字典已有 active default → `ensurePresetStatusTypes` **不被调用**（GET
+  常态零写）；空字典 → 被调用一次且重读后正常出板。
 - **listActiveRecords 用 userIds 不用 departmentIds**：断言 `listActiveRecords` 调用参数含 `userIds`、
   `not.toHaveProperty('departmentIds')`。
 - 现有 getBoard 单测（旧的记录优先断言）**改写**为反转后语义——`presence-status.service.spec.ts` 的
@@ -497,7 +505,7 @@ platform.departments`，或 admin `POST /api/platform/departments`）拿到 `dep
   2. **§16 变更清单**（`:520-531`）**增一条触发项**"扩 platform 进程内只读端口面（`@work/platform-contract`
      暴露的进程内只读端口新增方法/字段）"——使未来静默扩面被门禁捕获（本切片自身按此新触发项走一遍：已在
      §8.2 登记）。
-  - §5 数据范围执行**无变化、不补 §5**（§0 门禁判定 7 已定）。评估结论（含 §8.2/§16 两处改动）写进 PR 描述与
+  - §5 数据范围执行**无变化、不补 §5**（§0 门禁判定 8 已定）。评估结论（含 §8.2/§16 两处改动）写进 PR 描述与
     verification-log。
 - `docs/verification-log.md`：新增「M9-3a Board Realtime Backend」小节（命令计数 + 断言矩阵 + §16 评估结论 +
   security-reviewer 结论）。
