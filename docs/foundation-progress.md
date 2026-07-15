@@ -24,7 +24,7 @@
 | M7 通知 + 定时任务调度      | 自研站内通知 + 调度                                                                                     | Done        | 通知（落库/已读未读/事件驱动生成/接收人可配）+ 调度基建 + SSE + 前端铃铛/卡片/触发点配置 UI 已交付，门禁就绪                                                                  |
 | UI 收口切片（M8 前）        | 地基三屏照设计稿像素级还原 + 设计还原度门禁                                                             | Done        | UI-1→UI-2/UI-3→UI-4 已交付；线性图标集 + Card/StatCard + 登录/外壳/工作台还原 + A 类门禁过；门禁纳入 development-workflow §7                                                  |
 | M8 人员 / 组织 / 档案       | 以人为中心的组织管理基座                                                                                | Done        | 部门管理 + 档案读写（写收口 + `profile` 写授权）+ 首登向导 + `profile.updated` 通知 + 近况记录 + 人页聚合已交付，门禁就绪；照片 / 重字段编辑 / 固定字段管理写 UI 结转后续切片 |
-| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | In Progress | M9-1 状态字典后端已合并；M9-2 自助登记 v2 + forms 泛化已交付，下一步 M9-3a 看板实时化后端                                                                                     |
+| M9 在位状态 v2              | 在位作为人员管理切面，UX 一体                                                                           | In Progress | M9-1/M9-2 已交付；M9-3a 已合并，M9-3b web v2 已实现并待 PR/合并后关闭成对发布窗口                                                                    |
 | M10 日报                    | 组织层级汇总与数据范围                                                                                  | Pending     | 依赖 M6/M7                                                                                                                                                                    |
 | M11 审批工作流              | 流程类业务 + 跨模块事件                                                                                 | Pending     | 简单串签流 + 节点通知 + 联动在位                                                                                                                                              |
 | vNext（M12–M19）            | 事件基建 → IM → Agent 基座 → 任务/日历/会议室 → 多维表格 → 自动化+Agent v2（双轨序列）                  | Pending     | 2026-07 由 ADR-0006 重定义并激活规划；周报/桌面端/内网交付强化进 M20+ 预留桶；**M12-1 outbox 写入侧任务包 + ADR-0007 已就绪（独立评审全落修，待实现）**                       |
@@ -227,10 +227,10 @@ data_type `presence`）、看板名册反转收口 §7.5（扩 `PlatformEmployee
 事件加 `statusLabel`（M7 订阅器同改）、后端 Excel 导出。**M9-1 状态字典后端已合并**（PR #31，
 `85ea16d`，security-reviewer 独立二审通过）。**M9-2 自助登记 v2 + forms 泛化已交付**：
 presence 状态槽位已激活，记录 create/by-id 具备 slot dataType 范围门，登记经宿主适配器关联 append
-forms 记录。**M9-3a 看板实时化后端已实现并过双轨审查**（PR #33，security-reviewer LGTM 八门全守 +
-正确性审查 0 Major，修复轮 `bc6c0ad` 已核验，待合并）；**M9-3b web v2 任务包已就绪**
-（`docs/tasks/m9-3b-web-v2.md`，独立评审 1M/10m/7n 全落修，待 Codex 实现——关闭 M9-3a 回归窗口的
-成对交付切片，M9-3a 合并后须紧接合入）。
+forms 记录。**M9-3a 看板实时化后端已合并**（PR #33，`e515966`；security-reviewer LGTM 八门全守 +
+正确性审查 0 Major，修复轮已核验）；**M9-3b web v2 已实现，待开 PR 并合并**
+（`docs/tasks/m9-3b-web-v2.md`，独立评审 1M/10m/7n 全落修）。M9-3a 的响应形态回归窗口在 M9-3b
+合并前仍保持开启，二者不得拆分发布。
 
 **vNext 路线图已定（2026-07-06）**：`docs/adr/0006-vnext-roadmap.md` 把 vNext 重定义为
 M12–M19 双轨序列（可靠事件基建 → IM 基座/体验 → Agent 基座 → 任务/日历/会议室 → bitable
@@ -335,8 +335,8 @@ M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 
 | M9-0  | RFC                           | Done        | 2026-07-01 Accepted；`docs/rfc/m9-presence-v2.md`；两轮独立评审（二审 C1/M1-M3、三审 C-1 名册反转/C-2 forms API 泛化）+ 三项拍板（archive-only / 在岗=缺省态 / 字典管理仅 HR/管理员）                                                                                                                                                                                                                                                                                                                                                                   |
 | M9-1  | 状态字典后端                  | Done        | 2026-07-04 完成，PR #31 合并（`85ea16d`）；`presence.status_types`（is_default partial unique index）+ 七端点 archive-only 管理（无硬删）+ 记录 status 放宽（DROP status CHECK、保留 time-range CHECK）+ 三类拒登 + 动态 default 豁免 + `form_record_id` + statusLabel/M7 消费；修复轮对齐记录列宽(varchar 64)与字典 key 上限、预置种子并发 ON CONFLICT 收窄为无仲裁列、setDefault 并发冲突映射 409；security-reviewer 独立二审通过（八条关注点全过、无越界）；`test:db` 5/38、PG e2e 3/15 真跑；详见 verification-log `M9-1 Status Dictionary Backend` |
 | M9-2  | 自助登记 v2 + forms 泛化      | Done        | 2026-07-07 完成；激活 `presence.status.<key>` + 注册/seed `forms:presence-definition:*`；forms create/by-id 按 slot dataType 做 subject 范围门；presence 出站端口经 gateway `@Global()` 宿主适配器创建 append 记录并一次落 `form_record_id`；普通员工角色配置三件套 = `presence:status:create` + `forms:record:submit` + `forms:presence-definition:view`；详见 verification-log `M9-2 Self-Registration v2 + Forms Generalization`                                                                                                                     |
-| M9-3a | 看板实时化后端（§7.5 收口）   | In Progress | **已实现待合并**（PR #33：security-reviewer LGTM 八门全守 + 正确性审查 0 Major/4 Minor 全落修，修复轮 `bc6c0ad` 已核验，5 个 review 线程全 resolve，CI 绿）：getBoard 数据来源反转为名册 LEFT JOIN 活跃离岗记录（无记录=在岗缺省）+ 扩 `PlatformEmployeeLookupPort.listEmployeesByScope` + 实时部门过滤（弃记录快照）+ `PresenceBoardEntryDto` 随行下发 statusLabel + 条件化 seed（GET 常态零写）；security-baseline §8.2/§16 已扩；⚠️ 回归窗口：与 M9-3b 成对交付、不单独上生产                                                                        |
-| M9-3b | web v2（presence + platform） | In Progress | 任务包 `docs/tasks/m9-3b-web-v2.md` 已就绪（独立评审 1M/10m/7n 全落修，待 Codex 实现）：看板 v2 消费 `PresenceBoardEntryDto`（label 驱动、在岗缺省行）+ 自助登记 v2（字典驱动 + 动态轻字段表单 + 本人信息块零 HTTP）+ 状态字典管理页（新菜单 uuid 106）+ `PresenceSection` 语义迁移（record:null→在岗缺省、hidden 不迁移）+ 解除两个 skip spec；唯一后端增点 = `getEmployeeStatus` 附 `statusLabel?`；还原度门禁三页 L2；**关闭 M9-3a 回归窗口（成对交付闭环）**                                                                                        |
+| M9-3a | 看板实时化后端（§7.5 收口）   | Done        | 2026-07-15 合并（PR #33，`e515966`）：getBoard 名册 LEFT JOIN 活跃离岗记录（无记录=在岗缺省）+ `PlatformEmployeeLookupPort.listEmployeesByScope` + 实时部门过滤 + `PresenceBoardEntryDto` statusLabel + 条件化 seed；security-baseline §8.2/§16 已扩。⚠️ 发布窗口仍依赖 M9-3b 合并，不可单独发布。 |
+| M9-3b | web v2（presence + platform） | In Progress | **已实现待 PR/合并**：看板 v2 消费 `PresenceBoardEntryDto`（label 驱动、在岗缺省行）+ 自助登记 v2（字典驱动 + 动态轻字段表单 + 本人信息块零 HTTP）+ 状态字典管理页（菜单 uuid 106）+ `PresenceSection` 语义迁移（record:null→在岗缺省、hidden 不迁移）+ 解除 web skip spec；唯一后端增点 = `getEmployeeStatus` 附 `statusLabel?`；三页 L2 验收完成。M9-3b 合并后关闭 M9-3a 回归窗口。 |
 | M9-4  | Excel 导出                    | Pending     | presence api 后端同步生成（xlsx 依赖过三方审查）+ 可选列 + forms 列逐 subject 过 forms 记录门 + 导出审计                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | M9-5  | 交付验证                      | Pending     | 类比 M8-6：verify(:full)/docker + 假绿核查 + smoke + RFC §14/§15 对账 + 文档总同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
@@ -389,7 +389,7 @@ M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 
 | [Presence follow-up] `getBoard` 看板仍按登记记录的部门快照过滤，员工换部门后可能短暂与实时组织归属不一致 | Done | M9-3a 已收口：`GET /presence/board` 改为按服务端 resolve 的 presence scope 取实时员工名册，再 LEFT JOIN 活跃离岗记录；部门过滤依据为 platform 名册实时部门，记录快照仅保留审计/历史语义。                           |
 | [Forms follow-up] `FormsService.getRecord(recordId)` 是内部 port-only 读法，尚未叠加 profile 数据范围门  | Done | M9-2 新增 `getRecordById(actor,currentUser,recordId)` 与 `GET /api/forms/records/by-id/:recordId`，按记录 slot 的 `dataType` 应用 subject 范围门并统一 404-hide；旧 port-only `getRecord` 为兼容保留且不暴露 HTTP。 |
 
-### 7.6 M8 显式结转
+### 7.6 M8/M9 显式结转
 
 | 项                                                                                         | 状态    | 处理                                                                                                                                         |
 | ------------------------------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -399,6 +399,11 @@ M8 整段退出；下一步进入 M9 在位状态 v2。照片 / 重字段编辑 
 | 服务镜像按应用裁剪                                                                         | Pending | 结转后续基础设施切片；M8-6 已验证当前五个应用镜像可构建和 compose 可启动，但镜像仍含无关源码。                                               |
 | [Gateway HA follow-up] Web Shell 生产 API 路由收敛到 gateway 后，登录成为 gateway 单点依赖 | Pending | gateway 滚动发布 / 重启期间 `/api/platform/auth/*` 不可达；待 gateway 降级为纯边缘网关，或引入多副本与进程间事件协调时按 ADR-0003 统一处理。 |
 | [Infra follow-up] 生产 compose 仍向宿主发布 `platform-api:3001`                            | Pending | Web Shell 已不再路由该上游；服务自身仍有 guard，不构成认证旁路，但应移除宿主 `ports` 发布，仅保留 compose 内网可达。                         |
+| presence 登记重字段类型支持                                                                  | Pending | `file` / `image` / `employee` 字段在 M9-3b 以诚实占位阻止提交；待后续切片补完对应编辑器与安全边界。                                      |
+| forms 定义管理 UI                                                                            | Pending | M9-3b 只读取 `presence.status.<key>` 定义并动态渲染，不新增 forms 定义维护页面。                                                            |
+| 档案字段级自动注入（待映射契约）                                                             | Pending | 当前动态表单不推断档案字段值；待 forms/presence 定义映射契约明确后实现。                                                                     |
+| 本人信息块职务/手机展示                                                                      | Pending | M9-3b 只用 runtime `getCurrentUser()` 的姓名、工号和部门；需扩 `employees/me` 镜像后再展示 title/mobile。                                  |
+| [Presence follow-up] 归档 key 的活跃记录展示不对称                                           | Pending | 人页抽屉按 D-1 `includeArchived` 显 label；看板只用 active 字典映射，归档 key 回退裸 key。收敛需改 getBoard，留后续切片。                  |
 
 ## 8. M4 在位管理 MVP
 
