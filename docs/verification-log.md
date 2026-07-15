@@ -42,7 +42,8 @@
   package manifest/lockfile delta is the local `@work/ui` workspace link.
 - Browser QA exercised board, registration, and status-dictionary pages at desktop width plus the
   board at 390px; the final console check reported no errors. The three desktop screenshots are
-  attached to the M9-3b PR rather than committed as generated repository artifacts.
+  captured for attachment when the M9-3b PR is opened, rather than committed as generated
+  repository artifacts.
 
 **Assertion matrix**
 
