@@ -159,6 +159,40 @@ describe('EmployeeProfileDrawer', () => {
     expect(screen.queryByText('该员工当前没有在位记录。')).not.toBeInTheDocument();
   });
 
+  it('shows default on-duty status when an authorized viewer receives no active record', async () => {
+    mockDrawerData();
+    get.mockImplementation((url: string) => {
+      if (url === 'status-records/by-employee/employee-001') {
+        return Promise.resolve({ record: null });
+      }
+      return drawerGet(url);
+    });
+
+    renderDrawer();
+
+    expect(await screen.findByText('在岗（缺省）')).toBeInTheDocument();
+    expect(screen.getByText('当前无离岗登记')).toBeInTheDocument();
+  });
+
+  it('falls back to a raw custom status key when an employee status response lacks a label', async () => {
+    mockDrawerData();
+    get.mockImplementation((url: string) => {
+      if (url === 'status-records/by-employee/employee-001') {
+        return Promise.resolve({
+          record: {
+            ...drawerPresenceRecord(),
+            status: 'client_visit',
+          },
+        });
+      }
+      return drawerGet(url);
+    });
+
+    renderDrawer();
+
+    expect(await screen.findByText('client_visit')).toBeInTheDocument();
+  });
+
   it('submits all profile fields, including read-only original values, when HR edits custom fields', async () => {
     mockDrawerData();
     put.mockResolvedValueOnce({
@@ -311,20 +345,8 @@ describe('EmployeeProfileDrawer', () => {
   function drawerGet(url: string) {
     if (url === 'status-records/by-employee/employee-001') {
       return Promise.resolve({
-        record: {
-          id: 'presence-001',
-          enterpriseId: 'ent-default',
-          userId: 'employee-001',
-          employeeNo: '000001',
-          userName: '张伟',
-          departmentId: 'dept-rd',
-          departmentName: '研发部',
-          status: 'working',
-          startAt: '2026-06-24T08:00:00.000Z',
-          remark: '正常在岗',
-          createdBy: 'employee-001',
-          createdAt: '2026-06-24T08:00:00.000Z',
-        },
+        record: drawerPresenceRecord(),
+        statusLabel: '在岗',
       });
     }
     if (url === 'records/profile.employee/subjects/employee-001') {
@@ -340,6 +362,23 @@ describe('EmployeeProfileDrawer', () => {
       });
     }
     return Promise.reject(new Error(`Unexpected GET ${url}`));
+  }
+
+  function drawerPresenceRecord() {
+    return {
+      id: 'presence-001',
+      enterpriseId: 'ent-default',
+      userId: 'employee-001',
+      employeeNo: '000001',
+      userName: '张伟',
+      departmentId: 'dept-rd',
+      departmentName: '研发部',
+      status: 'working',
+      startAt: '2026-06-24T08:00:00.000Z',
+      remark: '正常在岗',
+      createdBy: 'employee-001',
+      createdAt: '2026-06-24T08:00:00.000Z',
+    };
   }
 
   function profileDefinition(revision = 5) {

@@ -4,6 +4,7 @@ import { presencePermissions } from './permissions';
 export const PRESENCE_MODULE_MANIFEST_ID = '00000000-0000-0000-0000-000000000202';
 export const PRESENCE_BOARD_MENU_ID = '00000000-0000-0000-0000-000000000104';
 export const PRESENCE_REGISTER_MENU_ID = '00000000-0000-0000-0000-000000000105';
+export const PRESENCE_STATUS_TYPES_MENU_ID = '00000000-0000-0000-0000-000000000106';
 
 export const presencePlatformManifest: ModuleManifestDto = {
   id: PRESENCE_MODULE_MANIFEST_ID,
@@ -40,6 +41,15 @@ export const presencePlatformManifest: ModuleManifestDto = {
       path: '/presence/register',
       permissionCode: presencePermissions.statusCreate,
       sortOrder: 110,
+      status: 'active',
+    },
+    {
+      id: PRESENCE_STATUS_TYPES_MENU_ID,
+      moduleName: 'presence',
+      title: '状态字典',
+      path: '/presence/status-types',
+      permissionCode: presencePermissions.statusTypeManage,
+      sortOrder: 120,
       status: 'active',
     },
   ],
