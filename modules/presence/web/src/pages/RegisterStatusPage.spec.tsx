@@ -156,7 +156,7 @@ describe('RegisterStatusPage', () => {
   });
 
   it('blocks submission while the selected template is still loading', async () => {
-    let resolveDefinition: ((value: unknown) => void) | undefined = undefined;
+    let resolveDefinition!: (value: unknown) => void;
     get.mockImplementation((url: string) => {
       if (url === 'status-types') return Promise.resolve(statusTypes());
       if (url === 'status-records/mine') return Promise.resolve({ items: [] });
@@ -181,7 +181,7 @@ describe('RegisterStatusPage', () => {
     expect(await screen.findByText('填报模板加载中，请稍候再提交')).toBeInTheDocument();
     expect(post).not.toHaveBeenCalled();
 
-    resolveDefinition?.({ revision: 0, fields: [] });
+    resolveDefinition({ revision: 0, fields: [] });
     await waitFor(() => expect(screen.getByRole('button', { name: '提交登记' })).toBeEnabled());
     await userEvent.click(screen.getByRole('button', { name: '提交登记' }));
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
