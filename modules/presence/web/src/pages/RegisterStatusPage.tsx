@@ -122,11 +122,19 @@ export default function RegisterStatusPage() {
     [definitionState],
   );
   const hasRequiredUnsupportedFields = hasRequiredUnsupportedPresenceFields(activeFields);
+  // While the template is still being fetched we cannot know whether it carries required fields, and
+  // submitting now would omit `form` entirely — the API treats that as optional, so the required-field
+  // check would never run. Treat "loading" as blocking, unlike the honest error fallback below.
+  const definitionLoading = definitionState.kind === 'loading';
 
   const submit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (!selectedStatus || hasRequiredUnsupportedFields) return;
+      if (definitionLoading) {
+        setSubmitMessage('填报模板加载中，请稍候再提交');
+        return;
+      }
 
       const missingField = activeFields.find(
         (field) => field.required && isSupportedField(field.fieldType) && isEmpty(fieldValues[field.fieldKey]),
@@ -185,6 +193,7 @@ export default function RegisterStatusPage() {
     },
     [
       activeFields,
+      definitionLoading,
       definitionState,
       fieldValues,
       form,
@@ -270,7 +279,11 @@ export default function RegisterStatusPage() {
               <p className="presence-register__error">该状态的填报模板包含暂不支持的字段，请联系管理员调整</p>
             ) : null}
             {submitMessage ? <p className="presence-register__error">{submitMessage}</p> : null}
-            <Button disabled={!selectedStatus || submitting || hasRequiredUnsupportedFields} type="submit" variant="primary">
+            <Button
+              disabled={!selectedStatus || submitting || hasRequiredUnsupportedFields || definitionLoading}
+              type="submit"
+              variant="primary"
+            >
               {submitting ? '提交中…' : '提交登记'}
             </Button>
           </form>

@@ -155,6 +155,38 @@ describe('RegisterStatusPage', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('blocks submission while the selected template is still loading', async () => {
+    let resolveDefinition: (value: unknown) => void = () => {};
+    get.mockImplementation((url: string) => {
+      if (url === 'status-types') return Promise.resolve(statusTypes());
+      if (url === 'status-records/mine') return Promise.resolve({ items: [] });
+      if (url === 'definitions/presence.status.business_trip') {
+        return new Promise((resolve) => {
+          resolveDefinition = resolve;
+        });
+      }
+      return Promise.reject(new Error(`Unexpected GET ${url}`));
+    });
+    post.mockResolvedValue(mineRecord());
+
+    render(<RegisterStatusPage />);
+
+    expect(await screen.findByText('加载填报模板…')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('开始时间'), { target: { value: '2026-05-26T01:00' } });
+    expect(screen.getByRole('button', { name: '提交登记' })).toBeDisabled();
+
+    // Submitting the form directly, as an implicit Enter submission would, must be refused too.
+    const form = screen.getByRole('button', { name: '提交登记' }).closest('form') as HTMLFormElement;
+    fireEvent.submit(form);
+    expect(await screen.findByText('填报模板加载中，请稍候再提交')).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+
+    resolveDefinition({ revision: 0, fields: [] });
+    await waitFor(() => expect(screen.getByRole('button', { name: '提交登记' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: '提交登记' }));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+  });
+
   it('allows base submission when the forms definition cannot be loaded', async () => {
     get.mockImplementation((url: string) => {
       if (url === 'status-types') return Promise.resolve(statusTypes());
