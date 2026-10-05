@@ -1,0 +1,147 @@
+.presence-board,
+.presence-register,
+.presence-status-types {
+  color: var(--ink-1);
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.presence-board__header,
+.presence-register__header,
+.presence-status-types__header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--sp-4);
+  justify-content: space-between;
+}
+
+.presence-board__header h2,
+.presence-register__header h2,
+.presence-status-types__header h2 {
+  font-size: var(--font-size-22);
+  line-height: var(--sp-8);
+  margin: 0;
+}
+
+.presence-board__header p {
+  color: var(--ink-3);
+  margin: var(--sp-1) 0 0;
+}
+
+.presence-board__message,
+.presence-register__message,
+.presence-status-types__message {
+  background: var(--info-bg);
+  border: var(--border-width) solid var(--blue-100);
+  border-radius: var(--r-md);
+  color: var(--blue-700);
+  font-size: var(--font-size-14);
+  margin: var(--sp-4);
+  padding: var(--sp-3);
+}
+
+.presence-board__error,
+.presence-register__error,
+.presence-status-types__error {
+  background: var(--danger-bg);
+  border: var(--border-width) solid var(--danger);
+  border-radius: var(--r-md);
+  color: var(--danger);
+  font-size: var(--font-size-14);
+  margin: var(--sp-4);
+  padding: var(--sp-3);
+}
+
+.presence-board__member {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.presence-board__member strong {
+  color: var(--ink-1);
+  font-weight: 600;
+}
+
+.presence-board__member span {
+  color: var(--ink-4);
+  font-size: var(--font-size-12);
+}
+
+.presence-register__profile-list {
+  column-gap: var(--sp-4);
+  display: grid;
+  font-size: var(--font-size-14);
+  grid-template-columns: calc(var(--sp-1) * 12) minmax(0, 1fr);
+  margin: 0;
+  row-gap: var(--sp-3);
+}
+
+.presence-register__profile-list div {
+  display: contents;
+}
+
+.presence-register__profile-list dt {
+  color: var(--ink-4);
+}
+
+.presence-register__profile-list dd {
+  color: var(--ink-1);
+  margin: 0;
+  min-width: 0;
+}
+
+.presence-register__form,
+.presence-register__dynamic-fields,
+.presence-register__checkbox-group {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.presence-register__dynamic-field {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.presence-register__dynamic-field > p,
+.presence-register__unsupported-field p {
+  color: var(--ink-4);
+  font-size: var(--font-size-13);
+  margin: 0;
+}
+
+.presence-register__checkbox-group > span,
+.presence-register__unsupported-field strong {
+  color: var(--ink-2);
+  font-size: var(--font-size-14);
+  font-weight: 600;
+}
+
+.presence-register__unsupported-field {
+  background: var(--warning-bg);
+  border: var(--border-width) solid var(--warning);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+}
+
+.presence-status-types__header {
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .presence-board__header,
+  .presence-status-types__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .presence-board__header .work-button,
+  .presence-status-types__header .work-button {
+    align-self: flex-start;
+  }
+
+  .presence-register__profile-list {
+    grid-template-columns: calc(var(--sp-1) * 11) minmax(0, 1fr);
+  }
+}

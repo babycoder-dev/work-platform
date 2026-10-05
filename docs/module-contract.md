@@ -119,6 +119,7 @@ REST 风格：
 
 ```text
 GET    /api/presence/status-records
+GET    /api/presence/status-records/by-employee/:employeeId
 POST   /api/presence/status-records
 GET    /api/presence/board
 GET    /api/presence/status-types
@@ -146,6 +147,12 @@ statusLabel / isDefault，并在存在活跃离岗记录时附 startAt / endAt /
 `statusLabel` 来自 presence 自有 `status_types` 字典。看板不下发 forms 填报值，`formRecordId` 只是 opaque id。
 该响应形态替换旧 `PresenceStatusRecordDto[]` 看板形态；presence web board 客户端迁移属于 M9-3b，M9-3a
 禁止单独合入生产/发布分支，须与 M9-3b 成对或紧接交付。
+
+M9-3b 起，`GET /api/presence/status-records/by-employee/:employeeId` 返回
+`{ record, statusLabel? }`。`record` 为非空时，`statusLabel` 来自包含归档项的 presence 状态字典；
+字典缺项时回退 status key。`record:null` 时省略 `statusLabel`，且不读取字典。当前仅 platform web 的
+人员详情消费该展示字段；其原有数据范围与隐藏语义不变。presence web 同时新增受
+`presence:status-type:manage` 保护的菜单与路由 `/presence/status-types`，用于字典管理。
 
 普通员工使用该链路的角色配置为：
 

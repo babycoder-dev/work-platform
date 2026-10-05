@@ -1,5 +1,135 @@
 # Verification Log
 
+## 2026-10-05
+
+### M9 Close-out and Repository Alignment
+
+**Change set**
+
+- Fast-forwarded the local `main` to `origin/main` (`e515966`, M9-3a board-realtime backend via PR #33) and
+  deleted the two local branches whose content was already fully contained in main
+  (`feat/m9-3a-board-realtime`, `fix/presence-status-width-migration`) together with five stale worktree
+  registrations left under the superpowers and `.claude` worktree roots.
+- Published M9-3b as PR #39 (`feat/m9-3b-presence-web-v2`, tip `0238266`) so the web regression window
+  declared by M9-3a is closed through review instead of a direct merge.
+- Versioned previously untracked deliverables: `docs/research/xlsx-dependency-evaluation.md` (the M9-4 xlsx
+  dependency review) and `docs/superpowers/specs/2026-06-01-frontend-shell-redesign-design.md`.
+- Versioned the `code-simplifier` agent definitions for the three tool dialects (`.claude/agents/`,
+  `.codex/agents/`, `.agents/skills/`), matching the already-tracked `security-reviewer` definitions.
+- Repointed the `@work/ui` Modal fidelity gap list at the in-repo design source
+  (`docs/design/ui-handoff/design/组织成员.html` L384–397) in place of the untracked `.codex/ui-handoff/`
+  copy, which was verified byte-identical for every file. The received handoff archive and its unpacked copy
+  are now ignored rather than showing up as untracked noise.
+
+**Validation**
+
+- `pnpm verify` on `feat/m9-3b-presence-web-v2`: pass (exit 0) — lint, typecheck, unit and web tests, default
+  e2e, production builds. The bundle emits the v2 `StatusTypesPage`, `PresenceBoardPage`, `RegisterStatusPage`
+  and `DynamicFormFields` chunks.
+  - The gate only passes after `pnpm install --frozen-lockfile`: the branch adds the `@work/ui` workspace
+    dependency to `modules/presence/web`, so a stale `node_modules` makes `vite build` fail with
+    `Rollup failed to resolve import "@work/ui"`. CI installs from the lockfile and is unaffected.
+- This run covers the non-database half of the M9-3b record dated 2026-07-15, which was produced with
+  `verify:full` (PostgreSQL integration 5 files / 39 tests, PostgreSQL e2e 3 files / 15 tests).
+- M9-3a's two `describe.skip` web suites are absent on the branch (0 skips against 2 on `main`), so the
+  fake-green debt it recorded is cleared.
+- `docs/adr/0003-gateway-boundary.md` showed as modified while its blob hash matched `HEAD` exactly; the flag
+  cleared on checkout and no content difference existed.
+
+**Carried forward**
+
+- M9-4 (Excel export) and M9-5 (delivery verification) remain Pending. M9-5 gates the M9 exit and runs after
+  PR #39 merges.
+- 2026-10-05 decision: M10 (daily reports) is the next milestone after M9, with M11 (approval) following.
+  This only re-confirms the documented sequence — ADR-0005 already ordered M9 → M10 → M11, and ADR-0006
+  states "现有 M9（进行中）→ M10 日报 → M11 审批不动" — so no ADR or RFC change follows from it. The vNext
+  M12 work is deliberately not started early: ADR-0006 already declares vNext parallel to and non-blocking
+  for M10/M11, and starting it now would invest heavily in a scale problem the project does not yet have.
+  M10 has neither an RFC nor a task package yet, so its first slice is the M10-0 RFC.
+- The default branch carries 74 open Dependabot alerts (33 high / 34 moderate / 7 low); dependency
+  remediation has no scheduled slice.
+- Root-level `*.log` leftovers from May 2026 stay in place: they are already ignored.
+
+## 2026-07-15
+
+### M9-3b Presence Web v2
+
+**Change set**
+
+- Replaced the presence board client/page with the M9-3a roster response shape: rows render the
+  server-provided status label, realtime department, and the on-duty default row without retaining a
+  local status-label map.
+- Rebuilt self-registration around active non-default status types, a local forms mirror client, and
+  six supported light field types. The profile block reads the runtime current-user cache and makes
+  no additional employee request; unavailable heavy fields and definition reads remain honest
+  disabled/degraded states.
+- Added the status-dictionary route and manifest menu (`...000000000106`) using the existing
+  `presence:status-type:manage` permission. Its modal/confirmation flows cover create, edit,
+  default, archive, and restore operations.
+- Migrated the platform employee presence display to show an authorized `record: null` response as
+  on duty by default, while retaining the no-board-permission EmptyState. Status labels are supplied
+  by the server, with the raw key only as a fallback.
+- D-1 is the sole backend change: `getEmployeeStatus` now responds with
+  `{ record, statusLabel? }`; null records omit the label and do not read the dictionary. No
+  migration, seed, permission, forms, board, or status-type endpoint behavior changed.
+- Removed `StatusBadge` and the legacy local label maps. The presence web package now declares its
+  already-used `@work/ui` workspace dependency; no third-party dependency or lockfile package was
+  added.
+
+**Validation**
+
+- `RUN_POSTGRES_INTEGRATION=true RUN_POSTGRES_E2E=true corepack pnpm verify:full`: pass (exit 0).
+  This includes lint, typecheck for all 27 participating projects, unit tests, web tests, default
+  e2e, and production builds.
+  - Unit: 50 files / 270 tests passed; 5 PostgreSQL-gated files / 39 tests skipped by the normal
+    gate and then executed by the PostgreSQL integration command below.
+  - Web: 39 files / 135 tests passed; M9-3a's two skipped web suites are now collected, and the web
+    group has no skips.
+  - Default e2e: 11 files / 63 tests passed.
+  - PostgreSQL integration: 5 files / 39 tests passed.
+  - PostgreSQL e2e: 3 files / 15 tests passed; the presence suite ran 7 tests against PostgreSQL.
+- `git diff --check`: pass. Diff review confirms no migration or seed file changed and the only
+  package manifest/lockfile delta is the local `@work/ui` workspace link.
+- Browser QA exercised board, registration, and status-dictionary pages at desktop width plus the
+  board at 390px; the final console check reported no errors. The three desktop screenshots are
+  captured for attachment when the M9-3b PR is opened, rather than committed as generated
+  repository artifacts.
+
+**Assertion matrix**
+
+- [x] Board mixed default/active/custom rows render status labels, realtime departments, default
+      time markers, empty state, and error state from `PresenceBoardEntryDto`.
+- [x] Registration excludes the default type; renders cached current-user data (including absent
+      department-name behavior); handles all six light fields, supported/unsupported validation,
+      form payload inclusion/omission, definition access degradation, and historical key fallback.
+- [x] Status dictionary renders active/archived/default/preset states and exercises key validation,
+      create/edit/default/archive/restore flows, disabled default archive, and 409 refresh/error
+      behavior.
+- [x] The API and local forms mirror specs cover board response unwrapping, all seven dictionary
+      requests, and the `/api/forms/` boundary.
+- [x] `statusTagColor` covers preset and unknown keys; the platform drawer covers authorized default
+      on-duty, hidden no-permission, server label, and raw-key fallback branches.
+- [x] D-1 service tests cover non-null labels (including archived labels/raw fallback) and all null
+      early-return paths without dictionary reads.
+
+**L2 fidelity gate**
+
+- [x] All page controls use `@work/ui`; no raw button, select, input, or hand-built modal remains.
+- [x] Page CSS uses design tokens only, with no hardcoded color values.
+- [x] Each page uses the established header/Card/Table/EmptyState patterns, with responsive board
+      presentation verified at 390px.
+- [x] Statuses use the shared `Tag` palette helper with a neutral unknown-key fallback. No emoji
+      icons or fabricated placeholder data were introduced.
+
+**Independent review**
+
+- The independent security review returned LGTM: authorization and scope guards remain intact, no
+  forms values are exposed, the local forms mirror stays inside its public API boundary, and the
+  D-1 label is non-sensitive. It found no new security-baseline trigger.
+- A correctness review identified missing page styling and one absent cached-department test; both
+  were corrected before the final browser and `verify:full` runs. A final diff re-review is required
+  before merge.
+
 ## 2026-07-10
 
 ### M9-3a Board Realtime Backend

@@ -1,6 +1,7 @@
 import type { WorkWebModule, WorkWebModuleRuntime } from '@work/platform-sdk';
 import { presenceManifest, presencePermissions } from '@work/presence-contract';
 import { setPresenceRuntime } from './runtime';
+import './styles.css';
 
 export const presenceWebModule: WorkWebModule = {
   manifest: presenceManifest,
@@ -17,6 +18,11 @@ export const presenceWebModule: WorkWebModule = {
       path: '/presence/register',
       permission: presencePermissions.statusCreate,
       load: () => import('./pages/RegisterStatusPage'),
+    },
+    {
+      path: '/presence/status-types',
+      permission: presencePermissions.statusTypeManage,
+      load: () => import('./pages/StatusTypesPage'),
     },
   ],
 };

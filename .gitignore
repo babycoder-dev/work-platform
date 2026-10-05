@@ -9,3 +9,8 @@ coverage/
 !.env.example
 !infra/release/.env.prod.example
 *.log
+
+# Local handoff artifacts. The design source is versioned at docs/design/ui-handoff/;
+# these are the received archive and its unpacked copy, kept on disk but out of git.
+/work-platform-ui-handoff.zip
+/.codex/ui-handoff/

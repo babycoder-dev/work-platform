@@ -4,19 +4,10 @@ import type { CurrentUserDto } from '@work/platform-contract';
 import { getPresenceApi } from '../runtime';
 import type { EmployeePresence, PresenceStatus, PresenceStatusRecord } from '../api/presence-types';
 
-const PRESENCE_LABELS: Record<PresenceStatus, string> = {
-  // Keep in sync with the presence web StatusBadge labels; do not import across module boundary.
-  working: '在岗',
-  business_trip: '出差',
-  field_research: '外出调研',
-  out: '外出',
-  leave: '休假',
-};
-
 type PresenceState =
   | { kind: 'hidden' }
   | { kind: 'loading' }
-  | { kind: 'ready'; record: PresenceStatusRecord | null }
+  | { kind: 'ready'; record: PresenceStatusRecord | null; statusLabel?: string }
   | { kind: 'error'; message: string };
 
 export function PresenceSection({
@@ -44,7 +35,7 @@ export function PresenceSection({
       .getEmployeePresence(employeeId)
       .then((result: EmployeePresence) => {
         if (!ignore) {
-          setState({ kind: 'ready', record: result.record });
+          setState({ kind: 'ready', record: result.record, statusLabel: result.statusLabel });
         }
       })
       .catch((error: unknown) => {
@@ -71,18 +62,26 @@ export function PresenceSection({
     );
   }
   if (!state.record) {
-    return <EmptyState title="当前无在位记录" description="该员工当前没有在位记录。" />;
+    return (
+      <article className="employee-profile__presence-card">
+        <div>
+          <div className="employee-profile__presence-title">
+            <Tag color="green" dot>
+              在岗（缺省）
+            </Tag>
+          </div>
+          <p className="employee-profile__presence-sub">当前无离岗登记</p>
+        </div>
+      </article>
+    );
   }
 
   return (
     <article className="employee-profile__presence-card">
-      <span
-        className={`employee-profile__presence-icon employee-profile__presence-icon--${state.record.status}`}
-      />
       <div>
         <div className="employee-profile__presence-title">
           <Tag color={presenceColor(state.record.status)} dot>
-            {PRESENCE_LABELS[state.record.status]}
+            {state.statusLabel ?? state.record.status}
           </Tag>
         </div>
         <p className="employee-profile__presence-sub">

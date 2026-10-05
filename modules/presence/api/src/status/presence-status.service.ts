@@ -24,6 +24,7 @@ import {
 import type {
   CreatePresenceStatusRecordInput,
   PresenceBoardEntryDto,
+  PresenceEmployeeStatusDto,
   PresenceStatusRecordDto,
 } from '@work/presence-contract';
 import {
@@ -142,7 +143,7 @@ export class PresenceStatusService {
   async getEmployeeStatus(
     currentUser: CurrentUserDto,
     employeeId: string,
-  ): Promise<{ record: PresenceStatusRecordDto | null }> {
+  ): Promise<PresenceEmployeeStatusDto> {
     const scope = await this.scopeService.resolveScope(currentUser, 'presence');
     const [subject] = await this.employeeLookup.listEmployeesByIds(currentUser.enterpriseId, [
       employeeId,
@@ -164,12 +165,23 @@ export class PresenceStatusService {
       return { record: null };
     }
 
-    const [record] = await this.repository.listActiveRecords({
+    const [activeRecord] = await this.repository.listActiveRecords({
       enterpriseId: scope.enterpriseId,
       at: new Date().toISOString(),
       userIds: [employeeId],
     });
-    return { record: record ?? null };
+    const record = activeRecord ?? null;
+    if (record === null) {
+      return { record: null };
+    }
+
+    const statusTypes = await this.repository.listStatusTypes(currentUser.enterpriseId, {
+      includeArchived: true,
+    });
+    return {
+      record,
+      statusLabel: statusTypes.find((type) => type.key === record.status)?.label ?? record.status,
+    };
   }
 
   async listOwnRecords(currentUser: CurrentUserDto): Promise<{ items: PresenceStatusRecordDto[] }> {
