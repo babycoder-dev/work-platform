@@ -32,3 +32,11 @@
 > OpenIM spike 须产出资源占用实测，汇总为 `docs/deployment.md`"vNext
 > 部署基线与容量规划"的输入（单机堆叠 vs 拆机的判断依据）。（原并列的 LLM spike
 > 已随 2026-07-07 拍板取消，容量规划不再含 GPU 档。）
+
+## 其他审查报告
+
+以下报告不属于 vNext 大组件 spike，不套用上文的七章模板，只作为对应切片的决策输入：
+
+| 报告 | 服务的切片 | 结论 |
+| --- | --- | --- |
+| `xlsx-dependency-evaluation.md` | M9-4（在位看板 Excel 导出） | 推荐 `write-excel-file@4.1.1`（MIT、单一运行时依赖）；`xlsx@0.18.5` 因命中 CVE 不通过；与 RFC §5.4 的 exceljs 预设存在偏差声明，落地前须在 M9-4 任务包记录并评审确认 |

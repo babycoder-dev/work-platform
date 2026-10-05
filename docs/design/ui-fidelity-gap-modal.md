@@ -12,7 +12,7 @@
 与**设计真源的居中弹窗**逐项对照，列出不一致，供独立 follow-up 切片照单整改。
 
 - 设计真源：`docs/design/ui-handoff/` 的居中弹窗范式 `.mscrim` / `.modal` / `.mh` / `.mf`
-  （现交接拷贝见 `.codex/ui-handoff/.../design/组织成员.html` L384–397）。
+  （见已入库设计真源 `docs/design/ui-handoff/design/组织成员.html` L384–397）。
 - 现有实现：`packages/ui/src/styles/components.css` L413–496 + `packages/ui/src/styles/tokens.css`。
 
 ## ⚠️ 为什么单列、为什么现在做最划算
