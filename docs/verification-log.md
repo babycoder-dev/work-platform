@@ -1,5 +1,49 @@
 # Verification Log
 
+## 2026-10-05
+
+### M9 Close-out and Repository Alignment
+
+**Change set**
+
+- Fast-forwarded the local `main` to `origin/main` (`e515966`, M9-3a board-realtime backend via PR #33) and
+  deleted the two local branches whose content was already fully contained in main
+  (`feat/m9-3a-board-realtime`, `fix/presence-status-width-migration`) together with five stale worktree
+  registrations left under the superpowers and `.claude` worktree roots.
+- Published M9-3b as PR #39 (`feat/m9-3b-presence-web-v2`, tip `0238266`) so the web regression window
+  declared by M9-3a is closed through review instead of a direct merge.
+- Versioned previously untracked deliverables: `docs/research/xlsx-dependency-evaluation.md` (the M9-4 xlsx
+  dependency review) and `docs/superpowers/specs/2026-06-01-frontend-shell-redesign-design.md`.
+- Versioned the `code-simplifier` agent definitions for the three tool dialects (`.claude/agents/`,
+  `.codex/agents/`, `.agents/skills/`), matching the already-tracked `security-reviewer` definitions.
+- Repointed the `@work/ui` Modal fidelity gap list at the in-repo design source
+  (`docs/design/ui-handoff/design/组织成员.html` L384–397) in place of the untracked `.codex/ui-handoff/`
+  copy, which was verified byte-identical for every file. The received handoff archive and its unpacked copy
+  are now ignored rather than showing up as untracked noise.
+
+**Validation**
+
+- `pnpm verify` on `feat/m9-3b-presence-web-v2`: pass (exit 0) — lint, typecheck, unit and web tests, default
+  e2e, production builds. The bundle emits the v2 `StatusTypesPage`, `PresenceBoardPage`, `RegisterStatusPage`
+  and `DynamicFormFields` chunks.
+  - The gate only passes after `pnpm install --frozen-lockfile`: the branch adds the `@work/ui` workspace
+    dependency to `modules/presence/web`, so a stale `node_modules` makes `vite build` fail with
+    `Rollup failed to resolve import "@work/ui"`. CI installs from the lockfile and is unaffected.
+- This run covers the non-database half of the M9-3b record dated 2026-07-15, which was produced with
+  `verify:full` (PostgreSQL integration 5 files / 39 tests, PostgreSQL e2e 3 files / 15 tests).
+- M9-3a's two `describe.skip` web suites are absent on the branch (0 skips against 2 on `main`), so the
+  fake-green debt it recorded is cleared.
+- `docs/adr/0003-gateway-boundary.md` showed as modified while its blob hash matched `HEAD` exactly; the flag
+  cleared on checkout and no content difference existed.
+
+**Carried forward**
+
+- M9-4 (Excel export) and M9-5 (delivery verification) remain Pending. Whether the sequence continues with
+  M10/M11 or starts the vNext M12 work is under review and not yet re-decided.
+- The default branch carries 74 open Dependabot alerts (33 high / 34 moderate / 7 low); dependency
+  remediation has no scheduled slice.
+- Root-level `*.log` leftovers from May 2026 stay in place: they are already ignored.
+
 ## 2026-07-10
 
 ### M9-3a Board Realtime Backend
