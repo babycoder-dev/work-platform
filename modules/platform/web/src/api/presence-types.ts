@@ -1,6 +1,6 @@
 // Local mirror of the presence public contract. Platform web consumes presence through HTTP only;
 // cross-module contract imports are intentionally avoided.
-export type PresenceStatus = 'working' | 'business_trip' | 'field_research' | 'out' | 'leave';
+export type PresenceStatus = string;
 
 export interface PresenceStatusRecord {
   id: string;
@@ -21,4 +21,5 @@ export interface PresenceStatusRecord {
 
 export interface EmployeePresence {
   record: PresenceStatusRecord | null;
+  statusLabel?: string;
 }

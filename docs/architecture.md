@@ -238,7 +238,8 @@ M9-2 激活 forms 的 `presence.status.<key>` 槽位家族。`FormSlotDefinition
 `dataType` / `subjectType` 作为记录 subject 授权单源：profile → `profile`、presence → `presence`、
 report → `report`；presence 定义权限为 `forms:presence-definition:{view,manage}`。该动态槽位家族在
 forms 侧不跨 schema 校验 key 是否存在于 `presence.status_types`，因此 typo key 会存成无效定义；
-M9-3b 定义管理 UI 必须从状态字典下拉选择 key，而不是让管理员自由输入 slotKey。
+后续 forms 定义管理 UI 必须从状态字典下拉选择 key，而不是让管理员自由输入 slotKey；该管理 UI
+不属于 M9-3b。
 
 M9-3a 已将 presence 看板数据来源反转为“实时员工名册 LEFT JOIN 活跃离岗记录”。`GET /presence/board`
 先按 viewer 的 `presence` 数据范围从 platform 名册取范围内 active 员工，再按这些 userId 批量读取
@@ -281,6 +282,10 @@ presence service -> PresenceFormsLinkPort -> gateway host adapter -> FormsServic
 gateway 适配器只从真实 `CurrentUserDto` 构造 actor、把 subject 固定为本人并转发参数；slot、权限、
 subject 数据范围、revision 与字段校验仍由 forms service 执行。服务拆分后可替换为 HTTP 适配器，
 presence 业务代码保持不变。
+
+M9-3b 的 presence web 由 Shell 挂载三页：名册语义的在位看板、字典驱动的本人离岗登记（只读本地
+forms 定义镜像）和受 `presence:status-type:manage` 保护的状态字典管理。页面只消费 presence 公开 API
+与 runtime 当前用户快照，不导入 forms 或 platform web 的内部实现。
 
 notification 的接收人解析只通过 `@work/platform-contract` 暴露的进程内只读 `PLATFORM_ORG_PORT`
 获取平台数据：`resolveDepartmentManager(enterpriseId,userId)` 与

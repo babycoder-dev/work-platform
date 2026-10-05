@@ -18,6 +18,11 @@ export interface PresenceStatusRecordDto {
   formRecordId?: string;
 }
 
+export interface PresenceEmployeeStatusDto {
+  record: PresenceStatusRecordDto | null;
+  statusLabel?: string;
+}
+
 export interface PresenceBoardEntryDto {
   userId: string;
   employeeNo: string;

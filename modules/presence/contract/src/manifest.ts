@@ -17,6 +17,11 @@ export const presenceManifest: WorkModuleManifest = {
       path: '/presence/register',
       permission: presencePermissions.statusCreate,
     },
+    {
+      title: '状态字典',
+      path: '/presence/status-types',
+      permission: presencePermissions.statusTypeManage,
+    },
   ],
   permissions: presencePermissionDefinitions,
   routes: [
@@ -27,6 +32,10 @@ export const presenceManifest: WorkModuleManifest = {
     {
       path: '/presence/register',
       permission: presencePermissions.statusCreate,
+    },
+    {
+      path: '/presence/status-types',
+      permission: presencePermissions.statusTypeManage,
     },
   ],
 };
