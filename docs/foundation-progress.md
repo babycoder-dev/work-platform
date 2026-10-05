@@ -192,17 +192,29 @@ UI 收口切片（M8 前，地基三屏像素级还原 + 还原度门禁）—�
 M8: 人员 / 组织 / 档案 —— 已退出（2026-06-28）
   └ M8-1 ~ M8-6 全部 Done；交付证据见 verification-log「M8-6 People / Org / Profile Delivery Verification」
   └ 照片下载、file/image/employee 重字段编辑、固定字段管理写 UI 显式结转后续切片
-M9: 在位状态 v2（RFC docs/rfc/m9-presence-v2.md 已 Accepted 2026-07-01，两轮独立评审 + 三项拍板：
-    archive-only 删除语义 / 在岗=缺省态不强制登记 / 字典管理仅 HR/系统管理员）
-  └ 状态字典 presence.status_types + 自助登记 v2（激活 forms presence.status.<key> 槽位并泛化记录 API）
-    + 看板名册反转（收口 §7.5，扩 PlatformEmployeeLookupPort.listEmployeesByScope）+ 后端 Excel 导出
+M9: 在位状态 v2（RFC docs/rfc/m9-presence-v2.md，2026-07-01 Accepted）—— 收尾中
   └ 切片 M9-1 状态字典后端 → M9-2 登记 v2 + forms 泛化 → M9-3a 看板实时化后端 → M9-3b web v2 → M9-4 导出 → M9-5 交付验证
-  └ M9-1 已完成：PR #31 合并（`85ea16d`），security-reviewer 独立二审通过（八条关注点全过、无越界），
-    workflow code-review 高强度扫描 + 修复轮（记录列宽对齐字典 key 上限、预置种子并发 ON CONFLICT 收窄、
-    setDefault 并发冲突映射 409）后 PG 全矩阵真跑绿
+  └ M9-1 已完成：PR #31 合并（`85ea16d`），security-reviewer 独立二审通过（八条关注点全过、无越界）
   └ M9-2 已完成：激活 forms presence 槽位、补 subject 范围门与按 id 读、presence 经出站端口和
-    gateway 宿主适配器创建 append 表单记录并一次落 `form_record_id`；验证见 verification-log
-    `M9-2 Self-Registration v2 + Forms Generalization`
+    gateway 宿主适配器创建 append 表单记录并一次落 `form_record_id`
+  └ M9-3a 已合并：PR #33（`e515966`，2026-07-15），getBoard 名册反转 + 扩 listEmployeesByScope
+  └ M9-3b 已实现待评审：PR #39（`feat/m9-3b-presence-web-v2`，tip `0238266`），本地 pnpm verify 全绿；
+    合并后关闭 M9-3a 声明的 web 回归窗口
+  └ M9-4（Excel 导出）Pending：选型审查已入库（docs/research/xlsx-dependency-evaluation.md，推荐
+    write-excel-file@4.1.1；与 RFC §5.4 的 exceljs 预设存在偏差声明，落地前须评审确认）
+  └ M9-5（交付验证）Pending：须在 #39 合并后执行，是 M9 整段退出的门禁
+
+下一棒（2026-10-05 产品负责人拍板）：
+  └ M9-5 关闭 M9 后进入 M10 日报。该顺序本就是 ADR-0005 既定序列，且 ADR-0006「决策」1 明写
+    "现有 M9（进行中）→ M10 日报 → M11 审批不动"，故本次拍板不产生新的 ADR/RFC 变更
+  └ 选它的理由：forms / notification / scheduler / 数据范围四条基建至今唯一真实消费者是 presence；
+    日报的逐级汇总会把它们同时拉进真实负载，是给"平台抽象是否成立"补第二个数据点成本最低的切片
+  └ M12 可靠事件与多进程基建（vNext 起点）本次明确不提前启动：ADR-0006 已声明 vNext 与 M10/M11
+    并行、互不阻塞，提前启动等于为当前不存在的规模问题做重投入
+  └ M10 目前既无 RFC 也无任务包（docs/rfc/ 下无 m10-*.md），因此下一个具体切片是 M10-0 RFC
+
+2026-10-05 已结算：本地 main 对齐 origin/main（`e515966`）；M9-3b → PR #39（待评审）；仓库整理 →
+  PR #40；证据见 verification-log「M9 Close-out and Repository Alignment」
 ```
 
 M6-0 RFC 已 Accepted，M6-1 已交付 `modules/forms` / `modules/files` 的 contract + api 骨架、

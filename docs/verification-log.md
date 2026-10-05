@@ -38,8 +38,14 @@
 
 **Carried forward**
 
-- M9-4 (Excel export) and M9-5 (delivery verification) remain Pending. Whether the sequence continues with
-  M10/M11 or starts the vNext M12 work is under review and not yet re-decided.
+- M9-4 (Excel export) and M9-5 (delivery verification) remain Pending. M9-5 gates the M9 exit and runs after
+  PR #39 merges.
+- 2026-10-05 decision: M10 (daily reports) is the next milestone after M9, with M11 (approval) following.
+  This only re-confirms the documented sequence — ADR-0005 already ordered M9 → M10 → M11, and ADR-0006
+  states "现有 M9（进行中）→ M10 日报 → M11 审批不动" — so no ADR or RFC change follows from it. The vNext
+  M12 work is deliberately not started early: ADR-0006 already declares vNext parallel to and non-blocking
+  for M10/M11, and starting it now would invest heavily in a scale problem the project does not yet have.
+  M10 has neither an RFC nor a task package yet, so its first slice is the M10-0 RFC.
 - The default branch carries 74 open Dependabot alerts (33 high / 34 moderate / 7 low); dependency
   remediation has no scheduled slice.
 - Root-level `*.log` leftovers from May 2026 stay in place: they are already ignored.
