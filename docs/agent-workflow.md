@@ -21,6 +21,12 @@
    （`pnpm -r` / `nx run-many` / `pnpm --filter` 三条路径实测均 exit 1）。据此断言「守卫失效」是错的——
    判断执法强度只能靠**故意违规的负向验证**，不能靠日志措辞。
 3. **自证是最弱的一环**。凡规则声称「可静态/机器核验」，就必须有对应的脚本与 CI 步骤。
+4. **门禁也会「假红」，处置方式是分段复跑，不是反复重跑直到绿。**
+   已知偶发：`test:e2e` 紧跟在 `pnpm test` 之后运行时，可能以 vitest worker `ERR_IPC_CHANNEL_CLOSED`
+   退出（`verification-log` 里历史上有 5 次记录；单独跑 `pnpm test:e2e` 稳定通过，2026-10-07 实测 4/4）。
+   遇到这类偶发红：按段单独复跑（`pnpm check:repo` / `pnpm test` / `pnpm test:e2e` / `pnpm build`），
+   并把 CI（Node 22 的完整链路）当作最终确认——**而不是**"多跑几次直到绿"。后者会让"绿"失去意义，
+   与假绿是同一个病的两面。
 
 ## 2. 门禁清单（可执行物 → 谁跑）
 
@@ -31,6 +37,11 @@
 | 交付门禁 | `pnpm verify`；涉 DB 加 `verify:full`，涉部署加 `docker:build` | 每次交付 |
 | 证据纪律 | PR 模板（要求**贴命令与结果**，不是勾选）+ `scripts/check-evidence.mjs`（`pnpm evidence`）：校验 `docs/verification-log.md` 中 **2026-10-01 起**的条目必须有 Validation/验证 小节且含「命令 + 结果」。**只校验形式，不校验真伪** | 每次交付 / CI |
 | 设计还原度 B 类（人工并排比对，覆盖交互态） | 不可机器化，定稿前人工做 | 评审 |
+| 技能格式 | `scripts/check-skills.mjs`（`pnpm skills:validate`）：`<root>/<name>/SKILL.md` 形态、frontmatter 必填 `name`/`description`、name 与目录名一致、拒绝嵌套 | 本地 `pnpm verify` + CI |
+| 长任务状态 | `scripts/goal.mjs validate`（`pnpm goal:validate`） | 本地 `pnpm verify` + CI |
+
+**以上仓库级检查由 `pnpm check:repo` 聚合**（`pnpm verify` 与 CI 都只跑它一步）；单独调试时跑各自的
+script。新增检查加进 `check:repo` 即可，不必再加 CI 步骤。
 
 A 类规则的**边界**（未覆盖项，改动时需一并决策）：A3（关键文案逐字一致）由 `*.spec.tsx` 断言承担；
 A4 只覆盖 `padding|margin|gap|border-radius|box-shadow|font|font-size`（**单位覆盖全部 CSS 长度与百分比，
@@ -80,8 +91,10 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
 
 ### 未验证 / 待办（诚实登记）
 
-- **挂载是否真被宿主调用**：本会话无法验证（属宿主行为）。验证方式：在对应工具里各触发一次
+- **hook 挂载是否真被宿主调用**：仍未验证（属宿主行为）。验证方式：在对应工具里各触发一次
   （改一个越界 import、开新会话看是否注入进度快照），结论记入 `docs/verification-log.md`。
+  - 对照：**技能侧已实测通过** —— 2026-10-07 新增三个技能后，当前会话的可用技能目录当场更新
+    （见 §5）。也就是说 `.agents/skills` 的扫描确认生效，而 `.claude/settings.json` 的 hooks 仍待实测。
 - **Codex 侧 `hooks.json` 结构与输出 schema**：需从 Codex 官方文档或 `@deepseek-ai/dsh-hook-protocol`
   的解码实现核实后再写。已确认的结论是**编辑期两个 hook 在 Codex 下不可行**。
 - **`continue: false` 在桥接下无运行级效果**（已知限制），故本仓 hook 不使用它。
@@ -107,10 +120,25 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
 
 ## 5. 技能（Skills）
 
-- 布局 `.agents/skills/<name>/SKILL.md`；frontmatter 必填 `name` + `description`，可选 `whenToUse`；
-  正文按需加载，目录只索引 frontmatter。
-- 只放**可复用的操作手册**，不放规则（规则在 constitution / ADR / RFC）。首批（P1）：任务包模板、
-  还原度门禁流程、数据库迁移纪律。
+- 布局 `.agents/skills/<name>/SKILL.md`（也可放 `.dsh/skills`、`.claude/skills`）；frontmatter 必填
+  `name` + `description`，可选 `whenToUse`；正文按需加载，目录只索引 frontmatter。
+- 只放**可复用的操作手册**，不放规则（规则在 constitution / ADR / RFC）。
+- **格式有门禁**：`scripts/check-skills.mjs`（`pnpm skills:validate`，已进 `pnpm check:repo`）。
+  因为技能加载失败是**静默的**——缺 `name`/`description` 或目录名与 `name` 不一致时，技能只是"不出现"，
+  没有任何报错；嵌套的 `**/SKILL.md` 不被支持，也会被这条门禁拦下。
+
+### 现有技能
+
+| 技能 | 用途 |
+| --- | --- |
+| `task-package` | 写/执行任务包（骨架、执行纪律、交付要求） |
+| `ui-fidelity-gate` | UI 还原度门禁：A 类机器校验 + B 类人工并排比对（含交互态） |
+| `db-migration-discipline` | 迁移只前向、一 schema 一入口、seed 幂等、env-gated 测试的假绿陷阱 |
+| `code-simplifier` | 简化近期改动（自 Anthropic Apache-2.0 适配） |
+
+**加载已验证**（2026-10-07，本仓实测）：新增三个技能后，当前会话的可用技能目录**当场更新**，新技能
+立即可被调用——即 `@deepseek-ai/dsh-skill-filesystem` 会从项目根（最近的含 `.git` 祖先）下的
+`.agents/skills` 扫描并索引。
 
 ## 6. 多代理编排（Workflow）
 
@@ -132,7 +160,9 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
   `scripts/hooks/`、去掉 shell 依赖、能力矩阵见 §3；按证据收缩：DSH 侧无需仓内配置、Codex 侧编辑期
   hook 协议上不可行）→ 证据门禁（`pnpm evidence` + PR 模板改为贴命令与结果）。
 - **P1 · 长任务与协作**：goal 纪律 + 废弃 `ai-handoff.md`（✅ 已落地：`docs/goal/` + `scripts/goal.mjs`
-  + 20 条规则单测 + 会话注入）→ 首批 skills → 一个真实 workflow 用例。
+  + 25 条规则单测 + 会话注入）→ 首批 skills（✅ 已落地：`task-package` / `ui-fidelity-gate` /
+  `db-migration-discipline` 三个技能 + `pnpm skills:validate` 格式门禁；加载已实测）→ 一个真实
+  workflow 用例。
 - **P2 · 文档治理**：`docs/` 顶层 7 篇不在 `doc-index` 管辖内的文档逐一定性（纳入 / 归档 / 删除）；
   `iteration-roadmap.md`（自标已过时）归档。
 
