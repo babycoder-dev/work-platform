@@ -1,5 +1,38 @@
 # Verification Log
 
+## 2026-10-07
+
+### P1.1 Goal Discipline and ai-handoff Retirement
+
+**Change set**
+
+- Made the long-task (goal) discipline executable rather than documentary: `scripts/lib/goal-rules.mjs`
+  (pure rules) plus `scripts/goal.mjs`
+  (`create | list | show | round | block | pause | resume | complete | validate`), with per-goal state in
+  `docs/goal/<id>.md` behind a `<!-- goal-state -->` block. `blocked` is a hard gate — the same blocker must
+  persist for three consecutive rounds, any progress resets the streak, and `complete` is terminal.
+- Retired the hand-maintained `docs/ai-handoff.md` (it had frozen at M3.5 with `9c887bd` while the project
+  was already at the M9 merge) and left a short record listing what replaced each of its responsibilities.
+- Gave the mechanism a real consumer: `scripts/hooks/load-progress.mjs` now appends non-complete goal summaries
+  to the SessionStart context — silent when no goal files exist, directory overridable via `WORK_GOAL_DIR`
+  so the path is testable.
+- Registered `pnpm goal:validate` in `pnpm verify` and in CI.
+
+**Validation**
+
+- `pnpm vitest run --config vitest.config.mts scripts`: pass — 71 tests in four suites (27 UI-fidelity rules,
+  14 evidence rules, 20 goal rules, 10 hook smoke).
+- `node scripts/check-ui-fidelity.mjs`: pass (215 files, no A1/A2/A4 violations).
+- `node scripts/check-evidence.mjs`: pass (the in-scope entry carries a Validation section with commands).
+- `node scripts/goal.mjs validate`: pass — no goal files exist yet, so there is nothing to validate.
+- CLI exercised end to end against a scratch goal: a `block` request after one blocked round was refused with
+  "还差 2 轮"; after three consecutive blocked rounds it succeeded and `validate` passed. Scratch file removed.
+
+**Carried forward**
+
+- No live goal files yet; the mechanism is meant for the first genuinely cross-session long task.
+- Host-side hook mounting is still unverified (`docs/agent-workflow.md` §3).
+
 ## 2026-10-05
 
 ### M9 Close-out and Repository Alignment

@@ -14,7 +14,7 @@
 // additionalContext 注入会话。任何失败一律静默(exit 0)，绝不阻塞会话启动。
 // 与 format-on-edit.mjs 一致：不用 jq，用 Node 解析；只读仓库内文件。
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
 const repo = process.cwd();
@@ -65,6 +65,45 @@ const parts = [section('总览'), section('当前下一步'), section('当前阻
 
 if (parts.length === 0) emit('');
 
+/**
+ * 活跃 goal（长任务）快照。目标是 docs/agent-workflow.md §4 的机制，规则由
+ * scripts/goal.mjs 执行；这里只做**注入**，让纪律在会话一开始就可见。
+ * 没有 goal 文件时静默跳过（绝大多数会话如此）。目录可用 WORK_GOAL_DIR 覆盖，便于测试。
+ */
+function goalSnapshot() {
+  const dir = process.env.WORK_GOAL_DIR ?? path.join(repo, 'docs', 'goal');
+  let files;
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md');
+  } catch {
+    return [];
+  }
+  const lines = [];
+  for (const name of files) {
+    let state;
+    try {
+      const block = /<!--\s*goal-state\s*([\s\S]*?)-->/.exec(readFileSync(path.join(dir, name), 'utf8'));
+      if (!block) continue;
+      state = JSON.parse(block[1]);
+    } catch {
+      continue;
+    }
+    if (!state || state.phase === 'complete') continue;
+    const blocker = state.blocker?.reason
+      ? `｜阻塞：${state.blocker.reason}（连续 ${state.blocker.consecutiveRounds} 轮）`
+      : '';
+    lines.push(
+      `- [${state.phase}] ${state.id}（${state.roundsStarted}/${state.maxRounds} 轮）${state.objective}${blocker}`,
+    );
+  }
+  if (lines.length === 0) return [];
+  return [
+    '',
+    '## 活跃长任务（goal；规则见 docs/agent-workflow.md §4，操作用 `node scripts/goal.mjs`）',
+    ...lines,
+  ];
+}
+
 const context = [
   '# 基建进度快照（SessionStart hook 自动注入，源自 docs/foundation-progress.md）',
   '',
@@ -72,6 +111,7 @@ const context = [
   '当前切片任务包在 `docs/tasks/`，验收记录在 `docs/verification-log.md`。',
   '',
   ...parts,
+  ...goalSnapshot(),
 ].join('\n');
 
 emit(context);
