@@ -31,8 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/guard-module-boundary.mjs || true",
-            "shell": "bash",
+            "command": "node scripts/hooks/guard-module-boundary.mjs",
             "timeout": 10,
             "statusMessage": "Checking module boundary…"
           }
@@ -45,8 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/format-on-edit.mjs || true",
-            "shell": "bash",
+            "command": "node scripts/hooks/format-on-edit.mjs",
             "timeout": 90,
             "statusMessage": "Formatting edited file (prettier + eslint --fix)…"
           }
@@ -58,8 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/load-progress.mjs || true",
-            "shell": "bash",
+            "command": "node scripts/hooks/load-progress.mjs",
             "timeout": 10,
             "statusMessage": "Loading foundation progress snapshot…"
           }
@@ -71,8 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/remind-on-stop.mjs || true",
-            "shell": "bash",
+            "command": "node scripts/hooks/remind-on-stop.mjs",
             "timeout": 10,
             "statusMessage": "Checking delivery gate reminders…"
           }

@@ -116,13 +116,14 @@ if (typeof input.content === 'string') {
 }
 if (!text) allow();
 
-// 收集 import/require/from 里的模块说明符。
+// 收集 import/require/from 里的模块说明符。注意裸副作用导入 `import 'x';` 没有 `from`，
+// 早先版本会整条漏掉它（2026-10-07 由 scripts/hooks/hooks.spec.mjs 第一次运行发现）。
 const specifiers = [];
 const re =
-  /(?:import|export)[^'"]*?from\s*['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)|import\(\s*['"]([^'"]+)['"]\s*\)/g;
+  /(?:import|export)[^'"]*?from\s*['"]([^'"]+)['"]|import\s*['"]([^'"]+)['"]|require\(\s*['"]([^'"]+)['"]\s*\)|import\(\s*['"]([^'"]+)['"]\s*\)/g;
 let mm;
 while ((mm = re.exec(text)) !== null) {
-  specifiers.push(mm[1] || mm[2] || mm[3]);
+  specifiers.push(mm[1] || mm[2] || mm[3] || mm[4]);
 }
 if (specifiers.length === 0) allow();
 
