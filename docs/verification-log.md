@@ -2,6 +2,59 @@
 
 ## 2026-10-07
 
+### P2 Documentation Governance
+
+**Change set**
+
+- Disposed of every top-level `docs/` file that sat outside `docs/doc-index.md` governance (seven files),
+  deciding each from its content rather than its title:
+  - **Archived four** into a new `docs/archive/` (with an archive-convention README and a per-file header
+    stating when, why and who took over): `iteration-roadmap.md` (self-marked obsolete since 2026-05),
+    `ai-handoff.md` (superseded by mechanism in P1.1), `open-questions.md` (zero references; most questions
+    since resolved), `github-cicd.md` (bootstrap-era; its CI command list had gone stale).
+  - **Brought three under governance**: `community-roadmap.md` and `good-first-issues.md` now carry a status
+    banner stating the project is unreleased and that they are non-authoritative and may lag;
+    `desktop-client.md` is registered as a topic doc.
+- Migrated what was still live rather than burying it: unresolved early questions moved into
+  `foundation-progress.md` §7.7 (password policy/等保, 2FA, desktop offline & update source, Linux distro
+  priority, OpenIM operations and retention), and the CI steps plus branch-protection requirements moved into
+  `development-workflow.md` §8.
+- Added `scripts/check-doc-refs.mjs` (`pnpm doc-refs`, wired into `check:repo`): a **dangling-pointer** gate
+  built from one `git log --all --diff-filter=DR` index. It reports a reference only when the path was once
+  committed and is gone now; forward-looking references and other projects' doc trees are listed
+  informationally instead of failing the build.
+- Updated `README.md`'s docs tree and `doc-index.md` (priority list, responsibilities table, archive
+  convention).
+- Added `scripts/check-branch.mjs` (`pnpm check:branch`, wired into `check:repo`): fails when local `main`
+  has uncommitted changes or unpushed commits. It exists because I committed straight onto `main` **twice in
+  one session**, each time needing a manual branch-reference-and-reset recovery. The git `pre-commit` route
+  was tried first and **abandoned** — git on this machine cannot spawn an extension-less hook script
+  (`error: cannot spawn scripts/hooks/pre-commit`), and an unverifiable guard is worse than none.
+
+**Validation**
+
+- `pnpm check:repo`: pass — UI fidelity 215 files, evidence form, goal validation, skills validation and the
+  new doc-refs gate over 90 files.
+- `pnpm vitest run --config vitest.config.mts scripts`: pass — 98 tests across seven suites.
+- **Negative verification of the new gate**: committing the four moves *before* updating references made
+  `pnpm doc-refs` fail with exactly six dangling pointers, all to `docs/ai-handoff.md` and none spurious;
+  after the reference updates it passes. Narrowing the rule was necessary — the naive "report every missing
+  path" version produced 32 hits, almost all legitimate forward references such as the planned
+  `docs/testing-strategy.md`.
+- All four moves used `git mv`, so history is preserved; `docs/archive/**` and `docs/verification-log.md` are
+  excluded from the gate as point-in-time snapshots.
+- **Negative verification of the branch guard**: on `main` with a tracked file modified it reports `[B1]` and
+  exits 1; on a feature branch it passes; detached HEAD (CI) is skipped. The first attempt at this test was
+  invalid — `git show <ref>:<path> | Set-Content -NoNewline` collapsed the script to a single line, so it ran
+  as an empty program and silently exited 0; the test was redone with line endings preserved.
+
+**Carried forward**
+
+- Hook mounting remains unverified (`docs/agent-workflow.md` §3).
+- The dependency-governance slice (nx 20→22 PR #42, vitest 3→4, 70+ open alerts) is still unscheduled.
+
+## 2026-10-07
+
 ### P1.3 Doc-Drift Audit (the one real workflow use case)
 
 **Change set**

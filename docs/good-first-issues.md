@@ -1,5 +1,9 @@
 # Good First Issues
 
+> **状态（2026-10-07）**：项目**尚未发布、无外部贡献者**（在研阶段）。本文是发布后的社区化**预留**，
+> **不参与当前排期**；其中的任务清单可能滞后。当前可做的切片见 `docs/foundation-progress.md` 与
+> `docs/tasks/`。发布时需按当时状态整体重写本文。
+
 This file lists starter tasks that are intentionally small, low-risk, and useful. The GitHub issue tracker should be the source of truth once issues are created; this document explains the intended shape of those tasks.
 
 ## Starter Tasks

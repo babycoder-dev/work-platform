@@ -18,6 +18,10 @@
 10. `docs/runbooks/*.md`：可重跑的操作手册（部署、smoke、迁移演练等），自包含、可执行；不定义新规则。
 11. `docs/research/*.md`：开源深评 spike 报告，支撑对应里程碑 RFC 的决策输入；不定义新规则，权威性同任务包。
 12. `docs/verification-log.md`：验证记录，不定义新规则。
+13. `docs/archive/*.md`：归档快照，按**当时事实**写、**不追改**（权威性同历史记录）；不参与
+    `scripts/check-doc-refs.mjs` 的引用校验。归档约定见 `docs/archive/README.md`。
+14. `docs/community-roadmap.md`、`docs/good-first-issues.md`：**发布后社区化预留**，项目未发布期间
+    非权威、可能滞后；当前进度与范围分别以 `foundation-progress.md`、`product-requirements.md` 为准。
 
 `README.md` 和 `AGENTS.md` 是入口文件，不承载详细设计。它们必须链接到权威文档，而不是复制复杂规则。
 
@@ -169,6 +173,10 @@ docs/research/README.md 与该里程碑对应 spike 报告
 | `docs/runbooks/*.md`           | 可重跑操作手册               | 每个 runbook 主题首次落地时           |
 | `docs/research/*.md`           | 开源深评 spike 报告          | 每个大组件 RFC 前置 spike 完成时      |
 | `docs/verification-log.md`     | 验证记录                     | 每个重要交付点后追加                  |
+| `docs/desktop-client.md`       | 桌面客户端架构取舍           | 客户端技术栈 / 交付范围变化           |
+| `docs/community-roadmap.md`    | 社区化预留（未发布，非权威） | 发布时整体重写                        |
+| `docs/good-first-issues.md`    | 社区任务预留（未发布，非权威） | 发布时整体重写                      |
+| `docs/archive/*.md`            | 归档快照（不追改）           | 不更新                                |
 
 ## 4. ADR 与 RFC 的区别
 
@@ -275,7 +283,7 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
   2026-10-05 立项，P0 首项已落地）
 - 长任务（goal）状态目录：`docs/goal/`（机制说明 + 文件格式 + 命令；一个目标一个 `docs/goal/<id>.md`，
   机器状态在 `<!-- goal-state -->` 块里；纪律执行者是 `scripts/goal.mjs`，已接入 `pnpm verify` 与 CI 的
-  `pnpm goal:validate`。2026-10-07 随 P1.1 落地，同时废弃手工维护的 `docs/ai-handoff.md`）
+  `pnpm goal:validate`。2026-10-07 随 P1.1 落地，同时废弃手工维护的 `docs/archive/ai-handoff.md`）
 
 后续建议补充：
 

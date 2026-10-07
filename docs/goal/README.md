@@ -3,7 +3,7 @@
 本目录承载**跨多轮/多会话的长任务**状态。规则见 `docs/agent-workflow.md` §4；纪律的**执行者**是
 `node scripts/goal.mjs`（纯规则在 `scripts/lib/goal-rules.mjs`，有单测）。
 
-它替代了此前的 `docs/ai-handoff.md`——那份手工维护的会话交接文档漂移了 4.5 个月（还停在 M3.5），
+它替代了此前的 `docs/archive/ai-handoff.md`——那份手工维护的会话交接文档漂移了 4.5 个月（还停在 M3.5），
 证明**手工状态文档必然失真**。这里的状态由脚本读写、由 hook 注入会话，不靠人记得去改。
 
 ## 为什么需要它

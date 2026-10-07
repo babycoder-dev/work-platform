@@ -6,8 +6,8 @@
 ## 0. 为什么有这份文档
 
 项目由「人 + 多个编码代理」推进（Claude Code / Codex / DeepSeek Harness）。相关约定此前散落在
-`.claude/`、`docs/ai-handoff.md`、`docs/development-workflow.md` §6/§7 与各 `CLAUDE.md` 里，
-且**手工维护的状态文档已被证明会漂移**：`docs/ai-handoff.md` 停在 M3.5（最新提交写 `9c887bd`），
+`.claude/`、`docs/archive/ai-handoff.md`、`docs/development-workflow.md` §6/§7 与各 `CLAUDE.md` 里，
+且**手工维护的状态文档已被证明会漂移**：`docs/archive/ai-handoff.md` 停在 M3.5（最新提交写 `9c887bd`），
 而项目当时已走到 M9 合并完成——漂移约 4.5 个月，期间无人察觉。
 
 本文件吸收 DeepSeek Harness（DSH）的机制形态，把这些约定收敛到**可执行的守卫**上，并为长任务、
@@ -43,6 +43,7 @@
 | 设计还原度 B 类（人工并排比对，覆盖交互态） | 不可机器化，定稿前人工做 | 评审 |
 | 技能格式 | `scripts/check-skills.mjs`（`pnpm skills:validate`）：`<root>/<name>/SKILL.md` 形态、frontmatter 必填 `name`/`description`、name 与目录名一致、拒绝嵌套 | 本地 `pnpm verify` + CI |
 | 长任务状态 | `scripts/goal.mjs validate`（`pnpm goal:validate`） | 本地 `pnpm verify` + CI |
+| 文档路径引用 | `scripts/check-doc-refs.mjs`（`pnpm doc-refs`）：**只报"曾经存在、后被移动/删除"的悬空指针**（用 git 历史判定，前瞻引用与其他项目的路径不算），不扫归档与时间点快照 | 本地 `pnpm verify` + CI |
 
 **以上仓库级检查由 `pnpm check:repo` 聚合**（`pnpm verify` 与 CI 都只跑它一步）；单独调试时跑各自的
 script。新增检查加进 `check:repo` 即可，不必再加 CI 步骤。
@@ -111,7 +112,7 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
 
 - **进度单一事实源** = `docs/foundation-progress.md`；会话启动由 `load-progress.mjs` 抽「总览 / 当前下一步 /
   当前阻塞项」注入上下文。动态内容走 hook，**不写进 `CLAUDE.md`**（后者只留稳定指针与坑）。
-- **`docs/ai-handoff.md` 已废弃**（2026-10-07）：手工维护的会话状态已被证明必然漂移——那份文档停在
+- **`docs/archive/ai-handoff.md` 已废弃**（2026-10-07）：手工维护的会话状态已被证明必然漂移——那份文档停在
   M3.5、最新提交写着 `9c887bd`，而项目已走到 M9 合并完成，**漂移约 4.5 个月无人察觉**；现在只保留一份
   废弃说明与职责替代表。
 - **长任务纪律**（借鉴 DSH goal，P1）：phase = `active | paused | blocked | complete`；`blocked` 仅当
@@ -184,8 +185,11 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
   `db-migration-discipline` 三个技能 + `pnpm skills:validate` 格式门禁；加载已实测）→ 一个真实
   workflow 用例（✅ 已落地：文档漂移审计，8 篇 → 26 候选 → 独立复核驳回 21 → 确认 4 并全部修复；
   配方与量化的驳回率见 §6）。
-- **P2 · 文档治理**：`docs/` 顶层 7 篇不在 `doc-index` 管辖内的文档逐一定性（纳入 / 归档 / 删除）；
-  `iteration-roadmap.md`（自标已过时）归档。
+- **P2 · 文档治理（已完成）**：`docs/` 顶层 7 篇未受管辖文档逐一定性——**归档 4 篇**
+  （`iteration-roadmap`、`ai-handoff`、`open-questions`、`github-cicd` → `docs/archive/`，各带归档头；
+  仍在生效的内容分别折进 `foundation-progress.md` §7.7 与 `development-workflow.md` §8）、
+  **纳入 3 篇**（`community-roadmap`、`good-first-issues` 标注"未发布、非权威"，`desktop-client` 登记）。
+  新增 `pnpm doc-refs` 门禁（悬空指针）并接入 `check:repo`。
 
 ### 挂账（不阻塞 P1/P2）
 

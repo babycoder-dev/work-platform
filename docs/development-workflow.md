@@ -81,6 +81,16 @@ docs: document delivery workflow
 - 本地日志
 - 未经确认的第三方源码拷贝
 
+**不要在 `main` 上干活。** `main` 受远端保护，本地同样走分支 + PR。`pnpm check:branch`（已进
+`pnpm check:repo`）会在 `main` 上有未提交改动或未推送提交时**直接失败**。这条规则来自一次真实教训：
+2026-10-07 同一个会话里**两次**把改动直接提交到本地 `main`，两次都靠人工「建分支引用 + `reset --hard`」
+补救。提醒显然不够，所以要检查。
+
+> 为什么不做成 git `pre-commit` hook：本机 git 无法 spawn 无扩展名的 hook 脚本
+> （`error: cannot spawn scripts/hooks/pre-commit`，与 `bash` 解析到 WSL 存根同类的机器问题）。
+> **一个我无法在本机验证的守卫，比没有守卫更糟**——它正是本仓一直在消灭的"配置存在但不生效"。
+> 详见 `scripts/lib/branch-rules.mjs` 头部。
+
 ## 4. 代码审查
 
 PR 或交付前必须检查：
@@ -139,3 +149,32 @@ AI 每完成一个可交付片段，应执行或说明以下结果：
   不能只看默认静态截图——长报错撑宽、浮层错位等只在交互态暴露。可用无头浏览器脚本对每个状态各截一张并排比。
 - **L1/L2 边界：** 视觉系统（组件库）、外壳 chrome、登录页、真实存在的屏的版式 = L1 严格像素级；设计稿里
   本产品尚未建的功能内容 = L2 仅视觉参考，用设计的组件样式渲染真实数据，不为此造后端、不照搬虚构内容。
+
+## 8. CI 与分支保护
+
+（2026-10-07 自 `docs/archive/github-cicd.md` 折入——那份文档其余部分属仓库引导期内容。）
+
+`main` 受保护：必须通过必需状态检查才能合并，且 **review 会话必须全部解决**。常规路径是分支 + PR；
+管理员虽可绕过保护，但不作为常规做法。
+
+CI（`.github/workflows/ci.yml`）在 PR 与 push 到 `main` 时运行：
+
+```text
+verify job（Node 22 + PostgreSQL 17 service）
+  pnpm install --frozen-lockfile
+  pnpm db:setup
+  pnpm lint
+  pnpm check:repo          # fidelity / evidence / goal:validate / skills:validate / doc-refs
+  pnpm typecheck
+  pnpm test
+  pnpm test:db             # env-gated（RUN_POSTGRES_INTEGRATION=true）
+  pnpm test:e2e
+  pnpm test:e2e:postgres   # env-gated（RUN_POSTGRES_E2E=true + PLATFORM_REPOSITORY_DRIVER=postgres）
+  pnpm build
+
+docker-build job（needs: verify）
+  docker compose -f infra/docker-compose.prod.yml build
+```
+
+必需检查：`verify` 与 `docker-build`（strict）。CI 是**完整链路**的最终确认；本地遇到偶发红时按
+`docs/agent-workflow.md` §1.4 **分段复跑**，不要重跑到绿。
