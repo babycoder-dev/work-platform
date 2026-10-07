@@ -41,6 +41,7 @@ jobs:
           NODE_ENV: production
           PLATFORM_BOOTSTRAP_ADMIN_PASSWORD: ci-admin-password
       - run: pnpm lint
+      - run: pnpm fidelity
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:db

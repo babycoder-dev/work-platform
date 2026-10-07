@@ -13,7 +13,7 @@
 5. `docs/product-requirements.md`：业务产品需求的单一事实源（要什么、给谁、边界），各 RFC 据此落地。
 6. `docs/rfc/*.md`：某个阶段或重大能力的落地规格。
 7. `docs/architecture.md`：当前目标架构说明。
-8. `docs/module-contract.md`、`docs/platform-core.md`、`docs/im-foundation.md` 等专题文档。
+8. `docs/module-contract.md`、`docs/platform-core.md`、`docs/im-foundation.md`、`docs/agent-workflow.md` 等专题文档。
 9. `docs/tasks/*.md`：单切片任务包，自包含、可执行、可验收；不定义新规则，权威性低于 RFC 与专题文档。
 10. `docs/runbooks/*.md`：可重跑的操作手册（部署、smoke、迁移演练等），自包含、可执行；不定义新规则。
 11. `docs/research/*.md`：开源深评 spike 报告，支撑对应里程碑 RFC 的决策输入；不定义新规则，权威性同任务包。
@@ -165,6 +165,7 @@ docs/research/README.md 与该里程碑对应 spike 报告
 | `docs/security-baseline.md`    | 安全基线和强制要求           | 认证、授权、审计、密钥、部署安全变化  |
 | `docs/deployment.md`           | 部署说明                     | Docker、环境变量、部署流程变化        |
 | `docs/development-workflow.md` | 开发流程                     | Git、测试、代码审查流程变化           |
+| `docs/agent-workflow.md`       | Agent 协作与研发基建         | 代理协作机制、门禁、长任务约定变化    |
 | `docs/runbooks/*.md`           | 可重跑操作手册               | 每个 runbook 主题首次落地时           |
 | `docs/research/*.md`           | 开源深评 spike 报告          | 每个大组件 RFC 前置 spike 完成时      |
 | `docs/verification-log.md`     | 验证记录                     | 每个重要交付点后追加                  |
@@ -268,6 +269,10 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
   agent-runtime/teable-anatomy 已产出，LLM spike 已取消）
 - vNext 首个 spike 任务包：`docs/tasks/vnext-spike-openim-deployment.md`（OpenIM 部署裁剪
   评估，M13 前置；产出 `docs/research/openim-deployment-evaluation.md`）
+- Agent 协作与研发基建约定：`docs/agent-workflow.md`（第一原则「承诺必须落到会红的检查上」；
+  门禁清单 + A 类还原度脚本 `scripts/check-ui-fidelity.mjs`（`pnpm fidelity`，已接入 `pnpm verify`
+  与 CI）；方言挂载、长任务 goal 纪律、skills 与 workflow 承载物、不搬清单、P0/P1/P2 落地顺序。
+  2026-10-05 立项，P0 首项已落地）
 
 后续建议补充：
 
