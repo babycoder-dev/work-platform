@@ -64,6 +64,26 @@ describe('生效起点之后的条目必须写证据', () => {
   it('恰好等于生效起点当天的条目也在范围内', () => {
     expect(lintLog(entry(CUTOFF, NO_SECTION)).violations).toHaveLength(1);
   });
+
+  // 以下两条来自 Codex 在 PR #44 上的 P2 审查。
+  it('接受标准 Markdown 标题 `### Validation`（不只认粗体）', () => {
+    expect(lintLog(entry('2026-10-05', '### Validation\n\n- `pnpm verify`: pass (exit 0)\n')).violations).toEqual(
+      [],
+    );
+    expect(lintLog(entry('2026-10-05', '#### 验证\n\n- `pnpm test`: 通过\n')).violations).toEqual([]);
+  });
+
+  it('命令与结果必须落在同一条证据里', () => {
+    const split = '**Validation**\n\n- `pnpm verify`\n- 结果：pass\n';
+    const { violations } = lintLog(entry('2026-10-05', split));
+    expect(violations).toHaveLength(1);
+    expect(violations[0].reason).toContain('同时包含');
+  });
+
+  it('反例：`bypass` 不得被当作结果标记', () => {
+    const trap = '**Validation**\n\n- `pnpm` is installed; bypass is intentional.\n';
+    expect(lintLog(entry('2026-10-05', trap)).violations).toHaveLength(1);
+  });
 });
 
 describe('历史条目不追溯，但如实统计', () => {
