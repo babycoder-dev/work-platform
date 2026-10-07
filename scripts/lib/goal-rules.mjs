@@ -42,8 +42,36 @@ export function writeState(text, state) {
   return lines.join('\n');
 }
 
-export function newGoal({ id, objective, maxRounds = DEFAULT_MAX_ROUNDS }) {
-  return {
+/** 保留的 id（目录说明文件），不能被目标占用。 */
+export const RESERVED_GOAL_IDS = ['readme'];
+
+/**
+ * 校验 goal id 是否可安全用作文件名。
+ * 必须拒绝路径分隔符/上跳（`../ai-handoff` 会把文件写到 docs/goal 之外）与保留名
+ * （`README` 会覆盖目录说明，且因为 list/validate 会跳过它而更难被发现）。Codex P2。
+ */
+export function goalIdProblem(id) {
+  if (!id) return '缺少 id';
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) {
+    return `id 不合法：${JSON.stringify(id)}（只允许字母/数字/点/下划线/连字符；不得以点开头，不得含路径分隔符）`;
+  }
+  if (RESERVED_GOAL_IDS.includes(id.toLowerCase())) {
+    return `id 是保留名：${id}（该文件是目录说明，不能被目标占用）`;
+  }
+  return null;
+}
+
+/** 校验 `--max-rounds` 输入；返回 { value } 或 { error }（NaN 会 JSON 化成 null，必须挡在写盘之前）。 */
+export function normalizeMaxRounds(value) {
+  if (value === undefined || value === null || value === '') return { value: DEFAULT_MAX_ROUNDS };
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return { error: `--max-rounds 必须是正整数，收到 ${JSON.stringify(value)}` };
+  }
+  return { value: parsed };
+}
+
+export function newGoal({ id, objective, maxRounds = DEFAULT_MAX_ROUNDS }) {  return {
     id,
     objective,
     phase: 'active',
@@ -87,7 +115,15 @@ export function validateGoal(state) {
  * 正常轮次会**重置**连续阻塞计数（有进展就不算连续卡住）。
  */
 export function recordRound(state, { blocker = null } = {}) {
+  // 只有 active 才能记轮次：blocked/paused 下记轮次会绕过「显式 resume」并在 blocked 态下清空 blocker，
+  // 产生一个通不过 validate 的状态（Codex P2）。
   if (state.phase === 'complete') return { error: '目标已完成，不能再记轮次' };
+  if (state.phase === 'blocked') {
+    return { error: '目标处于 blocked：请先 `resume` 再记轮次（不允许在 blocked 态下继续推进）' };
+  }
+  if (state.phase === 'paused') {
+    return { error: '目标处于 paused：请先 `resume` 再记轮次' };
+  }
   const next = structuredClone(state);
   if (next.roundsStarted >= next.maxRounds) {
     return { error: `轮次预算已用尽（${next.maxRounds}），需显式提高 maxRounds 或收束目标` };

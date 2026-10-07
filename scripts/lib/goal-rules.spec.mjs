@@ -6,7 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKED_MIN_ROUNDS,
+  goalIdProblem,
   newGoal,
+  normalizeMaxRounds,
   readState,
   recordRound,
   requestBlock,
@@ -151,5 +153,39 @@ describe('phase 切换', () => {
     const paused = setPhase(base(), 'paused').state;
     expect(paused.phase).toBe('paused');
     expect(setPhase(paused, 'active').state.phase).toBe('active');
+  });
+});
+
+// 以下三条来自 Codex 在 PR #45 上的 P2 审查。
+describe('输入与状态校验', () => {
+  it('goal id 必须是安全文件名：拒绝路径分隔符、上跳与以点开头', () => {
+    expect(goalIdProblem('m10-daily-report')).toBeNull();
+    expect(goalIdProblem('../ai-handoff')).toContain('不合法');
+    expect(goalIdProblem('a/b')).toContain('不合法');
+    expect(goalIdProblem('.hidden')).toContain('不合法');
+    expect(goalIdProblem('')).toContain('缺少 id');
+  });
+
+  it('goal id 拒绝保留名 README（否则会覆盖目录说明）', () => {
+    expect(goalIdProblem('README')).toContain('保留名');
+    expect(goalIdProblem('readme')).toContain('保留名');
+  });
+
+  it('--max-rounds 必须是正整数，NaN 不得写盘成 null', () => {
+    expect(normalizeMaxRounds(undefined)).toEqual({ value: 12 });
+    expect(normalizeMaxRounds('6')).toEqual({ value: 6 });
+    expect(normalizeMaxRounds('nope').error).toContain('正整数');
+    expect(normalizeMaxRounds('0').error).toContain('正整数');
+    expect(normalizeMaxRounds('2.5').error).toContain('正整数');
+  });
+
+  it('blocked 态下不允许记轮次（必须先 resume）', () => {
+    const blocked = setPhase(blockedRounds(base(), 'r', BLOCKED_MIN_ROUNDS), 'blocked').state;
+    expect(recordRound(blocked, {}).error).toContain('resume');
+    expect(recordRound(blocked, { blocker: 'r' }).error).toContain('resume');
+  });
+
+  it('paused 态下同样不允许记轮次', () => {
+    expect(recordRound(setPhase(base(), 'paused').state, {}).error).toContain('resume');
   });
 });

@@ -21,8 +21,9 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   BLOCKED_MIN_ROUNDS,
-  DEFAULT_MAX_ROUNDS,
+  goalIdProblem,
   newGoal,
+  normalizeMaxRounds,
   readState,
   recordRound,
   setPhase,
@@ -111,12 +112,16 @@ switch (command) {
   case 'create': {
     if (!flags.id) fail('需要 --id');
     if (!flags.objective) fail('需要 --objective');
+    const idProblem = goalIdProblem(flags.id);
+    if (idProblem) fail(idProblem);
+    const maxRounds = normalizeMaxRounds(flags['max-rounds']);
+    if (maxRounds.error) fail(maxRounds.error);
     mkdirSync(GOAL_DIR, { recursive: true });
     if (goalIds().includes(flags.id)) fail(`已存在：${flags.id}`);
     const state = newGoal({
       id: flags.id,
       objective: flags.objective,
-      maxRounds: flags['max-rounds'] ? Number(flags['max-rounds']) : DEFAULT_MAX_ROUNDS,
+      maxRounds: maxRounds.value,
     });
     const text = writeState(TEMPLATE(state), state);
     writeFileSync(goalPath(flags.id), text, 'utf8');
