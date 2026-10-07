@@ -33,8 +33,12 @@
 | 设计还原度 B 类（人工并排比对，覆盖交互态） | 不可机器化，定稿前人工做 | 评审 |
 
 A 类规则的**边界**（未覆盖项，改动时需一并决策）：A3（关键文案逐字一致）由 `*.spec.tsx` 断言承担；
-A4 只覆盖 `padding|margin|gap|border-radius|box-shadow|font|font-size`，`letter-spacing` /
-`line-height` / `transform` 的取值口径待定；TSX 内联样式不在扫描范围内。
+A4 只覆盖 `padding|margin|gap|border-radius|box-shadow|font|font-size`（**单位覆盖全部 CSS 长度与百分比，
+含 vw/vh/ch/%，零值 `0` / `0px` / `0%` 豁免**），`letter-spacing` / `line-height` / `transform` 的取值口径
+待定；TSX 内联样式不在扫描范围内。
+规则本身有回归测试：`scripts/lib/ui-fidelity-rules.spec.mjs`（由 `vitest.config.mts` 的
+`scripts/**/*.spec.mjs` 收集）——**门禁自身也要有守卫**，否则规则会像 2026-10-07 那样被静默削弱
+（当时 A4 只认 px/rem/em，`font-size:3vw` 这类裸值可直接绕过）。
 
 ## 3. 方言与挂载：一份实现、多入口
 
