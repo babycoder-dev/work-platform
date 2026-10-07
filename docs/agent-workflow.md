@@ -27,7 +27,7 @@
 | 守卫 | 承载物 | 何时跑 |
 | --- | --- | --- |
 | UI 还原度 A 类（A1 零 hex / A2 零 emoji / A4 只引 token） | `scripts/check-ui-fidelity.mjs`（`pnpm fidelity`） | 本地 `pnpm verify` + CI |
-| 模块边界 | eslint `@nx/enforce-module-boundaries`（三条 lint 路径实测生效）+ `.claude/hooks/guard-module-boundary.mjs`（写入期即时反馈） | lint / CI / 编辑时 |
+| 模块边界 | eslint `@nx/enforce-module-boundaries`（三条 lint 路径实测生效）+ `scripts/hooks/guard-module-boundary.mjs`（写入期即时反馈） | lint / CI / 编辑时 |
 | 交付门禁 | `pnpm verify`；涉 DB 加 `verify:full`，涉部署加 `docker:build` | 每次交付 |
 | 证据纪律 | PR 模板 + `docs/verification-log.md` 条目形状 | PR |
 | 设计还原度 B 类（人工并排比对，覆盖交互态） | 不可机器化，定稿前人工做 | 评审 |
@@ -42,20 +42,53 @@ A4 只覆盖 `padding|margin|gap|border-radius|box-shadow|font|font-size`（**�
 
 ## 3. 方言与挂载：一份实现、多入口
 
-现状与目标：hook 逻辑一律放 `scripts/hooks/*.mjs`（方言无关、纯 Node、**不 spawn 子进程**），
-各工具的配置只负责**挂载**：
+hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝不阻塞会话，唯一例外是**真边界违规**，
+用 `ask` 交人定夺而非硬拒）。各工具的配置只负责**挂载**。
 
-| 方言 | 挂载点 | 现状 |
-| --- | --- | --- |
-| Claude Code | `.claude/settings.json` → hooks | 已挂 4 个 |
-| Codex | `.codex/` 等价配置 | **待补（P0）** |
-| DSH | 仓库内配置 | **待补（P0）** |
+命令一律写成 `node scripts/hooks/<name>.mjs`：**不要加 `shell: bash`，也不要加 `|| true`**。
+2026-10-07 实测：本机 PATH 上的 `bash` 首先解析到 WSL 存根 `C:\Windows\system32\bash.exe`，直接调用报
+`execvpe(/bin/bash) failed`（Git Bash 虽装在 `C:\Program Files\Git\bin\bash.exe`，但不在 PATH 前面）。
+脚本自身已在所有路径 `exit 0`，`|| true` 纯属多余依赖；去掉后 hook 不再受任何 shell 解析歧义影响。
 
-约定：hook 异常一律放行，绝不阻塞会话；唯一例外是**真边界违规**，用 `ask` 交人定夺，不硬拒
-（避免误报把工作流卡死）。
+### 能力矩阵（由**协议**决定，不是配置问题）
 
-现有 4 个 hook 的职责：`guard-module-boundary`（写入期边界）、`format-on-edit`（prettier + eslint --fix）、
-`load-progress`（SessionStart 注入进度快照）、`remind-on-stop`（结束前提醒门禁与文档沉淀）。
+| hook | Claude Code | Codex | 依据 |
+| --- | --- | --- | --- |
+| `load-progress`（SessionStart 附加上下文） | ✅ | ✅ | 只读仓库文件，与工具载荷无关 |
+| `remind-on-stop`（Stop 提醒） | ✅ | ✅ | 只依赖 `session_id` 与 `git status` |
+| `guard-module-boundary`（写入期看 `file_path` + 写入内容） | ✅ | ❌ **不可行** | Codex 工具载荷只暴露 `tool_input.command`，非 shell 工具参数不会被如实公开 |
+| `format-on-edit`（PostToolUse 看 `file_path`） | ✅ | ❌ **不可行** | 同上，拿不到被改文件路径 |
+
+因此**编辑期**保证在 Codex 侧只能由 CI 承担：`pnpm lint`（模块边界 eslint 规则）+ `pnpm fidelity`
+（A 类还原度）。这是分层事实而非缺陷登记：写入期 hook 提供**更早的反馈**，CI 才是**兜底执法**。
+
+### 挂载方式
+
+- **Claude Code**：`.claude/settings.json` 的 `hooks` 键已挂 4 个。
+- **DSH**：**仓库内无需新配置**——它的桥接读现成配置。在 DSH profile 挂
+  `@deepseek-ai/dsh-hooks-claude-code`，把 `configPath` 指向 `.claude/settings.json`
+  （该桥接接受「含 `hooks` 键的 settings 文件」），并设 `projectDir` 指向本仓。
+- **Codex**：需要 Codex 形状的 `hooks.json`，由 `@deepseek-ai/dsh-hooks-codex` 的 `configPath` 指向。
+  **本项未落地**——Codex 方言的 `hooks.json` 结构与 hook 输出 schema 尚未从证据核实，按「不猜格式」
+  原则暂不写（见下）。
+
+### 输出形状（已核实与桥接一致，无需发明新格式）
+
+桥接按 Claude 参考形状解码：顶层 `decision` 仅 `approve` / `block`；`hookSpecificOutput.permissionDecision`
+仅 `allow|deny|ask`（配 `permissionDecisionReason`）；`additionalContext` 用于附加上下文；
+`hookSpecificOutput.hookEventName` 必须与触发事件一致；多 hook 合并规则 `deny > ask > allow`。
+
+### 未验证 / 待办（诚实登记）
+
+- **挂载是否真被宿主调用**：本会话无法验证（属宿主行为）。验证方式：在对应工具里各触发一次
+  （改一个越界 import、开新会话看是否注入进度快照），结论记入 `docs/verification-log.md`。
+- **Codex 侧 `hooks.json` 结构与输出 schema**：需从 Codex 官方文档或 `@deepseek-ai/dsh-hook-protocol`
+  的解码实现核实后再写。已确认的结论是**编辑期两个 hook 在 Codex 下不可行**。
+- **`continue: false` 在桥接下无运行级效果**（已知限制），故本仓 hook 不使用它。
+
+4 个 hook 的职责：`guard-module-boundary`（写入期边界）、`format-on-edit`（prettier + eslint --fix）、
+`load-progress`（SessionStart 注入进度快照）、`remind-on-stop`（结束前提醒门禁与文档沉淀）；
+行为由 `scripts/hooks/hooks.spec.mjs` 以真实 stdin 载荷冒烟覆盖。
 
 ## 4. 长任务与状态：替代手工 handoff
 
