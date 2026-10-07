@@ -273,6 +273,9 @@ RFC: M1 Platform Core 持久化的 schema、迁移、seed、session、测试方�
   门禁清单 + A 类还原度脚本 `scripts/check-ui-fidelity.mjs`（`pnpm fidelity`，已接入 `pnpm verify`
   与 CI）；方言挂载、长任务 goal 纪律、skills 与 workflow 承载物、不搬清单、P0/P1/P2 落地顺序。
   2026-10-05 立项，P0 首项已落地）
+- 长任务（goal）状态目录：`docs/goal/`（机制说明 + 文件格式 + 命令；一个目标一个 `docs/goal/<id>.md`，
+  机器状态在 `<!-- goal-state -->` 块里；纪律执行者是 `scripts/goal.mjs`，已接入 `pnpm verify` 与 CI 的
+  `pnpm goal:validate`。2026-10-07 随 P1.1 落地，同时废弃手工维护的 `docs/ai-handoff.md`）
 
 后续建议补充：
 

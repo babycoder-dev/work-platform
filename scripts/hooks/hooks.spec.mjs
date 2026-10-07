@@ -8,6 +8,8 @@
 // 因此只在非受限环境（CI / 本地完全权限）有意义。
 
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -15,12 +17,13 @@ const HOOKS_DIR = import.meta.dirname;
 const REPO = path.resolve(HOOKS_DIR, '..', '..');
 
 /** 以给定 stdin 载荷运行 hook，返回可观察结果。 */
-function runHook(name, payload) {
+function runHook(name, payload, extraEnv = {}) {
   const result = spawnSync(process.execPath, [path.join(HOOKS_DIR, `${name}.mjs`)], {
     cwd: REPO,
     input: JSON.stringify(payload),
     encoding: 'utf8',
     timeout: 60_000,
+    env: { ...process.env, ...extraEnv },
   });
   return {
     status: result.status,
@@ -75,6 +78,32 @@ describe('load-progress：会话启动注入进度快照', () => {
     const out = JSON.parse(stdout);
     expect(out.hookSpecificOutput.hookEventName).toBe('SessionStart');
     expect(out.hookSpecificOutput.additionalContext).toContain('基建进度快照');
+  });
+
+  it('注入活跃 goal；没有 goal 文件时不出现该段', () => {
+    const bare = JSON.parse(runHook('load-progress', {}).stdout);
+    expect(bare.hookSpecificOutput.additionalContext).not.toContain('活跃长任务');
+
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'work-goal-'));
+    const state = {
+      id: 'g1',
+      objective: '演练目标',
+      phase: 'blocked',
+      roundsStarted: 3,
+      maxRounds: 8,
+      blocker: { reason: '等法务背书', consecutiveRounds: 3 },
+    };
+    writeFileSync(
+      path.join(dir, 'g1.md'),
+      `# Goal: 演练\n\n<!-- goal-state\n${JSON.stringify(state)}\n-->\n`,
+      'utf8',
+    );
+
+    const withGoal = runHook('load-progress', {}, { WORK_GOAL_DIR: dir });
+    const context = JSON.parse(withGoal.stdout).hookSpecificOutput.additionalContext;
+    expect(context).toContain('活跃长任务');
+    expect(context).toContain('等法务背书');
+    expect(context).toContain('g1');
   });
 });
 

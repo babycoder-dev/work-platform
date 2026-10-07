@@ -94,11 +94,16 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
 
 - **进度单一事实源** = `docs/foundation-progress.md`；会话启动由 `load-progress.mjs` 抽「总览 / 当前下一步 /
   当前阻塞项」注入上下文。动态内容走 hook，**不写进 `CLAUDE.md`**（后者只留稳定指针与坑）。
-- **`docs/ai-handoff.md` 废弃**（P1）：手工维护的会话状态已被证明必然漂移，其职责由「进度注入 + git 历史」
-  承担。
+- **`docs/ai-handoff.md` 已废弃**（2026-10-07）：手工维护的会话状态已被证明必然漂移——那份文档停在
+  M3.5、最新提交写着 `9c887bd`，而项目已走到 M9 合并完成，**漂移约 4.5 个月无人察觉**；现在只保留一份
+  废弃说明与职责替代表。
 - **长任务纪律**（借鉴 DSH goal，P1）：phase = `active | paused | blocked | complete`；`blocked` 仅当
   **同一阻塞连续 ≥ 3 轮**且能给出具体阻塞条件时才允许，否则继续推进或在对话中问人；**resume / fork 后
-  不自复活**，必须由人显式恢复。承载物：`docs/goal/<id>.md` + `scripts/goal.mjs`（校验非法转移与阈值）。
+  不自复活**，必须由人显式恢复。承载物：`docs/goal/<id>.md`（机器状态在 `<!-- goal-state -->` 块里）+ `scripts/goal.mjs`
+  （纯规则在 `scripts/lib/goal-rules.mjs`，20 条单测）。命令：
+  `create | list | show | round [--note|--blocked] | block | pause | resume | complete | validate`，
+  细节见 `docs/goal/README.md`。`load-progress.mjs` 会把非 complete 的 goal 摘要注入会话上下文
+  （无 goal 文件时静默跳过；目录可用 `WORK_GOAL_DIR` 覆盖以便测试）。
 
 ## 5. 技能（Skills）
 
@@ -126,7 +131,8 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
 - **P0 · 承诺变守卫（已完成）**：A 类门禁脚本化（`pnpm fidelity`）→ 方言统一（hook 收口到
   `scripts/hooks/`、去掉 shell 依赖、能力矩阵见 §3；按证据收缩：DSH 侧无需仓内配置、Codex 侧编辑期
   hook 协议上不可行）→ 证据门禁（`pnpm evidence` + PR 模板改为贴命令与结果）。
-- **P1 · 长任务与协作**：goal 纪律 + 废弃 `ai-handoff.md` → 首批 skills → 一个真实 workflow 用例。
+- **P1 · 长任务与协作**：goal 纪律 + 废弃 `ai-handoff.md`（✅ 已落地：`docs/goal/` + `scripts/goal.mjs`
+  + 20 条规则单测 + 会话注入）→ 首批 skills → 一个真实 workflow 用例。
 - **P2 · 文档治理**：`docs/` 顶层 7 篇不在 `doc-index` 管辖内的文档逐一定性（纳入 / 归档 / 删除）；
   `iteration-roadmap.md`（自标已过时）归档。
 
