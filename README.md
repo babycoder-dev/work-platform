@@ -63,18 +63,23 @@ docs/
   constitution.md
   architecture.md
   foundation-blueprint.md
+  foundation-progress.md
+  product-requirements.md
   security-baseline.md
   platform-core.md
-  im-foundation.md
+  module-contract.md
+  agent-workflow.md
   development-workflow.md
   deployment.md
-  github-cicd.md
   verification-log.md
   adr/
-  module-contract.md
-  desktop-client.md
-  iteration-roadmap.md
   rfc/
+  tasks/
+  runbooks/
+  research/
+  design/
+  goal/
+  archive/
 ```
 
 ## 默认技术栈

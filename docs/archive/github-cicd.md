@@ -1,5 +1,10 @@
 # GitHub 与 CI/CD
 
+> **归档于 2026-10-07**（原 `docs/github-cicd.md`）。归档理由：这是仓库**引导期**的文档
+> （"是否需要上传 GitHub""初始化远程仓库"），其中 §3 的 CI 命令列表早已过期；仍未失效的两部分
+> 已折进 `docs/development-workflow.md`（CI 步骤与分支保护要求）。保留原文以记录引导期取舍。
+> 归档约定见 `docs/archive/README.md`。
+
 ## 1. 是否需要上传 GitHub
 
 可以上传 GitHub，用 GitHub Actions 做 CI。若代码不能出企业网络，应改用内部 Git 服务与同等 CI 流水线。

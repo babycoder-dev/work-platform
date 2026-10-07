@@ -1,5 +1,11 @@
 # 迭代路径建议
 
+> **归档于 2026-10-07**（原 `docs/iteration-roadmap.md`）。归档理由：自 2026-05 起自标"已过时"，
+> 其 Phase 划分与现行里程碑不一致，且**零引用**（`README` 的目录树除外）。职责由
+> `docs/foundation-blueprint.md`（路线图）、`docs/foundation-progress.md`（进度）与
+> `docs/adr/0005-product-replan-roadmap.md` / `docs/adr/0006-vnext-roadmap.md`（决策）接管。
+> 保留原文以记录早期路线取舍。归档约定见 `docs/archive/README.md`。
+
 > **已过时（2026-05）。** 本文是项目早期的迭代建议，其 Phase 划分与当前里程碑已不一致
 > （例如把审批/日报/通知排在在位之后、通知中心放在 Phase 5）。权威路线图以
 > `docs/foundation-blueprint.md` §10、`docs/foundation-progress.md` 与

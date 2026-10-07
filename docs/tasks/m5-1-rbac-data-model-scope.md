@@ -320,7 +320,7 @@ SELECT module_name, count(*) FROM platform.permissions GROUP BY module_name ORDE
 
 1. `docs/foundation-progress.md`：§6.2 M5 切片表中 M5-1 置 `Done` + 日期 + verification-log 锚点；§6 “当前下一步”改为 `M5-2 角色管理 API`。
 2. `docs/verification-log.md`：顶部加 `## YYYY-MM-DD` + `### M5-1 RBAC Data Model and Scope`，含 Change set、§10 各项实测结果（含 10.3 SQL 数字或“依赖 CI + 等价 spec”）、`security-reviewer` 结论、Follow-up=M5-2。
-3. **同步因 `resolveScope` 签名变更而失真的文档**（强制，否则它们会教错下游）：把 `docs/platform-core.md`、`docs/module-contract.md`（§7.1.5 模块集成模板）、`docs/ai-handoff.md` 中旧的单参 `resolveScope(currentUser)` 改为 `resolveScope(currentUser, dataType)`，注明 `dataType ∈ 'profile' | 'presence' | 'report'`。（本切片实际交付时已先行同步，此项留作 checklist。）
+3. **同步因 `resolveScope` 签名变更而失真的文档**（强制，否则它们会教错下游）：把 `docs/platform-core.md`、`docs/module-contract.md`（§7.1.5 模块集成模板）、`docs/archive/ai-handoff.md`（该文件后已于 2026-10-07 归档，无需再同步）中旧的单参 `resolveScope(currentUser)` 改为 `resolveScope(currentUser, dataType)`，注明 `dataType ∈ 'profile' | 'presence' | 'report'`。（本切片实际交付时已先行同步，此项留作 checklist。）
 
 ## 13. 提交规范
 

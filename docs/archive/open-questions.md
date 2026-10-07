@@ -1,5 +1,10 @@
 # 待确认事项
 
+> **归档于 2026-10-07**（原 `docs/open-questions.md`）。归档理由：`2026-05` 时代的早期待确认清单，
+> **零引用**；其中多数已解决（ORM=Drizzle、UI 自研 `@work/ui`、身份源、部署方式），**仍未决的条目已迁入
+> `docs/foundation-progress.md` §7.7**（含密码策略/等保、2FA、C/S 客户端离线与更新源、OpenIM 运维与保留策略）。
+> 保留原文以记录当时的候选方案。归档约定见 `docs/archive/README.md`。
+
 以下事项不阻塞第一阶段基建，但会影响后续实现细节。
 
 > 更新（2026-05）：部分事项已定——ORM=Drizzle、数据库=PostgreSQL（见 `docs/architecture.md`）；即时通讯/聊天本期不做、外部 IM 接入归 vNext（见 `docs/adr/0005-product-replan-roadmap.md`、`docs/product-requirements.md` §6）。其余仍为待确认，保留备查。

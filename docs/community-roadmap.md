@@ -1,5 +1,9 @@
 # Community Roadmap
 
+> **状态（2026-10-07）**：项目**尚未发布、无外部贡献者**（在研阶段）。本文是发布后的社区化**预留**，
+> **不参与当前排期**，其阶段描述也可能滞后于实际进度。权威进度以 `docs/foundation-progress.md` 为准，
+> 权威范围以 `docs/product-requirements.md` 为准。发布时需按当时状态整体重写本文。
+
 This roadmap explains where community contributions fit. The authoritative engineering milestones remain `docs/foundation-blueprint.md` and `docs/foundation-progress.md`; this document translates them into contributor-friendly work areas.
 
 ## Current Project Stage
