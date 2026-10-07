@@ -2,6 +2,51 @@
 
 ## 2026-10-07
 
+### P1.3 Doc-Drift Audit (the one real workflow use case)
+
+**Change set**
+
+- Ran this repo's first real multi-agent workflow: a two-stage document-drift audit over eight documents
+  (`foundation-progress`, `security-baseline`, `module-contract`, `architecture`, `platform-core`,
+  `deployment`, `development-workflow`, `doc-index`). Stage one audited each document for claims the
+  repository contradicts and emitted only evidence-backed candidates; stage two had a **separate** agent try
+  to refute each candidate individually.
+- Outcome: 26 candidates → **21 rejected** by independent verification, 5 left unverified, **4 confirmed**.
+  The 80% rejection rate is the measured argument for spending half the budget on verification rather than
+  trusting a single audit pass.
+- Fixed all four confirmed drifts:
+  - `docs/security-baseline.md` risk table: the 审计日志未闭环 / 菜单权限未闭环 rows still read 未完成 although
+    M2 closed both; they now state the real position (including that there is still **no audit query endpoint
+    or UI**).
+  - `docs/security-baseline.md` §11 demanded `SESSION_SECRET` or `TOKEN_SECRET` — keys that exist nowhere in
+    the repository and are not needed, because platform tokens are random opaque values stored only as hashes.
+    The required-config list now matches reality and carries an explicit rule: do not write 必须配置 before a
+    key actually exists.
+  - `docs/doc-index.md` and `docs/foundation-progress.md` described M9-3b as 待 PR/合并 although PR #39 merged
+    on 2026-10-05. The stale wording was written **by that very merge commit**.
+- Recorded the recipe, the measured rejection rate, and the deliberate decision **not** to turn this drift
+  class into a gate (it is semantic; no linter can decide whether a "Done" is true) in
+  `docs/agent-workflow.md` §6, plus §1.5 "merging updates the status board" (the verification log is
+  point-in-time and is not rewritten).
+
+**Validation**
+
+- `pnpm check:repo`: pass — UI fidelity 215 files clean, evidence form, goal validation, skills validation.
+- `node scripts/check-evidence.mjs`: pass, and this entry is itself one of the checked entries.
+- Re-checked after the edits: no remaining 待 PR/合并 or 待合并 wording in `docs/doc-index.md` or
+  `docs/foundation-progress.md`.
+- Workflow evidence: 16 agents ran (8 audits + 8 independent verifications) over the eight documents.
+- The status rewrite was made only after re-confirming PR #39 through the GitHub API (state=closed,
+  merged=true, merge_commit_sha=b45d319…) rather than from the audit's word alone.
+
+**Carried forward**
+
+- The five unverified candidates were dropped rather than trusted; a re-run would settle them.
+- Hook mounting remains unverified (`docs/agent-workflow.md` §3).
+- P2 (documentation governance) remains open.
+
+## 2026-10-07
+
 ### P1.2 Skill Library and Skill Format Gate
 
 **Change set**

@@ -439,18 +439,20 @@ OpenIM 只能作为 IM Provider。
 
 ```text
 DATABASE_URL
-SESSION_SECRET 或 TOKEN_SECRET
 PLATFORM_BOOTSTRAP_ADMIN_ACCOUNT
 PLATFORM_BOOTSTRAP_ADMIN_PASSWORD
 ```
 
-生产环境缺少关键密钥时应启动失败。
+生产环境缺少关键配置时应启动失败（`PLATFORM_BOOTSTRAP_ADMIN_PASSWORD` 已是强制项）。
 
-token/session 密钥要求：
+凭据与密钥要求（2026-10-07 与实现对齐）：
 
-- 生产环境密钥必须来自环境变量、Docker secret 或企业内部配置中心。
-- 密钥不得使用仓库示例值、默认值或短随机值。
-- 密钥轮换必须支持过渡期：新 token 用新密钥签发或派生，旧 token 在短 TTL 内可校验或被集中吊销。
+- **平台不使用签名密钥**：登录签发的是随机 opaque token，`platform.sessions` 只保存其 hash，校验靠查库
+  比对而非验签（见 `apps/platform-api/src/db/schema/platform.schema.ts` 的 `access_token_hash`、
+  `apps/platform-api/src/security/secret-hash.ts`）。本文档早期版本要求的 `SESSION_SECRET` /
+  `TOKEN_SECRET` **既不存在也不需要**，已删除；`.env.example` 里的 `JWT_SECRET` 同样无代码读取，属待清理项。
+- 口令必须强 hash（当前 Node `scrypt`，保留算法版本与参数；argon2id 为后续迁移目标）。
+- **在真引入密钥之前不写"必须配置"**：若将来改用 JWT 或加密存储，届时按本节补密钥来源与轮换要求。
 - 密钥轮换、吊销和异常登录必须记录审计日志。
 
 ## 12. 内网部署安全
@@ -524,8 +526,8 @@ M1 之后新增：
 | 开发默认密码            | `admin/admin123`                                          | M1 改为安装初始化                                                             |
 | 明文密码                | M1 已引入 `scrypt` 强 hash，argon2id 为后续迁移目标       | M1 退出前确认生产路径无明文密码                                               |
 | session 内存存储        | PostgreSQL 模式已写入 `platform.sessions`                 | M1 退出前将内存 session 降级为测试专用                                        |
-| 审计日志未闭环          | 未完成                                                    | M2 完成审计 service                                                           |
-| 菜单权限未闭环          | 未完成                                                    | M2 完成菜单与权限注册                                                         |
+| 审计日志闭环            | M2 已完成：`PlatformAuditService` 已装配导出，认证 / 员工 / 角色 / 部门 / 近况的写操作与失败路径均写审计（**尚无审计查询端点与 UI**） | 完成于 M2；审计查询面按需另立切片                                             |
+| 菜单权限闭环            | M2 已完成：`GET /platform/menus/my` 按当前用户权限过滤 active 菜单，菜单由 module manifest 派生并幂等 seed | 完成于 M2（M2-4）                                                             |
 | lockfile 缺失           | 已生成 `pnpm-lock.yaml`，CI 已切换 frozen lockfile        | M1 退出前保持 lockfile 与依赖声明同步                                         |
 | 登录失败审计 + 锁定策略 | M3.5-C 已实装 5 次失败锁定 15 分钟、所有失败/锁定写入审计 | 完成于 M3.5-C，详见 verification-log `M3.5-C Login Failure Audit and Lockout` |
 
