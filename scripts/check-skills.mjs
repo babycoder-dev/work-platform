@@ -17,10 +17,20 @@ import { validateSkill } from './lib/skill-rules.mjs';
 const REPO = path.resolve(import.meta.dirname, '..');
 const VERBOSE = process.argv.includes('--verbose');
 
-/** 本仓可能承载技能的根（按 DSH 的扫描约定；只需存在其一）。 */
-const ROOTS = ['.agents/skills', '.dsh/skills', '.claude/skills'];
+/**
+ * 本仓可能承载技能的根（按 DSH 的扫描约定；只需存在其一）。
+ * 可用 WORK_SKILL_ROOTS（逗号分隔，允许绝对路径）覆盖，便于测试遍历逻辑。
+ */
+const ROOTS = (
+  process.env.WORK_SKILL_ROOTS ?? '.agents/skills,.dsh/skills,.claude/skills'
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-const SKIP_DIRS = new Set(['node_modules', 'references', 'scripts', 'assets']);
+// 只跳过真正的噪声目录。**不要**跳过 references/scripts/assets —— 嵌套的 SKILL.md 正是在这些目录里
+// 会被漏掉（Codex P2），而门禁的职责恰恰是拦下不受支持的嵌套。
+const SKIP_DIRS = new Set(['node_modules', '.git']);
 
 function isDir(p) {
   try {
@@ -55,7 +65,7 @@ let checked = 0;
 const rootsFound = [];
 
 for (const relRoot of ROOTS) {
-  const rootAbs = path.join(REPO, relRoot);
+  const rootAbs = path.isAbsolute(relRoot) ? relRoot : path.join(REPO, relRoot);
   if (!isDir(rootAbs)) continue;
   rootsFound.push(relRoot);
 
