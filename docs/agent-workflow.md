@@ -27,7 +27,7 @@
 | 守卫 | 承载物 | 何时跑 |
 | --- | --- | --- |
 | UI 还原度 A 类（A1 零 hex / A2 零 emoji / A4 只引 token） | `scripts/check-ui-fidelity.mjs`（`pnpm fidelity`） | 本地 `pnpm verify` + CI |
-| 模块边界 | eslint `@nx/enforce-module-boundaries`（三条 lint 路径实测生效）+ `.claude/hooks/guard-module-boundary.mjs`（写入期即时反馈） | lint / CI / 编辑时 |
+| 模块边界 | eslint `@nx/enforce-module-boundaries`（三条 lint 路径实测生效）+ `scripts/hooks/guard-module-boundary.mjs`（写入期即时反馈） | lint / CI / 编辑时 |
 | 交付门禁 | `pnpm verify`；涉 DB 加 `verify:full`，涉部署加 `docker:build` | 每次交付 |
 | 证据纪律 | PR 模板 + `docs/verification-log.md` 条目形状 | PR |
 | 设计还原度 B 类（人工并排比对，覆盖交互态） | 不可机器化，定稿前人工做 | 评审 |
