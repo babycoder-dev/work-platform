@@ -29,7 +29,7 @@
 | UI 还原度 A 类（A1 零 hex / A2 零 emoji / A4 只引 token） | `scripts/check-ui-fidelity.mjs`（`pnpm fidelity`） | 本地 `pnpm verify` + CI |
 | 模块边界 | eslint `@nx/enforce-module-boundaries`（三条 lint 路径实测生效）+ `scripts/hooks/guard-module-boundary.mjs`（写入期即时反馈） | lint / CI / 编辑时 |
 | 交付门禁 | `pnpm verify`；涉 DB 加 `verify:full`，涉部署加 `docker:build` | 每次交付 |
-| 证据纪律 | PR 模板 + `docs/verification-log.md` 条目形状 | PR |
+| 证据纪律 | PR 模板（要求**贴命令与结果**，不是勾选）+ `scripts/check-evidence.mjs`（`pnpm evidence`）：校验 `docs/verification-log.md` 中 **2026-10-01 起**的条目必须有 Validation/验证 小节且含「命令 + 结果」。**只校验形式，不校验真伪** | 每次交付 / CI |
 | 设计还原度 B 类（人工并排比对，覆盖交互态） | 不可机器化，定稿前人工做 | 评审 |
 
 A 类规则的**边界**（未覆盖项，改动时需一并决策）：A3（关键文案逐字一致）由 `*.spec.tsx` 断言承担；
@@ -123,8 +123,16 @@ hook 逻辑一律放 `scripts/hooks/*.mjs`（纯 Node；异常一律放行、绝
 
 ## 8. 落地顺序
 
-- **P0 · 承诺变守卫**：A 类门禁脚本化（✅ 已落地）→ 方言统一（补齐 Codex / DSH 挂载）→ 证据门禁
-  （PR 模板 + verification-log 条目形状校验）。
+- **P0 · 承诺变守卫（已完成）**：A 类门禁脚本化（`pnpm fidelity`）→ 方言统一（hook 收口到
+  `scripts/hooks/`、去掉 shell 依赖、能力矩阵见 §3；按证据收缩：DSH 侧无需仓内配置、Codex 侧编辑期
+  hook 协议上不可行）→ 证据门禁（`pnpm evidence` + PR 模板改为贴命令与结果）。
 - **P1 · 长任务与协作**：goal 纪律 + 废弃 `ai-handoff.md` → 首批 skills → 一个真实 workflow 用例。
 - **P2 · 文档治理**：`docs/` 顶层 7 篇不在 `doc-index` 管辖内的文档逐一定性（纳入 / 归档 / 删除）；
   `iteration-roadmap.md`（自标已过时）归档。
+
+### 挂账（不阻塞 P1/P2）
+
+- **挂载是否真被宿主调用**未验证（§3）；需在对应工具里各触发一次并把结论记入 `verification-log`。
+- **Codex 侧 `hooks.json`** 结构与输出 schema 待核实。
+- **依赖治理切片**：`nx` 20→22（PR #42）、`vitest` 3→4（原 PR #38 已关闭）两个大版本升级，
+  与默认分支 70+ 条开放依赖告警一并处理。
