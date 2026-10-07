@@ -2,6 +2,43 @@
 
 ## 2026-10-07
 
+### P1.2 Skill Library and Skill Format Gate
+
+**Change set**
+
+- Added three project skills under `.agents/skills/`: `task-package` (how a task package is written and
+  executed), `ui-fidelity-gate` (the A-class machine checks plus the B-class manual comparison), and
+  `db-migration-discipline` (forward-only migrations, one entrypoint per schema, idempotent seeds, and the
+  env-gated test trap).
+- Added `scripts/lib/skill-rules.mjs` and `scripts/check-skills.mjs` (`pnpm skills:validate`): a skill must be
+  `<root>/<name>/SKILL.md`, declare `name` and `description` in frontmatter, have its `name` match the
+  directory, and must not be nested — because a skill failing these rules loads **silently not at all**.
+- Consolidated the repository-level checks into `pnpm check:repo` (fidelity, evidence, goal:validate,
+  skills:validate) so CI runs one step rather than one step per check.
+
+**Validation**
+
+- `node scripts/check-skills.mjs --verbose`: pass — 4 skills found under `.agents/skills`.
+- `pnpm vitest run --config vitest.config.mts scripts/lib/skill-rules.spec.mjs`: pass (9 tests).
+- `pnpm check:repo`: pass — fidelity 215 files, evidence, goal:validate, skills:validate.
+- `pnpm build`: pass. Constituent gates therefore verified segment by segment, because the monolithic
+  `pnpm verify` tripped the **known** vitest flake: its `test:e2e` stage exited with worker
+  `ERR_IPC_CHANNEL_CLOSED` when run right after `pnpm test` (this flake has five earlier records in this
+  log, e.g. the M9-1 and M6-3 entries). `pnpm test` passed on its own (55 files / 355 tests plus 39 web
+  files / 136 tests), `pnpm test:e2e` passed alone 4 runs out of 4 (11 files / 63 tests), and `pnpm build`
+  passed alone. Per that precedent, CI's Node 22 monolithic run is the final confirmation; re-running until
+  green is explicitly not the remedy (see `docs/agent-workflow.md` §1.4).
+- **Skill loading verified in practice**: inside the running session, writing the three `SKILL.md` files made
+  the available-skill catalog update immediately and list them, confirming the `.agents/skills` scan works.
+  That settles half of the standing "is the mount actually invoked" question; the hook mount is still open.
+
+**Carried forward**
+
+- Hook mounting remains unverified (`docs/agent-workflow.md` §3).
+- P1.3 (one real workflow use case) and P2 (documentation governance) remain open.
+
+## 2026-10-07
+
 ### P1.1 Goal Discipline and ai-handoff Retirement
 
 **Change set**
