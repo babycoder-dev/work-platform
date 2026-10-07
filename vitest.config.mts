@@ -6,7 +6,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['packages/**/*.spec.ts', 'modules/**/*.spec.ts', 'apps/**/*.spec.ts'],
+    include: [
+      'packages/**/*.spec.ts',
+      'modules/**/*.spec.ts',
+      'apps/**/*.spec.ts',
+      // 仓库级工具脚本的规则单测（scripts/lib/*.spec.mjs，node 环境）
+      'scripts/**/*.spec.mjs',
+    ],
     exclude: ['**/*.e2e-spec.ts', '**/*.spec.tsx', '**/node_modules/**', '**/dist/**'],
     coverage: {
       provider: 'v8',

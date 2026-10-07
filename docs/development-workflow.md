@@ -124,7 +124,8 @@ AI 每完成一个可交付片段，应执行或说明以下结果：
 组件库 Modal 的还原 follow-up 见 `docs/design/ui-fidelity-gap-modal.md`（登记于 `docs/foundation-progress.md` §7.2）。
 设计真源在 `docs/design/ui-handoff/`（只读基准，勿改）。
 
-- **A 类 · 实现方交付前必须自证（可静态/机器核验）：**
+- **A 类 · 已脚本化（会红的检查）：** `pnpm fidelity` → `scripts/check-ui-fidelity.mjs` 覆盖 A1/A2/A4，
+  已接入 `pnpm verify` 与 CI。下列条目即该脚本的规则来源；改规则必须同步脚本与本节。
   - A1 零硬编码 hex：`apps/**/src` 与 `packages/ui/src` 的颜色只引 `var(--*)`；唯一允许出现 hex 的是
     `packages/ui/src/styles/tokens.css`（token 唯一真源）。
   - A2 零 emoji 当图标：图标一律用线性 SVG（`@work/ui` 的 `Icon`），不得用 emoji/首字母占位。
